@@ -194,18 +194,35 @@ The interactive block contract creates a safe integration boundary for an
 isolated H5P-compatible service. Media object storage and full H5P package
 processing remain separate infrastructure milestones.
 
+## Assessment foundation build
+
+The sixth implemented slice adds:
+
+- Tenant-scoped question-bank items with immutable approved versions.
+- Objective, text, numeric, matching, ordering, essay, file-upload, hotspot,
+  and composite question identities.
+- Versioned quizzes that pin exact question snapshots and mark allocations.
+- Server-issued timed attempts with response autosave and submission locking.
+- Automatic scoring for supported objective and structured item types.
+- A separate manual-marking queue, teacher feedback, and controlled result
+  release.
+- Responsive teacher authoring and review workspaces plus a mobile-conscious
+  learner quiz runner.
+- Protected web APIs designed for reuse by the planned Expo client.
+
+Binary file responses remain disabled until R2 storage, type validation,
+malware scanning, and retention controls are introduced. Published versions
+and completed attempts are never edited in place.
+
 ## Next engineering milestone
 
-Build the assessment kernel and question bank on the teaching-and-learning
-foundation:
+Build the gradebook and reporting loop on the assessment foundation:
 
-1. Teachers can build reusable question banks within assigned subjects.
-2. Quizzes support objective, constructed-response, matching, ordering, hotspot,
-   file-upload, and composite question types.
-3. Attempts use server-issued timing, randomisation, and immutable question
-   snapshots.
-4. Auto-marked and teacher-marked scores remain separately auditable.
-5. Learners receive controlled feedback according to assessment policy.
-6. Teachers can review attempts, moderate marks, and publish results.
-7. Every assessment query and mutation is tenant- and assignment-scoped.
-8. Assessment contracts are suitable for the planned Expo mobile client.
+1. Map released assessment results into configurable grading periods.
+2. Keep automatic, teacher-awarded, moderated, and final grades auditable.
+3. Support class and subject gradebook views with missing-work indicators.
+4. Add Ghanaian-school grading scales without hard-coding one national policy.
+5. Draft, review, approve, and release term reports.
+6. Give guardians access only to linked learners and released records.
+7. Preserve historical grades when learners move class or subject offering.
+8. Expose stable read contracts for learner and guardian mobile experiences.

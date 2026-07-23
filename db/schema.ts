@@ -380,3 +380,286 @@ export const lessonProgress = sqliteTable(
     ),
   ],
 );
+
+export const questionBankItems = sqliteTable(
+  "question_bank_items",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    authorPersonId: text("author_person_id")
+      .notNull()
+      .references(() => people.id),
+    type: text("type", {
+      enum: [
+        "single-choice",
+        "multiple-choice",
+        "true-false",
+        "short-text",
+        "numeric",
+        "matching",
+        "ordering",
+        "essay",
+        "file-upload",
+        "hotspot",
+        "composite",
+      ],
+    }).notNull(),
+    status: text("status", {
+      enum: ["draft", "approved", "retired"],
+    })
+      .notNull()
+      .default("draft"),
+    difficulty: text("difficulty", {
+      enum: ["foundation", "standard", "challenge"],
+    })
+      .notNull()
+      .default("standard"),
+    topic: text("topic").notNull(),
+    tags: text("tags").notNull().default("[]"),
+    currentVersion: integer("current_version").notNull().default(1),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("questions_tenant_offering_idx").on(
+      table.tenantId,
+      table.offeringId,
+      table.status,
+    ),
+  ],
+);
+
+export const questionVersions = sqliteTable(
+  "question_versions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    questionId: text("question_id")
+      .notNull()
+      .references(() => questionBankItems.id),
+    version: integer("version").notNull(),
+    prompt: text("prompt").notNull(),
+    options: text("options").notNull().default("[]"),
+    answerKey: text("answer_key").notNull().default("{}"),
+    rationale: text("rationale").notNull().default(""),
+    marks: integer("marks").notNull(),
+    status: text("status", {
+      enum: ["draft", "approved", "retired"],
+    })
+      .notNull()
+      .default("draft"),
+    createdByPersonId: text("created_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("question_version_number_idx").on(
+      table.questionId,
+      table.version,
+    ),
+  ],
+);
+
+export const assessments = sqliteTable(
+  "assessments",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    authorPersonId: text("author_person_id")
+      .notNull()
+      .references(() => people.id),
+    status: text("status", {
+      enum: ["draft", "published", "archived"],
+    })
+      .notNull()
+      .default("draft"),
+    currentVersion: integer("current_version").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("assessments_tenant_offering_idx").on(
+      table.tenantId,
+      table.offeringId,
+      table.status,
+    ),
+  ],
+);
+
+export const assessmentVersions = sqliteTable(
+  "assessment_versions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    assessmentId: text("assessment_id")
+      .notNull()
+      .references(() => assessments.id),
+    version: integer("version").notNull(),
+    title: text("title").notNull(),
+    purpose: text("purpose", {
+      enum: [
+        "diagnostic",
+        "formative",
+        "homework",
+        "summative",
+        "mock-examination",
+        "timed-examination",
+        "survey",
+      ],
+    }).notNull(),
+    instructions: text("instructions").notNull().default(""),
+    timeLimitMinutes: integer("time_limit_minutes").notNull(),
+    passMarkPercent: integer("pass_mark_percent").notNull(),
+    attemptsAllowed: integer("attempts_allowed").notNull().default(1),
+    shuffleQuestions: integer("shuffle_questions", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    feedbackPolicy: text("feedback_policy", {
+      enum: ["immediate", "after-submit", "after-release"],
+    })
+      .notNull()
+      .default("after-release"),
+    status: text("status", {
+      enum: ["draft", "published", "archived"],
+    })
+      .notNull()
+      .default("draft"),
+    publishedAt: text("published_at"),
+    createdByPersonId: text("created_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("assessment_version_number_idx").on(
+      table.assessmentId,
+      table.version,
+    ),
+  ],
+);
+
+export const assessmentQuestions = sqliteTable(
+  "assessment_questions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    assessmentVersionId: text("assessment_version_id")
+      .notNull()
+      .references(() => assessmentVersions.id),
+    questionVersionId: text("question_version_id")
+      .notNull()
+      .references(() => questionVersions.id),
+    position: integer("position").notNull(),
+    marks: integer("marks").notNull(),
+    required: integer("required", { mode: "boolean" }).notNull().default(true),
+    snapshot: text("snapshot").notNull(),
+  },
+  (table) => [
+    uniqueIndex("assessment_question_position_idx").on(
+      table.assessmentVersionId,
+      table.position,
+    ),
+  ],
+);
+
+export const assessmentAttempts = sqliteTable(
+  "assessment_attempts",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    assessmentId: text("assessment_id")
+      .notNull()
+      .references(() => assessments.id),
+    assessmentVersion: integer("assessment_version").notNull(),
+    learnerPersonId: text("learner_person_id")
+      .notNull()
+      .references(() => people.id),
+    status: text("status", {
+      enum: [
+        "in-progress",
+        "submitted",
+        "needs-marking",
+        "marked",
+        "released",
+        "invalidated",
+      ],
+    })
+      .notNull()
+      .default("in-progress"),
+    questionOrder: text("question_order").notNull().default("[]"),
+    startedAt: text("started_at").notNull(),
+    deadlineAt: text("deadline_at").notNull(),
+    submittedAt: text("submitted_at"),
+    autoMarks: integer("auto_marks").notNull().default(0),
+    manualMarks: integer("manual_marks").notNull().default(0),
+    maximumMarks: integer("maximum_marks").notNull(),
+    releasedAt: text("released_at"),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("attempts_learner_assessment_idx").on(
+      table.tenantId,
+      table.learnerPersonId,
+      table.assessmentId,
+    ),
+    index("attempts_marking_queue_idx").on(
+      table.tenantId,
+      table.status,
+      table.updatedAt,
+    ),
+  ],
+);
+
+export const assessmentResponses = sqliteTable(
+  "assessment_responses",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    attemptId: text("attempt_id")
+      .notNull()
+      .references(() => assessmentAttempts.id),
+    questionVersionId: text("question_version_id")
+      .notNull()
+      .references(() => questionVersions.id),
+    response: text("response").notNull().default("{}"),
+    flagged: integer("flagged", { mode: "boolean" }).notNull().default(false),
+    autoMarks: integer("auto_marks").notNull().default(0),
+    manualMarks: integer("manual_marks"),
+    markingStatus: text("marking_status", {
+      enum: ["unanswered", "auto-marked", "needs-marking", "marked"],
+    })
+      .notNull()
+      .default("unanswered"),
+    feedback: text("feedback"),
+    markedByPersonId: text("marked_by_person_id").references(() => people.id),
+    markedAt: text("marked_at"),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("response_attempt_question_idx").on(
+      table.attemptId,
+      table.questionVersionId,
+    ),
+  ],
+);

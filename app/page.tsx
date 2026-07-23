@@ -70,7 +70,12 @@ const schedule = [
 ];
 
 const deadlines = [
-  { date: "24 Jul", subject: "Mathematics", title: "Algebra practice set" },
+  {
+    date: "24 Jul",
+    href: "/learn/assessments/digestive-system-check",
+    subject: "Integrated Science",
+    title: "Digestive system knowledge check",
+  },
   { date: "26 Jul", subject: "English Language", title: "Comprehension exercise" },
   { date: "29 Jul", subject: "Social Studies", title: "Community interview" },
 ];
@@ -79,7 +84,12 @@ const navigation = [
   { key: "overview", label: "Overview", symbol: "⌂" },
   { key: "class", label: "My class", symbol: "◎" },
   { key: "subjects", label: "Subjects", symbol: "▦" },
-  { key: "assessments", label: "Assessments", symbol: "✓" },
+  {
+    href: "/learn/assessments/digestive-system-check",
+    key: "assessments",
+    label: "Assessments",
+    symbol: "✓",
+  },
   { key: "calendar", label: "Calendar", symbol: "□" },
   { key: "reports", label: "Reports", symbol: "↗" },
   {
@@ -397,11 +407,25 @@ export default function Home() {
                         <strong>{item.title}</strong>
                         <small>{item.subject}</small>
                       </div>
-                      <span aria-hidden="true">→</span>
+                      {item.href ? (
+                        <Link
+                          aria-label={`Open ${item.title}`}
+                          href={item.href}
+                        >
+                          →
+                        </Link>
+                      ) : (
+                        <span aria-hidden="true">→</span>
+                      )}
                     </article>
                   ))}
                 </div>
-                <a className="panel-link" href="#assessments">See all assessments</a>
+                <Link
+                  className="panel-link"
+                  href="/learn/assessments/digestive-system-check"
+                >
+                  Open assessment centre
+                </Link>
               </section>
 
               <section className="teacher-note">

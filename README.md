@@ -3,14 +3,15 @@
 A class-first learning and school management platform for Ghanaian schools.
 
 The current build establishes the learner-facing product shell, academic
-administration, admissions, identity, and teaching foundations. It includes a
-responsive learner dashboard, class subject policies, compulsory-subject
-entitlement rules, an application review pipeline, and accepted-applicant
-conversion into student records and class placements. The People & Access
-workspace adds durable tenant-scoped records, role and relationship
-permissions, and protected APIs. Teachers can now author and publish structured
-lessons, while learners can study text, video, interactive, practice, and
-resource blocks with persistent progress.
+administration, admissions, identity, teaching, and assessment foundations. It
+includes a responsive learner dashboard, class subject policies,
+compulsory-subject entitlement rules, an application review pipeline, and
+accepted-applicant conversion into student records and class placements. The
+People & Access workspace adds durable tenant-scoped records, role and
+relationship permissions, and protected APIs. Teachers can author lessons,
+manage reusable versioned questions, publish quizzes, and review constructed
+responses. Learners can study structured content, take timed assessments with
+autosave, and receive controlled results.
 
 ## Current technology
 
@@ -49,8 +50,8 @@ npm run lint
 
 ## Near-term implementation order
 
-1. Build the assessment kernel, question bank, quiz runner, and attempt review.
-2. Move the remaining academic and admissions fixtures behind tenant-scoped repositories.
-3. Add the guardian relationship dashboard and learner reporting.
-4. Add media uploads and an isolated H5P-compatible content service.
-5. Start the Expo mobile client once the assessment contracts are stable.
+1. Build the gradebook, grading periods, moderation, and report-card workflow.
+2. Add the guardian relationship dashboard and learner reporting.
+3. Move the remaining academic and admissions fixtures behind tenant-scoped repositories.
+4. Add secure media uploads and rich hotspot, composite, and file-response authoring.
+5. Start the Expo mobile client using the stable lesson and assessment contracts.

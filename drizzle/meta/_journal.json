@@ -15,6 +15,13 @@
       "when": 1784840537537,
       "tag": "0001_regular_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784841765747,
+      "tag": "0002_numerous_morbius",
+      "breakpoints": true
     }
   ]
 }

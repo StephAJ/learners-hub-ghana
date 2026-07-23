@@ -75,7 +75,7 @@ export async function listTeacherLessonWorkspace(
   access: AccessContext,
 ): Promise<TeacherLessonWorkspace> {
   requireLessonPermission(access);
-  await ensureLearningSeed();
+  await ensureLearningFoundation();
   const offering = await findAccessibleOffering(access);
   const database = await getD1Database();
   const unitsResult = await database
@@ -152,7 +152,7 @@ export async function createPersistentLessonDraft(
   access: AccessContext,
   input: CreateDraftInput,
 ): Promise<LessonSummary> {
-  await ensureLearningSeed();
+  await ensureLearningFoundation();
   validateDraftInput(input);
   const scopedAccess = await withTeacherAssignments(access);
   if (!canTeachOffering(scopedAccess, input.offeringId)) {
@@ -259,7 +259,7 @@ export async function publishPersistentLesson(
   access: AccessContext,
   lessonId: string,
 ): Promise<LessonSummary> {
-  await ensureLearningSeed();
+  await ensureLearningFoundation();
   const scopedAccess = await withTeacherAssignments(access);
   const database = await getD1Database();
   const draft = await loadLesson(database, access.tenantId, lessonId);
@@ -342,7 +342,7 @@ export async function getLearnerSubject(
   if (access.membershipStatus !== "active") {
     throw new AuthorizationError("An active school membership is required.");
   }
-  await ensureLearningSeed();
+  await ensureLearningFoundation();
   const database = await getD1Database();
   const offering = await database
     .prepare(
@@ -437,7 +437,7 @@ export async function saveLessonProgress(
   lessonVersion: number,
   percent: number,
 ): Promise<LessonProgress> {
-  await ensureLearningSeed();
+  await ensureLearningFoundation();
   if (access.membershipStatus !== "active") {
     throw new AuthorizationError("An active school membership is required.");
   }
@@ -547,7 +547,7 @@ export async function saveLessonProgress(
   return progress;
 }
 
-async function ensureLearningSeed() {
+export async function ensureLearningFoundation() {
   const database = await getD1Database();
   await database.batch([
     database

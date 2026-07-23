@@ -5,6 +5,7 @@ import {
 } from "../db/people-repository";
 import { AuthorizationError } from "../domain/identity/authorization";
 import { LessonPolicyError } from "../domain/learning/lessons";
+import { AssessmentPolicyError } from "../domain/assessment/assessment";
 
 export async function requireSchoolRequestUser(): Promise<AuthenticatedSchoolUser> {
   const user = await getChatGPTUser();
@@ -24,6 +25,9 @@ export function schoolApiErrorResponse(error: unknown) {
   if (error instanceof LessonPolicyError) {
     return Response.json({ error: error.message }, { status: 422 });
   }
+  if (error instanceof AssessmentPolicyError) {
+    return Response.json({ error: error.message }, { status: 422 });
+  }
   const message =
     error instanceof Error ? error.message : "Unable to complete the request.";
   const status = message.includes("UNIQUE constraint failed") ? 409 : 400;
@@ -36,4 +40,3 @@ class RequestIdentityError extends Error {
     this.name = "RequestIdentityError";
   }
 }
-

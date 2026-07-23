@@ -113,11 +113,39 @@ test("server-renders the learner lesson player", async () => {
   assert.match(html, /Continue/);
 });
 
+test("server-renders the teacher assessment workspace", async () => {
+  const response = await render("/teacher/assessments");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Build, deliver and review with confidence/);
+  assert.match(html, /Question bank/);
+  assert.match(html, /Where does most nutrient absorption take place/);
+  assert.match(html, /Review queue/);
+  assert.match(html, /New question/);
+});
+
+test("server-renders the learner assessment centre", async () => {
+  const response = await render(
+    "/learn/assessments/digestive-system-check",
+  );
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Digestive system knowledge check/);
+  assert.match(html, /Formative knowledge check/);
+  assert.match(html, /Before you begin/);
+  assert.match(html, /Start assessment/);
+  assert.match(html, /12/);
+});
+
 test("protects persistent school-record APIs from anonymous requests", async () => {
   for (const path of [
     "/api/admin/people",
     "/api/teacher/lessons",
     "/api/learn/subjects",
+    "/api/teacher/assessments",
+    "/api/learn/assessments",
   ]) {
     const response = await render(path);
     assert.equal(response.status, 401);

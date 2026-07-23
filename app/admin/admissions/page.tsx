@@ -24,7 +24,7 @@ const navigation = [
   { href: "/admin/admissions", label: "Admissions", symbol: "+" },
   { href: "/admin/people", label: "People", symbol: "◎" },
   { href: "/teacher/subjects", label: "Teaching", symbol: "✎" },
-  { href: "#assessment", label: "Assessment", symbol: "✓" },
+  { href: "/teacher/assessments", label: "Assessment", symbol: "✓" },
   { href: "#reports", label: "Reports", symbol: "↗" },
 ];
 
