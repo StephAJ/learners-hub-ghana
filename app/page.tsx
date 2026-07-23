@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 type Subject = {
   code: string;
@@ -81,6 +82,12 @@ const navigation = [
   { key: "assessments", label: "Assessments", symbol: "✓" },
   { key: "calendar", label: "Calendar", symbol: "□" },
   { key: "reports", label: "Reports", symbol: "↗" },
+  {
+    href: "/admin/academic",
+    key: "admin",
+    label: "School admin",
+    symbol: "⚙",
+  },
 ];
 
 export default function Home() {
@@ -121,15 +128,15 @@ export default function Home() {
         <nav className="desktop-nav">
           <p className="nav-label">Learning</p>
           {navigation.map((item, index) => (
-            <a
+            <Link
               className={index === 0 ? "nav-link active" : "nav-link"}
-              href={`#${item.key}`}
+              href={item.href ?? `#${item.key}`}
               key={item.key}
             >
               <span aria-hidden="true">{item.symbol}</span>
               {item.label}
               {item.key === "assessments" && <em>3</em>}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -174,6 +181,9 @@ export default function Home() {
           </label>
 
           <div className="topbar-actions">
+            <Link className="admin-entry" href="/admin/academic">
+              Admin workspace <span aria-hidden="true">→</span>
+            </Link>
             <button className="icon-button" type="button" aria-label="Notifications">
               <span aria-hidden="true">●</span>
               <i />
@@ -401,15 +411,15 @@ export default function Home() {
         </div>
 
         <nav className="mobile-nav" aria-label="Mobile navigation">
-          {navigation.slice(0, 5).map((item, index) => (
-            <a
+          {[...navigation.slice(0, 4), navigation[6]].map((item, index) => (
+            <Link
               className={index === 0 ? "active" : ""}
-              href={`#${item.key}`}
+              href={item.href ?? `#${item.key}`}
               key={item.key}
             >
               <span aria-hidden="true">{item.symbol}</span>
               <small>{item.label}</small>
-            </a>
+            </Link>
           ))}
         </nav>
       </main>

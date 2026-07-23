@@ -345,6 +345,26 @@ main {
   gap: 16px;
 }
 
+.admin-entry {
+  align-items: center;
+  background: #edf5f1;
+  border: 1px solid #d6e5df;
+  border-radius: 8px;
+  color: var(--primary);
+  display: flex;
+  font-size: 0.62rem;
+  font-weight: 800;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.admin-entry:hover,
+.admin-entry:focus-visible {
+  background: #e3f0eb;
+  outline: 3px solid rgba(13, 95, 85, 0.1);
+}
+
 .icon-button {
   align-items: center;
   background: transparent;

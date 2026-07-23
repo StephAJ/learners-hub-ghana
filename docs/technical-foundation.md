@@ -128,9 +128,26 @@ The data is intentionally fixture-backed until tenant identity and the academic
 schema are introduced. The next slice replaces these fixtures with real school,
 class, subject-offering, and subject-enrolment records.
 
+## Academic foundation build
+
+The second implemented slice adds:
+
+- An administrator workspace for academic structure.
+- Class groups with class teachers, rooms, and learner counts.
+- Compulsory and optional subject policies.
+- A learner-placement workflow that automatically calculates subject access.
+- Immutable domain rules preventing compulsory-subject removal.
+- Transfer rules that preserve placement history.
+- Tenant-bound records and automated policy tests.
+
+The current interface uses fixture data, while the enrolment policy itself is a
+framework-independent module ready to sit behind the web, API, and mobile
+clients.
+
 ## Next engineering milestone
 
-Implement the academic foundation with tests for these invariants:
+Persist the academic foundation and expose it through tenant-scoped API
+contracts:
 
 1. A learner placed in a class receives every active compulsory subject.
 2. A learner cannot remove a compulsory subject.
@@ -138,4 +155,3 @@ Implement the academic foundation with tests for these invariants:
 4. Moving class changes future entitlements but preserves historical records.
 5. Every query and mutation is tenant-scoped.
 6. All manual exceptions record actor, reason, and effective date.
-
