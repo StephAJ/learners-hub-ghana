@@ -17,6 +17,9 @@ export type Permission =
   | "student-record:read"
   | "lesson:create"
   | "assessment:publish"
+  | "gradebook:manage"
+  | "report:approve"
+  | "report:release"
   | "report:read";
 
 export type AccessContext = {

@@ -15,7 +15,7 @@ const navigation = [
   { href: "/teacher/subjects", label: "My subjects", symbol: "▦" },
   { href: "#lessons", label: "Lessons", symbol: "≡" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },
-  { href: "#markbook", label: "Markbook", symbol: "↗" },
+  { href: "/teacher/gradebook", label: "Markbook", symbol: "↗" },
   { href: "#classes", label: "Class groups", symbol: "◎" },
   { href: "/admin/academic", label: "School admin", symbol: "⚙" },
 ];

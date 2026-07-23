@@ -139,6 +139,35 @@ test("server-renders the learner assessment centre", async () => {
   assert.match(html, /12/);
 });
 
+test("server-renders the teacher gradebook and report workflow", async () => {
+  const response = await render("/teacher/gradebook");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Gradebook &amp; reports/);
+  assert.match(html, /Every final grade stays explainable/);
+  assert.match(html, /Subject marks/);
+  assert.match(html, /Integrated Science(?:<!-- -->)? marks/);
+  assert.match(html, /Missing marks/);
+  assert.match(html, /Report workflow/);
+});
+
+test("server-renders the guardian released-report workspace", async () => {
+  const response = await render("/guardian/reports");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(
+    html,
+    /Your child(?:&#x27;|')s progress, clearly explained/,
+  );
+  assert.match(html, /Relationship-protected/);
+  assert.match(html, /End-of-term academic report/);
+  assert.match(html, /Kwame Agyeman/);
+  assert.match(html, /Subject results/);
+  assert.match(html, /Only reports approved and released/);
+});
+
 test("protects persistent school-record APIs from anonymous requests", async () => {
   for (const path of [
     "/api/admin/people",
@@ -146,6 +175,8 @@ test("protects persistent school-record APIs from anonymous requests", async () 
     "/api/learn/subjects",
     "/api/teacher/assessments",
     "/api/learn/assessments",
+    "/api/teacher/gradebook",
+    "/api/guardian/reports",
   ]) {
     const response = await render(path);
     assert.equal(response.status, 401);

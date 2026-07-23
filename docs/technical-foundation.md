@@ -214,15 +214,38 @@ Binary file responses remain disabled until R2 storage, type validation,
 malware scanning, and retention controls are introduced. Published versions
 and completed attempts are never edited in place.
 
+## Gradebook and reporting foundation build
+
+The seventh implemented slice adds:
+
+- Tenant-scoped grading periods, weighted grade categories, grade items, marks,
+  grading bands, submissions, report cards, and immutable issued versions.
+- Explicit raw and adjusted marks with mandatory reasons for corrections.
+- Missing-mark detection that blocks premature gradebook submission.
+- Configurable Ghanaian-school grading scales without hard-coding one national
+  policy.
+- A report lifecycle covering teacher submission, academic approval, and
+  guardian release.
+- Relationship-scoped guardian reads that return only formally released
+  records.
+- Responsive teacher gradebook and guardian report-card experiences.
+- Protected contracts suitable for the future Expo teacher and guardian
+  clients.
+
+Browser printing is supported for convenience. Signed PDF reports, verification
+codes, and QR-based authenticity checks remain a later document-generation
+milestone.
+
 ## Next engineering milestone
 
-Build the gradebook and reporting loop on the assessment foundation:
+Build assignment, attendance, and daily school-operations workflows:
 
-1. Map released assessment results into configurable grading periods.
-2. Keep automatic, teacher-awarded, moderated, and final grades auditable.
-3. Support class and subject gradebook views with missing-work indicators.
-4. Add Ghanaian-school grading scales without hard-coding one national policy.
-5. Draft, review, approve, and release term reports.
-6. Give guardians access only to linked learners and released records.
-7. Preserve historical grades when learners move class or subject offering.
-8. Expose stable read contracts for learner and guardian mobile experiences.
+1. Create assignment briefs, resources, due dates, submissions, and rubric
+   marking.
+2. Capture daily and lesson attendance with reasoned corrections and audit
+   history.
+3. Add timetable management and class-teacher daily workflows.
+4. Feed assignment and attendance evidence into the existing grade and report
+   contracts.
+5. Add guardian absence alerts and learner due-work views.
+6. Keep all new read and write contracts mobile-client ready.

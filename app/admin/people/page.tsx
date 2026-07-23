@@ -21,7 +21,7 @@ const navigation = [
   { href: "/admin/people", label: "People", symbol: "◎" },
   { href: "/teacher/subjects", label: "Teaching", symbol: "✎" },
   { href: "/teacher/assessments", label: "Assessment", symbol: "✓" },
-  { href: "#reports", label: "Reports", symbol: "↗" },
+  { href: "/teacher/gradebook", label: "Reports", symbol: "↗" },
 ];
 
 const roleLabels: Record<SchoolRole, string> = {

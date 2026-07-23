@@ -91,7 +91,12 @@ const navigation = [
     symbol: "✓",
   },
   { key: "calendar", label: "Calendar", symbol: "□" },
-  { key: "reports", label: "Reports", symbol: "↗" },
+  {
+    href: "/guardian/reports",
+    key: "reports",
+    label: "Reports",
+    symbol: "↗",
+  },
   {
     href: "/admin/academic",
     key: "admin",

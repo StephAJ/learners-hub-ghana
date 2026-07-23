@@ -663,3 +663,293 @@ export const assessmentResponses = sqliteTable(
     ),
   ],
 );
+
+export const gradingPeriods = sqliteTable(
+  "grading_periods",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    academicYearId: text("academic_year_id").notNull(),
+    name: text("name").notNull(),
+    startsOn: text("starts_on").notNull(),
+    endsOn: text("ends_on").notNull(),
+    status: text("status", { enum: ["open", "closed", "archived"] })
+      .notNull()
+      .default("open"),
+    policyVersion: integer("policy_version").notNull().default(1),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("period_tenant_year_name_idx").on(
+      table.tenantId,
+      table.academicYearId,
+      table.name,
+    ),
+  ],
+);
+
+export const gradeCategories = sqliteTable(
+  "grade_categories",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    periodId: text("period_id")
+      .notNull()
+      .references(() => gradingPeriods.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    name: text("name").notNull(),
+    kind: text("kind", { enum: ["continuous-assessment", "examination"] })
+      .notNull(),
+    weightPercent: integer("weight_percent").notNull(),
+    position: integer("position").notNull(),
+  },
+  (table) => [
+    uniqueIndex("category_offering_position_idx").on(
+      table.periodId,
+      table.offeringId,
+      table.position,
+    ),
+  ],
+);
+
+export const gradeItems = sqliteTable(
+  "grade_items",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    periodId: text("period_id")
+      .notNull()
+      .references(() => gradingPeriods.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    categoryId: text("category_id")
+      .notNull()
+      .references(() => gradeCategories.id),
+    assessmentId: text("assessment_id").references(() => assessments.id),
+    title: text("title").notNull(),
+    maximumMarks: integer("maximum_marks").notNull(),
+    dueOn: text("due_on"),
+    status: text("status", { enum: ["open", "closed", "excluded"] })
+      .notNull()
+      .default("open"),
+    position: integer("position").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("grade_item_offering_position_idx").on(
+      table.periodId,
+      table.offeringId,
+      table.position,
+    ),
+  ],
+);
+
+export const gradeEntries = sqliteTable(
+  "grade_entries",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => gradeItems.id),
+    learnerPersonId: text("learner_person_id")
+      .notNull()
+      .references(() => people.id),
+    rawMarks: integer("raw_marks"),
+    adjustedMarks: integer("adjusted_marks"),
+    status: text("status", {
+      enum: ["recorded", "missing", "absent", "excused", "excluded"],
+    })
+      .notNull()
+      .default("missing"),
+    adjustmentReason: text("adjustment_reason"),
+    recordedByPersonId: text("recorded_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    recordedAt: text("recorded_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("grade_entry_item_learner_idx").on(
+      table.itemId,
+      table.learnerPersonId,
+    ),
+    index("grade_entries_learner_idx").on(
+      table.tenantId,
+      table.learnerPersonId,
+    ),
+  ],
+);
+
+export const gradingScaleBands = sqliteTable(
+  "grading_scale_bands",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    periodId: text("period_id")
+      .notNull()
+      .references(() => gradingPeriods.id),
+    position: integer("position").notNull(),
+    minimumTenths: integer("minimum_tenths").notNull(),
+    maximumTenths: integer("maximum_tenths").notNull(),
+    grade: text("grade").notNull(),
+    remark: text("remark").notNull(),
+  },
+  (table) => [
+    uniqueIndex("scale_period_position_idx").on(
+      table.periodId,
+      table.position,
+    ),
+  ],
+);
+
+export const gradebookSubmissions = sqliteTable(
+  "gradebook_submissions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    periodId: text("period_id")
+      .notNull()
+      .references(() => gradingPeriods.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    status: text("status", {
+      enum: ["open", "submitted", "reviewed", "locked"],
+    })
+      .notNull()
+      .default("open"),
+    submittedByPersonId: text("submitted_by_person_id").references(
+      () => people.id,
+    ),
+    submittedAt: text("submitted_at"),
+    reviewedByPersonId: text("reviewed_by_person_id").references(
+      () => people.id,
+    ),
+    reviewedAt: text("reviewed_at"),
+    lockedAt: text("locked_at"),
+  },
+  (table) => [
+    uniqueIndex("gradebook_period_offering_idx").on(
+      table.tenantId,
+      table.periodId,
+      table.offeringId,
+    ),
+  ],
+);
+
+export const reportCards = sqliteTable(
+  "report_cards",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    learnerPersonId: text("learner_person_id")
+      .notNull()
+      .references(() => people.id),
+    periodId: text("period_id")
+      .notNull()
+      .references(() => gradingPeriods.id),
+    classGroupId: text("class_group_id").notNull(),
+    className: text("class_name").notNull(),
+    status: text("status", {
+      enum: ["draft", "submitted", "approved", "released", "superseded"],
+    })
+      .notNull()
+      .default("draft"),
+    currentVersion: integer("current_version").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("report_learner_period_idx").on(
+      table.tenantId,
+      table.learnerPersonId,
+      table.periodId,
+    ),
+  ],
+);
+
+export const reportCardVersions = sqliteTable(
+  "report_card_versions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    reportCardId: text("report_card_id")
+      .notNull()
+      .references(() => reportCards.id),
+    version: integer("version").notNull(),
+    status: text("status", {
+      enum: ["draft", "submitted", "approved", "released", "superseded"],
+    }).notNull(),
+    overallAverageTenths: integer("overall_average_tenths").notNull(),
+    attendancePresent: integer("attendance_present").notNull(),
+    attendanceTotal: integer("attendance_total").notNull(),
+    conduct: text("conduct").notNull(),
+    classTeacherComment: text("class_teacher_comment").notNull(),
+    headteacherComment: text("headteacher_comment").notNull(),
+    promotionDecision: text("promotion_decision").notNull(),
+    nextTermBeginsOn: text("next_term_begins_on"),
+    submittedAt: text("submitted_at"),
+    approvedByPersonId: text("approved_by_person_id").references(
+      () => people.id,
+    ),
+    approvedAt: text("approved_at"),
+    releasedAt: text("released_at"),
+    createdByPersonId: text("created_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("report_version_number_idx").on(
+      table.reportCardId,
+      table.version,
+    ),
+  ],
+);
+
+export const reportSubjectResults = sqliteTable(
+  "report_subject_results",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    reportVersionId: text("report_version_id")
+      .notNull()
+      .references(() => reportCardVersions.id),
+    offeringId: text("offering_id").notNull(),
+    subjectCode: text("subject_code").notNull(),
+    subjectName: text("subject_name").notNull(),
+    scoreTenths: integer("score_tenths").notNull(),
+    grade: text("grade").notNull(),
+    remark: text("remark").notNull(),
+    teacherComment: text("teacher_comment").notNull(),
+    position: integer("position").notNull(),
+  },
+  (table) => [
+    uniqueIndex("report_subject_position_idx").on(
+      table.reportVersionId,
+      table.position,
+    ),
+  ],
+);
