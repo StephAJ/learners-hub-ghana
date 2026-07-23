@@ -82,6 +82,17 @@ export function canAccessLearner(
   return context.role !== "teacher";
 }
 
+export function canTeachOffering(
+  context: AccessContext,
+  offeringId: string,
+): boolean {
+  if (!canPerform(context, "lesson:create")) return false;
+  if (context.role === "school-admin" || context.role === "academic-admin") {
+    return true;
+  }
+  return context.subjectOfferingIds?.includes(offeringId) ?? false;
+}
+
 export function requireTenantMatch(
   context: AccessContext,
   recordTenantId: string,
@@ -92,4 +103,3 @@ export function requireTenantMatch(
     );
   }
 }
-

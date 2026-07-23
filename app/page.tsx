@@ -225,9 +225,18 @@ export default function Home() {
                     </span>
                     {activeSubject.teacher} · Lesson 6 of 8
                   </span>
-                  <button className="primary-button" onClick={continueLesson} type="button">
-                    Continue lesson <span aria-hidden="true">→</span>
-                  </button>
+                  {activeSubject.name === "Integrated Science" ? (
+                    <Link
+                      className="primary-button"
+                      href="/learn/subjects/integrated-science"
+                    >
+                      Continue lesson <span aria-hidden="true">→</span>
+                    </Link>
+                  ) : (
+                    <button className="primary-button" onClick={continueLesson} type="button">
+                      Continue lesson <span aria-hidden="true">→</span>
+                    </button>
+                  )}
                   {notice && (
                     <p className="action-notice" role="status">
                       {notice}

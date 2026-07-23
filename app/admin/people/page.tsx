@@ -19,6 +19,7 @@ const navigation = [
   { href: "/admin/academic", label: "Academic setup", symbol: "▦" },
   { href: "/admin/admissions", label: "Admissions", symbol: "+" },
   { href: "/admin/people", label: "People", symbol: "◎" },
+  { href: "/teacher/subjects", label: "Teaching", symbol: "✎" },
   { href: "#assessment", label: "Assessment", symbol: "✓" },
   { href: "#reports", label: "Reports", symbol: "↗" },
 ];
@@ -505,4 +506,3 @@ function pluralKind(kind: DirectoryPerson["kind"]) {
   if (kind === "staff") return "Staff";
   return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}s`;
 }
-

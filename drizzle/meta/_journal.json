@@ -8,6 +8,13 @@
       "when": 1784837342434,
       "tag": "0000_nice_the_spike",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784840537537,
+      "tag": "0001_regular_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

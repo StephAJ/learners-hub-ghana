@@ -175,18 +175,37 @@ This D1 layer is the durable platform store for the deployed prototype. The
 long-term PostgreSQL decision remains appropriate when the standalone API and
 multi-school production infrastructure are introduced.
 
+## Teaching and learning foundation build
+
+The fifth implemented slice adds:
+
+- Subject-offering, curriculum-unit, teacher-assignment, lesson, version, block,
+  and learner-progress records in D1.
+- Assignment-aware teacher authorisation with administrative oversight.
+- Structured lesson authoring for text, video, interactive, practice, and
+  resource blocks.
+- Explicit draft and published lesson versions so learner content is stable.
+- A responsive learner lesson player with block navigation, interactive
+  checkpoints, and persistent progress.
+- Protected teacher and learner APIs designed to support the future mobile
+  client.
+
+The interactive block contract creates a safe integration boundary for an
+isolated H5P-compatible service. Media object storage and full H5P package
+processing remain separate infrastructure milestones.
+
 ## Next engineering milestone
 
-Move the academic and admissions fixtures behind the tenant-scoped repository
-and begin the teaching-and-learning slice:
+Build the assessment kernel and question bank on the teaching-and-learning
+foundation:
 
-1. A learner placed in a class receives every active compulsory subject.
-2. A learner cannot remove a compulsory subject.
-3. Approved optional subjects can be added without changing compulsory access.
-4. Moving class changes future entitlements but preserves historical records.
-5. Every query and mutation is tenant-scoped.
-6. All manual exceptions record actor, reason, and effective date.
-7. Admission transitions record their actor and timestamp.
-8. An accepted application converts once without duplicate student data entry.
-9. Teachers can author and publish subject lessons within their assignment.
-10. Learners can open a structured lesson and record progress.
+1. Teachers can build reusable question banks within assigned subjects.
+2. Quizzes support objective, constructed-response, matching, ordering, hotspot,
+   file-upload, and composite question types.
+3. Attempts use server-issued timing, randomisation, and immutable question
+   snapshots.
+4. Auto-marked and teacher-marked scores remain separately auditable.
+5. Learners receive controlled feedback according to assessment policy.
+6. Teachers can review attempts, moderate marks, and publish results.
+7. Every assessment query and mutation is tenant- and assignment-scoped.
+8. Assessment contracts are suitable for the planned Expo mobile client.

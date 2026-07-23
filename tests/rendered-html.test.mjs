@@ -90,10 +90,39 @@ test("server-renders the people and access workspace", async () => {
   assert.match(html, /Invite a member/);
 });
 
-test("protects persistent school-record APIs from anonymous requests", async () => {
-  const response = await render("/api/admin/people");
-  assert.equal(response.status, 401);
+test("server-renders the teacher lesson workspace", async () => {
+  const response = await render("/teacher/subjects");
+  assert.equal(response.status, 200);
 
-  const payload = await response.json();
-  assert.match(payload.error, /Sign in is required/);
+  const html = await response.text();
+  assert.match(html, /Integrated Science/);
+  assert.match(html, /Lesson library/);
+  assert.match(html, /New lesson draft/);
+  assert.match(html, /The human digestive system/);
+  assert.match(html, /Learner preview/);
+});
+
+test("server-renders the learner lesson player", async () => {
+  const response = await render("/learn/subjects/integrated-science");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /The human digestive system/);
+  assert.match(html, /Learning objectives/);
+  assert.match(html, /Your body.?s food-processing journey/);
+  assert.match(html, /Continue/);
+});
+
+test("protects persistent school-record APIs from anonymous requests", async () => {
+  for (const path of [
+    "/api/admin/people",
+    "/api/teacher/lessons",
+    "/api/learn/subjects",
+  ]) {
+    const response = await render(path);
+    assert.equal(response.status, 401);
+
+    const payload = await response.json();
+    assert.match(payload.error, /Sign in is required/);
+  }
 });

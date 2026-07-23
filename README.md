@@ -3,11 +3,14 @@
 A class-first learning and school management platform for Ghanaian schools.
 
 The current build establishes the learner-facing product shell, academic
-administration, admissions, and identity foundations. It includes a responsive learner
-dashboard, class subject policies, compulsory-subject entitlement rules, an
-application review pipeline, and accepted-applicant conversion into student
-records and class placements. The People & Access workspace adds durable
-tenant-scoped records, role and relationship permissions, and protected APIs.
+administration, admissions, identity, and teaching foundations. It includes a
+responsive learner dashboard, class subject policies, compulsory-subject
+entitlement rules, an application review pipeline, and accepted-applicant
+conversion into student records and class placements. The People & Access
+workspace adds durable tenant-scoped records, role and relationship
+permissions, and protected APIs. Teachers can now author and publish structured
+lessons, while learners can study text, video, interactive, practice, and
+resource blocks with persistent progress.
 
 ## Current technology
 
@@ -46,8 +49,8 @@ npm run lint
 
 ## Near-term implementation order
 
-1. Move academic and admissions fixtures behind the tenant-scoped repository.
-2. Build teacher lesson authoring and subject delivery.
-3. Add the guardian relationship dashboard.
-4. Build the assessment kernel and question bank.
-5. Start the Expo mobile client once the first contracts are stable.
+1. Build the assessment kernel, question bank, quiz runner, and attempt review.
+2. Move the remaining academic and admissions fixtures behind tenant-scoped repositories.
+3. Add the guardian relationship dashboard and learner reporting.
+4. Add media uploads and an isolated H5P-compatible content service.
+5. Start the Expo mobile client once the assessment contracts are stable.

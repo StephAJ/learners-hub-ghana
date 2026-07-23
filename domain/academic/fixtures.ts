@@ -16,7 +16,7 @@ export type LearnerOption = {
   studentId: string;
 };
 
-const tenantId = "school-accra-01";
+const tenantId = "tenant-greenfield";
 
 function createOffering(
   classGroupId: string,
