@@ -1,0 +1,650 @@
+.people-content {
+  max-width: 1540px;
+}
+
+.access-summary strong {
+  font-size: 0.9rem;
+}
+
+.data-mode {
+  align-items: center;
+  background: #eef4f0;
+  border: 1px solid #dce6e0;
+  border-radius: 999px;
+  color: #526d65;
+  display: inline-flex;
+  font-size: 0.5rem;
+  font-weight: 800;
+  gap: 6px;
+  padding: 6px 9px;
+}
+
+.data-mode i {
+  background: #77928a;
+  border-radius: 50%;
+  height: 6px;
+  width: 6px;
+}
+
+.data-mode.mode-protected {
+  background: #e1f0e9;
+  color: #176050;
+}
+
+.data-mode.mode-protected i {
+  background: #1c806b;
+}
+
+.data-mode.mode-preview {
+  background: #f6ecd5;
+  color: #785c1e;
+}
+
+.data-mode.mode-preview i {
+  background: #c18a25;
+}
+
+.signed-in-card {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 38px minmax(140px, 1fr);
+  padding: 10px 13px;
+}
+
+.shield-mark {
+  align-items: center;
+  background: #dceee7;
+  border-radius: 10px;
+  color: var(--primary);
+  display: flex;
+  font-size: 0.65rem;
+  font-weight: 900;
+  height: 38px;
+  justify-content: center;
+}
+
+.signed-in-card small,
+.signed-in-card strong,
+.signed-in-card p {
+  display: block;
+  margin: 0;
+}
+
+.signed-in-card small {
+  color: var(--muted);
+  font-size: 0.49rem;
+}
+
+.signed-in-card strong {
+  font-size: 0.63rem;
+  margin-top: 2px;
+}
+
+.signed-in-card p {
+  color: #788580;
+  font-size: 0.47rem;
+  margin-top: 2px;
+}
+
+.access-principles {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  margin-bottom: 18px;
+  padding: 13px 15px;
+}
+
+.access-principles article {
+  align-items: center;
+  display: grid;
+  gap: 9px;
+  grid-template-columns: 29px 1fr;
+  min-width: 0;
+}
+
+.access-principles article > span {
+  align-items: center;
+  background: #edf3ef;
+  border-radius: 8px;
+  color: var(--primary);
+  display: flex;
+  font-size: 0.55rem;
+  font-weight: 900;
+  height: 29px;
+  justify-content: center;
+}
+
+.access-principles article.decision > span {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.access-principles p,
+.access-principles strong,
+.access-principles small {
+  display: block;
+  margin: 0;
+}
+
+.access-principles strong {
+  font-size: 0.59rem;
+}
+
+.access-principles small {
+  color: #7c8985;
+  font-size: 0.46rem;
+  margin-top: 2px;
+}
+
+.access-principles > i {
+  color: #b0bbb7;
+  font-size: 0.67rem;
+  font-style: normal;
+}
+
+.people-notice {
+  background: #eaf4ef;
+  border: 1px solid #cfe3d9;
+  border-radius: 10px;
+  color: #295e52;
+  font-size: 0.61rem;
+  line-height: 1.5;
+  margin: 0 0 18px;
+  padding: 10px 13px;
+}
+
+.people-workspace {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.people-directory,
+.person-access-card,
+.invite-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.people-directory {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.directory-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 20px 21px 13px;
+}
+
+.directory-heading h2,
+.person-access-card h2,
+.invite-card h2 {
+  font-size: 1rem;
+  margin: 4px 0 0;
+}
+
+.directory-heading > span {
+  background: #eef3ef;
+  border-radius: 999px;
+  color: #60736d;
+  font-size: 0.52rem;
+  font-weight: 800;
+  padding: 5px 8px;
+}
+
+.directory-controls {
+  align-items: center;
+  border-bottom: 1px solid #e7eae5;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 0 21px 15px;
+}
+
+.directory-controls > label {
+  align-items: center;
+  background: #f5f7f4;
+  border: 1px solid #dfe4dd;
+  border-radius: 8px;
+  display: flex;
+  flex: 1;
+  gap: 7px;
+  max-width: 310px;
+  padding: 0 10px;
+}
+
+.directory-controls input {
+  background: transparent;
+  border: 0;
+  font-size: 0.57rem;
+  height: 35px;
+  outline: none;
+  width: 100%;
+}
+
+.kind-filters {
+  background: #f1f4f0;
+  border-radius: 8px;
+  display: flex;
+  padding: 3px;
+}
+
+.kind-filters button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #73817d;
+  cursor: pointer;
+  font-size: 0.49rem;
+  font-weight: 800;
+  min-height: 29px;
+  padding: 0 9px;
+}
+
+.kind-filters button.active {
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(34, 55, 49, 0.1);
+  color: var(--primary);
+}
+
+.people-table-wrap {
+  overflow-x: auto;
+}
+
+.people-table {
+  border-collapse: collapse;
+  min-width: 690px;
+  width: 100%;
+}
+
+.people-table th {
+  background: #fafbf9;
+  border-bottom: 1px solid #e6e9e4;
+  color: #7d8985;
+  font-size: 0.48rem;
+  letter-spacing: 0.05em;
+  padding: 9px 10px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.people-table th:first-child,
+.people-table td:first-child {
+  padding-left: 21px;
+}
+
+.people-table td {
+  border-bottom: 1px solid #edf0eb;
+  color: #4d5f59;
+  cursor: pointer;
+  font-size: 0.56rem;
+  padding: 10px;
+}
+
+.people-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.people-table tr:hover td,
+.people-table tr.selected td {
+  background: #f1f6f3;
+}
+
+.people-table tr.selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.people-table td:first-child {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+}
+
+.person-avatar {
+  align-items: center;
+  background: #dcebe5;
+  border-radius: 10px;
+  color: var(--primary);
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 0.52rem;
+  font-weight: 900;
+  height: 35px;
+  justify-content: center;
+  width: 35px;
+}
+
+.person-avatar.avatar-learner {
+  background: #e2e8f4;
+  color: #52678a;
+}
+
+.person-avatar.avatar-guardian {
+  background: #f2e7d1;
+  color: #8a6722;
+}
+
+.people-table td strong,
+.people-table td small {
+  display: block;
+}
+
+.people-table td strong {
+  color: var(--ink);
+  font-size: 0.56rem;
+}
+
+.people-table td small {
+  color: #81908b;
+  font-size: 0.46rem;
+  margin-top: 3px;
+  text-transform: capitalize;
+}
+
+.scope-pill {
+  background: #f0f3ef;
+  border-radius: 999px;
+  color: #53665f;
+  display: inline-flex;
+  font-size: 0.48rem;
+  font-weight: 700;
+  padding: 5px 7px;
+}
+
+.member-status {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.47rem;
+  font-weight: 900;
+  padding: 5px 7px;
+  text-transform: capitalize;
+}
+
+.member-active {
+  background: #dceee7;
+  color: #126453;
+}
+
+.member-invited {
+  background: #f6e9ca;
+  color: #7b5b1c;
+}
+
+.member-revoked {
+  background: #f1dddd;
+  color: #87423c;
+}
+
+.people-table td:last-child button {
+  background: transparent;
+  border: 0;
+  color: #8c9995;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.access-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.person-access-card,
+.invite-card {
+  padding: 18px;
+}
+
+.person-access-head {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 43px 1fr auto;
+}
+
+.person-access-head .person-avatar {
+  height: 43px;
+  width: 43px;
+}
+
+.person-access-head p,
+.person-access-head h2,
+.person-access-head small {
+  display: block;
+  margin: 0;
+}
+
+.person-access-head p {
+  color: var(--primary);
+  font-size: 0.46rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.person-access-head small {
+  color: #7d8b86;
+  font-size: 0.49rem;
+  margin-top: 3px;
+}
+
+.person-access-head > button {
+  background: #f2f4f1;
+  border: 0;
+  border-radius: 7px;
+  color: #78857f;
+  height: 29px;
+  width: 29px;
+}
+
+.person-access-card dl {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: 1fr 1fr;
+  margin: 16px 0 0;
+}
+
+.person-access-card dl > div {
+  background: #f6f8f5;
+  border-radius: 8px;
+  padding: 9px;
+}
+
+.person-access-card dt {
+  color: #81908b;
+  font-size: 0.46rem;
+}
+
+.person-access-card dd {
+  font-size: 0.54rem;
+  font-weight: 800;
+  margin: 4px 0 0;
+  text-transform: capitalize;
+}
+
+.permission-list {
+  border-top: 1px solid #e8ebe6;
+  margin-top: 15px;
+  padding-top: 14px;
+}
+
+.permission-list h3 {
+  font-size: 0.59rem;
+  margin: 0 0 9px;
+}
+
+.permission-list p {
+  align-items: center;
+  color: #4f625b;
+  display: flex;
+  font-size: 0.5rem;
+  gap: 7px;
+  margin: 6px 0 0;
+}
+
+.permission-list p span {
+  align-items: center;
+  background: #dceee7;
+  border-radius: 50%;
+  color: var(--primary);
+  display: flex;
+  font-size: 0.4rem;
+  font-weight: 900;
+  height: 17px;
+  justify-content: center;
+  width: 17px;
+}
+
+.access-rule {
+  align-items: center;
+  background: #edf5f1;
+  border-radius: 9px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 23px 1fr;
+  margin-top: 14px;
+  padding: 9px;
+}
+
+.access-rule > span {
+  align-items: center;
+  background: var(--primary);
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  font-family: Georgia, serif;
+  font-size: 0.55rem;
+  font-weight: 900;
+  height: 23px;
+  justify-content: center;
+}
+
+.access-rule p {
+  color: #5c716a;
+  font-size: 0.48rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.invite-card > div:first-child {
+  margin-bottom: 13px;
+}
+
+.invite-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.invite-card label > span {
+  color: #52625e;
+  display: block;
+  font-size: 0.5rem;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.invite-card input,
+.invite-card select {
+  background: #f8faf7;
+  border: 1px solid #dbe1da;
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 0.56rem;
+  height: 36px;
+  padding: 0 8px;
+  width: 100%;
+}
+
+.name-fields {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.invite-card form > button {
+  align-items: center;
+  background: var(--primary);
+  border: 0;
+  border-radius: 9px;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.58rem;
+  font-weight: 900;
+  justify-content: space-between;
+  min-height: 39px;
+  padding: 0 11px;
+}
+
+@media (max-width: 1200px) {
+  .people-workspace {
+    grid-template-columns: minmax(0, 1fr) 310px;
+  }
+
+  .directory-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .directory-controls > label {
+    max-width: none;
+  }
+}
+
+@media (max-width: 1030px) {
+  .people-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .access-sidebar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .access-principles {
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    overflow-x: auto;
+  }
+
+  .access-principles > i {
+    display: none;
+  }
+
+  .access-sidebar {
+    display: flex;
+  }
+}
+
+@media (max-width: 560px) {
+  .signed-in-card {
+    width: 100%;
+  }
+
+  .kind-filters {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .kind-filters button {
+    padding: 0 5px;
+  }
+
+  .name-fields {
+    grid-template-columns: 1fr;
+  }
+}
+

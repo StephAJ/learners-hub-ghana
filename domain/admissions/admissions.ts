@@ -3,11 +3,12 @@ import type {
   AdmissionApplication,
   AdmissionConversion,
   AdmissionDecision,
+  AdmissionDocumentType,
   ConvertAcceptedApplicationCommand,
   CreateAdmissionApplicationCommand,
 } from "./types";
 
-const requiredDocuments = new Set([
+const requiredDocuments = new Set<AdmissionDocumentType>([
   "birth-certificate",
   "previous-report",
 ]);
@@ -188,4 +189,3 @@ function requireValue(value: string, message: string) {
     throw new AdmissionPolicyError(message);
   }
 }
-

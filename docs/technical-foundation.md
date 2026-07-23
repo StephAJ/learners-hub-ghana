@@ -159,10 +159,26 @@ The third implemented slice adds:
 The interface remains fixture-backed. Admissions lifecycle rules are
 framework-independent and reuse the academic placement policy.
 
+## Identity and persistence foundation build
+
+The fourth implemented slice adds:
+
+- Cloudflare D1 persistence and generated migrations.
+- Tenant, person, identity, membership, guardian relationship, and audit tables.
+- Platform-authenticated administrator identity.
+- Once-only first-administrator bootstrap for the private school site.
+- Server-enforced role, tenant, membership, and relationship permissions.
+- Protected People & Access APIs.
+- A responsive school directory and persistent invitation workflow.
+
+This D1 layer is the durable platform store for the deployed prototype. The
+long-term PostgreSQL decision remains appropriate when the standalone API and
+multi-school production infrastructure are introduced.
+
 ## Next engineering milestone
 
-Persist the academic and admissions foundations and expose them through
-tenant-scoped API contracts:
+Move the academic and admissions fixtures behind the tenant-scoped repository
+and begin the teaching-and-learning slice:
 
 1. A learner placed in a class receives every active compulsory subject.
 2. A learner cannot remove a compulsory subject.
@@ -172,3 +188,5 @@ tenant-scoped API contracts:
 6. All manual exceptions record actor, reason, and effective date.
 7. Admission transitions record their actor and timestamp.
 8. An accepted application converts once without duplicate student data entry.
+9. Teachers can author and publish subject lessons within their assignment.
+10. Learners can open a structured lesson and record progress.

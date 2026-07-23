@@ -77,3 +77,23 @@ test("server-renders the admissions and student-records workspace", async () => 
   assert.match(html, /Make offer/);
   assert.match(html, /Ama Ofori/);
 });
+
+test("server-renders the people and access workspace", async () => {
+  const response = await render("/admin/people");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /People &amp; access/);
+  assert.match(html, /Identity &amp; permissions/);
+  assert.match(html, /School directory/);
+  assert.match(html, /Effective permissions/);
+  assert.match(html, /Invite a member/);
+});
+
+test("protects persistent school-record APIs from anonymous requests", async () => {
+  const response = await render("/api/admin/people");
+  assert.equal(response.status, 401);
+
+  const payload = await response.json();
+  assert.match(payload.error, /Sign in is required/);
+});
