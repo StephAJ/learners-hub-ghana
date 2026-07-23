@@ -65,3 +65,15 @@ test("server-renders the academic administration workspace", async () => {
   assert.match(html, /Place a learner/);
   assert.match(html, /Class-first access rule/);
 });
+
+test("server-renders the admissions and student-records workspace", async () => {
+  const response = await render("/admin/admissions");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /2026 \/ 2027 intake/);
+  assert.match(html, /Application queue/);
+  assert.match(html, /Active applicants/);
+  assert.match(html, /Make offer/);
+  assert.match(html, /Ama Ofori/);
+});

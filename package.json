@@ -10,7 +10,7 @@
     "build": "vinext build",
     "start": "vinext start",
     "test": "npm run test:domain && npm run test:render",
-    "test:domain": "vitest run --config vitest.config.ts tests/academic-enrolment.test.ts",
+    "test:domain": "vitest run --config vitest.config.ts",
     "test:render": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"

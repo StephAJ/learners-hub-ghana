@@ -26,7 +26,7 @@ type PlacementRow = {
 const navigation = [
   { href: "/", label: "Overview", symbol: "⌂" },
   { href: "/admin/academic", label: "Academic setup", symbol: "▦" },
-  { href: "#admissions", label: "Admissions", symbol: "+" },
+  { href: "/admin/admissions", label: "Admissions", symbol: "+" },
   { href: "#people", label: "People", symbol: "◎" },
   { href: "#assessment", label: "Assessment", symbol: "✓" },
   { href: "#reports", label: "Reports", symbol: "↗" },

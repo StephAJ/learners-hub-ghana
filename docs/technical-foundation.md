@@ -144,10 +144,25 @@ The current interface uses fixture data, while the enrolment policy itself is a
 framework-independent module ready to sit behind the web, API, and mobile
 clients.
 
+## Admissions foundation build
+
+The third implemented slice adds:
+
+- An admissions pipeline and application queue.
+- Applicant, guardian, desired-class, and document review context.
+- Explicit submission, review, offer, acceptance, and enrolment states.
+- Offer expiry checks and invalid-transition protection.
+- Accepted-offer conversion into learner, guardian relationship, and class
+  placement records.
+- Mobile-responsive administration layouts.
+
+The interface remains fixture-backed. Admissions lifecycle rules are
+framework-independent and reuse the academic placement policy.
+
 ## Next engineering milestone
 
-Persist the academic foundation and expose it through tenant-scoped API
-contracts:
+Persist the academic and admissions foundations and expose them through
+tenant-scoped API contracts:
 
 1. A learner placed in a class receives every active compulsory subject.
 2. A learner cannot remove a compulsory subject.
@@ -155,3 +170,5 @@ contracts:
 4. Moving class changes future entitlements but preserves historical records.
 5. Every query and mutation is tenant-scoped.
 6. All manual exceptions record actor, reason, and effective date.
+7. Admission transitions record their actor and timestamp.
+8. An accepted application converts once without duplicate student data entry.

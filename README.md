@@ -2,10 +2,11 @@
 
 A class-first learning and school management platform for Ghanaian schools.
 
-The current build establishes both the learner-facing product shell and the
-academic administration foundation. It includes a responsive learner dashboard,
-class subject policies, learner placement, and automatic compulsory-subject
-entitlement rules.
+The current build establishes the learner-facing product shell, academic
+administration, and admissions foundations. It includes a responsive learner
+dashboard, class subject policies, compulsory-subject entitlement rules, an
+application review pipeline, and accepted-applicant conversion into student
+records and class placements.
 
 ## Current technology
 
@@ -42,8 +43,8 @@ npm run lint
 
 ## Near-term implementation order
 
-1. Add persistence for school, class, offering, placement, and entitlement records.
+1. Add persistence for school, admissions, learner, class, placement, and entitlement records.
 2. Replace dashboard fixtures with tenant-scoped API data.
 3. Add identity, role, and relationship-based permissions.
-4. Build teacher, guardian, admissions, and assessment workflows.
+4. Build teacher, guardian, content, and assessment workflows.
 5. Start the Expo mobile client once the first contracts are stable.
