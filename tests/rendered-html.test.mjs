@@ -105,6 +105,19 @@ test("server-renders the teacher lesson workspace", async () => {
   assert.match(html, /Learner preview/);
 });
 
+test("server-renders the secure teacher content studio", async () => {
+  const response = await render("/teacher/content");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Content studio/);
+  assert.match(html, /Add lesson media/);
+  assert.match(html, /Register H5P activity/);
+  assert.match(html, /Private school storage/);
+  assert.match(html, /Media library/);
+  assert.match(html, /Interactive activities/);
+});
+
 test("server-renders the learner lesson player", async () => {
   const response = await render("/learn/subjects/integrated-science");
   assert.equal(response.status, 200);
@@ -214,6 +227,9 @@ test("protects persistent school-record APIs from anonymous requests", async () 
   for (const path of [
     "/api/admin/people",
     "/api/teacher/lessons",
+    "/api/teacher/content",
+    "/api/content/media?assetId=missing",
+    "/api/learn/interactions?activityId=missing&lessonId=missing&lessonVersion=1",
     "/api/learn/subjects",
     "/api/teacher/assessments",
     "/api/learn/assessments",

@@ -75,6 +75,7 @@ export type LearnerSubject = {
 export type CreateDraftInput = {
   availableFrom?: string;
   blocks: Array<{
+    config?: LessonBlock["config"];
     content: string;
     title: string;
     type: LessonBlockType;
@@ -261,6 +262,12 @@ export async function createPersistentLessonDraft(
     input.offeringId,
     input.prerequisiteLessonId,
   );
+  await requireBlockAttachments(
+    database,
+    access.tenantId,
+    input.offeringId,
+    input.blocks,
+  );
 
   const lessonId = crypto.randomUUID();
   const versionId = `${lessonId}:v0`;
@@ -277,6 +284,7 @@ export async function createPersistentLessonDraft(
   const draft = input.blocks.reduce(
     (lesson, block) =>
       addLessonBlock(lesson, {
+        config: block.config,
         content: block.content.trim(),
         id: crypto.randomUUID(),
         ready: true,
@@ -319,8 +327,8 @@ export async function createPersistentLessonDraft(
       database
         .prepare(
           `INSERT INTO lesson_blocks
-            (id, tenant_id, lesson_version_id, type, position, title, content, ready)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+            (id, tenant_id, lesson_version_id, type, position, title, content, config, ready)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         )
         .bind(
           block.id,
@@ -330,6 +338,7 @@ export async function createPersistentLessonDraft(
           block.position,
           block.title,
           block.content,
+          JSON.stringify(block.config ?? {}),
         ),
     ),
     ...input.standardIds.map((standardId) =>
@@ -431,8 +440,8 @@ export async function publishPersistentLesson(
       database
         .prepare(
           `INSERT INTO lesson_blocks
-            (id, tenant_id, lesson_version_id, type, position, title, content, ready)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            (id, tenant_id, lesson_version_id, type, position, title, content, config, ready)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           crypto.randomUUID(),
@@ -442,6 +451,7 @@ export async function publishPersistentLesson(
           block.position,
           block.title,
           block.content,
+          JSON.stringify(block.config ?? {}),
           block.ready ? 1 : 0,
         ),
     ),
@@ -512,6 +522,7 @@ export async function duplicatePersistentLesson(
   );
   const duplicate = await createPersistentLessonDraft(access, {
     blocks: source.blocks.map((block) => ({
+      config: block.config,
       content: block.content,
       title: block.title,
       type: block.type,
@@ -1148,14 +1159,24 @@ function seedBlock(
   position: number,
   title: string,
   content: string,
+  config: LessonBlock["config"] = {},
 ) {
   return database
     .prepare(
       `INSERT OR IGNORE INTO lesson_blocks
-        (id, tenant_id, lesson_version_id, type, position, title, content, ready)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        (id, tenant_id, lesson_version_id, type, position, title, content, config, ready)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
     )
-    .bind(id, TENANT_ID, versionId, type, position, title, content);
+    .bind(
+      id,
+      TENANT_ID,
+      versionId,
+      type,
+      position,
+      title,
+      content,
+      JSON.stringify(config),
+    );
 }
 
 function seedStandard(
@@ -1345,7 +1366,7 @@ async function loadVersionBlocks(
 ): Promise<LessonBlock[]> {
   const result = await database
     .prepare(
-      `SELECT id, type, position, title, content, ready
+      `SELECT id, type, position, title, content, config, ready
       FROM lesson_blocks
       WHERE tenant_id = ? AND lesson_version_id = ?
       ORDER BY position`,
@@ -1353,6 +1374,7 @@ async function loadVersionBlocks(
     .bind(tenantId, versionId)
     .all<{
       content: string;
+      config: string;
       id: string;
       position: number;
       ready: number;
@@ -1361,8 +1383,20 @@ async function loadVersionBlocks(
     }>();
   return result.results.map((block) => ({
     ...block,
+    config: parseBlockConfiguration(block.config),
     ready: Boolean(block.ready),
   }));
+}
+
+function parseBlockConfiguration(value: string): LessonBlock["config"] {
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object"
+      ? (parsed as LessonBlock["config"])
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 async function findUnitTitle(database: D1Database, unitId: string) {
@@ -1686,6 +1720,58 @@ async function requirePrerequisiteLesson(
     throw new LessonPolicyError(
       "A prerequisite must be a published lesson in this subject.",
     );
+  }
+}
+
+async function requireBlockAttachments(
+  database: D1Database,
+  tenantId: string,
+  offeringId: string,
+  blocks: CreateDraftInput["blocks"],
+) {
+  const mediaAssetIds = new Set(
+    blocks
+      .map((block) => block.config?.mediaAssetId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const activityIds = new Set(
+    blocks
+      .map((block) => block.config?.activityId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  for (const assetId of mediaAssetIds) {
+    const asset = await database
+      .prepare(
+        `SELECT id
+        FROM media_assets
+        WHERE id = ? AND tenant_id = ? AND offering_id = ?
+          AND status = 'ready'
+        LIMIT 1`,
+      )
+      .bind(assetId, tenantId, offeringId)
+      .first<{ id: string }>();
+    if (!asset) {
+      throw new LessonPolicyError(
+        "Every attached media asset must be ready in this subject.",
+      );
+    }
+  }
+  for (const activityId of activityIds) {
+    const activity = await database
+      .prepare(
+        `SELECT id
+        FROM interactive_activities
+        WHERE id = ? AND tenant_id = ? AND offering_id = ?
+          AND status = 'launchable'
+        LIMIT 1`,
+      )
+      .bind(activityId, tenantId, offeringId)
+      .first<{ id: string }>();
+    if (!activity) {
+      throw new LessonPolicyError(
+        "Every attached H5P activity must be launchable in this subject.",
+      );
+    }
   }
 }
 

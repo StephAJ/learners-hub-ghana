@@ -12,6 +12,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
     "admissions:manage",
     "student-record:read",
     "lesson:create",
+    "content:manage",
     "assessment:publish",
     "assignment:manage",
     "attendance:manage",
@@ -26,6 +27,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
     "academic:manage",
     "student-record:read",
     "lesson:create",
+    "content:manage",
     "assessment:publish",
     "assignment:manage",
     "attendance:manage",
@@ -43,6 +45,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
   teacher: new Set([
     "people:read",
     "lesson:create",
+    "content:manage",
     "assessment:publish",
     "assignment:manage",
     "attendance:manage",
@@ -52,6 +55,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
   "class-teacher": new Set([
     "people:read",
     "lesson:create",
+    "content:manage",
     "assessment:publish",
     "assignment:manage",
     "attendance:manage",

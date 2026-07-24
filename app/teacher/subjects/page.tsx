@@ -6,6 +6,7 @@ import type {
   LessonSummary,
   TeacherLessonWorkspace,
 } from "../../../db/learning-repository";
+import type { TeacherContentWorkspace } from "../../../db/content-repository";
 import type { LessonBlockType } from "../../../domain/learning/types";
 import "../../admin/academic/academic.css";
 import "./teacher-subjects.css";
@@ -13,6 +14,7 @@ import "./teacher-subjects.css";
 const navigation = [
   { href: "/teacher/operations", label: "My day", symbol: "⌂" },
   { href: "/teacher/subjects", label: "My subjects", symbol: "▦" },
+  { href: "/teacher/content", label: "Content studio", symbol: "◫" },
   { href: "#lessons", label: "Lessons", symbol: "≡" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },
   { href: "/teacher/gradebook", label: "Markbook", symbol: "↗" },
@@ -102,8 +104,54 @@ const previewWorkspace: TeacherLessonWorkspace = {
   ],
 };
 
+const previewContentWorkspace: TeacherContentWorkspace = {
+  activities: [
+    {
+      contentType: "Interactive Video",
+      fallbackText: "Guided interactive with a text alternative.",
+      id: "preview-h5p-digestion",
+      launchOrigin: "https://documentation.h5p.com",
+      launchUrl:
+        "https://documentation.h5p.com/content/1291910063569938878/embed",
+      offeringId: "offering-science-jhs2",
+      provider: "h5p",
+      status: "launchable",
+      title: "H5P interactive demonstration",
+    },
+  ],
+  className: "JHS 2 Gold",
+  mediaAssets: [
+    {
+      contentType: "application/pdf",
+      createdAt: "2026-07-24T08:30:00Z",
+      id: "preview-study-sheet",
+      kind: "document",
+      offeringId: "offering-science-jhs2",
+      originalFilename: "digestive-system-study-sheet.pdf",
+      sizeBytes: 430_080,
+      status: "ready",
+    },
+    {
+      contentType: "video/mp4",
+      createdAt: "2026-07-24T08:10:00Z",
+      id: "preview-gas-exchange",
+      kind: "video",
+      offeringId: "offering-science-jhs2",
+      originalFilename: "gas-exchange-low-data.mp4",
+      sizeBytes: 5_347_328,
+      status: "ready",
+    },
+  ],
+  offeringId: "offering-science-jhs2",
+  subjectName: "Integrated Science",
+  totalBytes: 5_777_408,
+};
+
 export default function TeacherSubjectsPage() {
   const [workspace, setWorkspace] = useState(previewWorkspace);
+  const [contentWorkspace, setContentWorkspace] = useState(
+    previewContentWorkspace,
+  );
   const [selectedLessonId, setSelectedLessonId] = useState(
     previewWorkspace.lessons[0].id,
   );
@@ -133,6 +181,13 @@ export default function TeacherSubjectsPage() {
             : payload.workspace.lessons[0]?.id ?? "",
         );
         setDataMode("protected");
+        const contentResponse = await fetch("/api/teacher/content");
+        if (contentResponse.ok) {
+          const contentPayload = (await contentResponse.json()) as {
+            workspace: TeacherContentWorkspace;
+          };
+          if (active) setContentWorkspace(contentPayload.workspace);
+        }
       } catch {
         if (active) setDataMode("preview");
       }
@@ -463,6 +518,8 @@ export default function TeacherSubjectsPage() {
             </section>
 
             <LessonDraftForm
+              activities={contentWorkspace.activities}
+              assets={contentWorkspace.mediaAssets}
               id="new-lesson"
               lessons={workspace.lessons}
               onCreate={createDraft}
@@ -487,6 +544,11 @@ export default function TeacherSubjectsPage() {
 type CreateLessonFormInput = {
   availableFrom?: string;
   blocks: Array<{
+    config?: {
+      activityId?: string;
+      mediaAssetId?: string;
+      provider?: "h5p";
+    };
     content: string;
     title: string;
     type: LessonBlockType;
@@ -500,12 +562,16 @@ type CreateLessonFormInput = {
 };
 
 function LessonDraftForm({
+  activities,
+  assets,
   id,
   lessons,
   onCreate,
   standards,
   units,
 }: {
+  activities: TeacherContentWorkspace["activities"];
+  assets: TeacherContentWorkspace["mediaAssets"];
   id: string;
   lessons: TeacherLessonWorkspace["lessons"];
   onCreate: (input: CreateLessonFormInput) => Promise<void>;
@@ -527,8 +593,10 @@ function LessonDraftForm({
   const [blockType, setBlockType] = useState<LessonBlockType>("text");
   const [blockTitle, setBlockTitle] = useState("");
   const [blockContent, setBlockContent] = useState("");
+  const [attachmentId, setAttachmentId] = useState("");
   const [blocks, setBlocks] = useState<
     Array<{
+      config?: CreateLessonFormInput["blocks"][number]["config"];
       content: string;
       id: string;
       title: string;
@@ -541,6 +609,13 @@ function LessonDraftForm({
     setBlocks((current) => [
       ...current,
       {
+        config:
+          blockType === "interactive" && attachmentId
+            ? { activityId: attachmentId, provider: "h5p" }
+            : (blockType === "video" || blockType === "resource") &&
+                attachmentId
+              ? { mediaAssetId: attachmentId }
+              : undefined,
         content: blockContent.trim(),
         id: crypto.randomUUID(),
         title: blockTitle.trim(),
@@ -549,6 +624,7 @@ function LessonDraftForm({
     ]);
     setBlockTitle("");
     setBlockContent("");
+    setAttachmentId("");
   }
 
   function moveBlock(index: number, direction: -1 | 1) {
@@ -570,7 +646,8 @@ function LessonDraftForm({
     await onCreate({
       availableFrom:
         releaseMode === "scheduled" ? availableFrom : undefined,
-      blocks: blocks.map(({ content, title: blockName, type }) => ({
+      blocks: blocks.map(({ config, content, title: blockName, type }) => ({
+        config,
         content,
         title: blockName,
         type,
@@ -642,7 +719,7 @@ function LessonDraftForm({
           <legend>Lesson activities</legend>
           <div className="block-type-picker">
             {(["text", "video", "interactive", "practice", "resource"] as LessonBlockType[]).map((type) => (
-              <button className={blockType === type ? "active" : ""} key={type} onClick={() => setBlockType(type)} type="button">
+              <button className={blockType === type ? "active" : ""} key={type} onClick={() => { setBlockType(type); setAttachmentId(""); }} type="button">
                 <span aria-hidden="true">{blockSymbol(type)}</span>{type}
               </button>
             ))}
@@ -650,12 +727,18 @@ function LessonDraftForm({
         </fieldset>
         <label><span>Block title</span><input required={blocks.length === 0} value={blockTitle} onChange={(event) => setBlockTitle(event.target.value)} placeholder="A clear section heading" /></label>
         <label><span>Block content</span><textarea required={blocks.length === 0} value={blockContent} onChange={(event) => setBlockContent(event.target.value)} placeholder="Write content or describe the activity…" /></label>
+        {blockType === "interactive" && (
+          <label><span>H5P activity (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use native knowledge check</option>{activities.filter((activity) => activity.status === "launchable").map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></label>
+        )}
+        {(blockType === "video" || blockType === "resource") && (
+          <label><span>Secure media (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use descriptive placeholder</option>{assets.filter((asset) => asset.kind !== "h5p-package" && asset.status === "ready").map((asset) => <option key={asset.id} value={asset.id}>{asset.originalFilename}</option>)}</select></label>
+        )}
         <button className="add-block-button" onClick={addBlock} type="button">+ Add activity</button>
         <ol className="draft-block-list">
           {blocks.map((block, index) => (
             <li key={block.id}>
               <span>{blockSymbol(block.type)}</span>
-              <p><strong>{block.title}</strong><small>{block.type} · Activity {index + 1}</small></p>
+              <p><strong>{block.title}</strong><small>{block.type} · Activity {index + 1}{block.config?.activityId ? " · H5P attached" : block.config?.mediaAssetId ? " · Secure media attached" : ""}</small></p>
               <div>
                 <button aria-label={`Move ${block.title} up`} disabled={index === 0} onClick={() => moveBlock(index, -1)} type="button">↑</button>
                 <button aria-label={`Move ${block.title} down`} disabled={index === blocks.length - 1} onClick={() => moveBlock(index, 1)} type="button">↓</button>

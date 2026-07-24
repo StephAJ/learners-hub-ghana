@@ -20,3 +20,12 @@ export async function getD1Database(): Promise<D1Database> {
 
   return env.DB;
 }
+
+export async function getMediaBucket(): Promise<R2Bucket> {
+  const { env } = await import("cloudflare:workers");
+  if (!env.MEDIA) {
+    throw new Error("Cloudflare R2 binding `MEDIA` is unavailable.");
+  }
+
+  return env.MEDIA;
+}

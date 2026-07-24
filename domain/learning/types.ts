@@ -8,6 +8,11 @@ export type LessonBlockType =
   | "resource";
 
 export type LessonBlock = {
+  config?: {
+    activityId?: string;
+    mediaAssetId?: string;
+    provider?: "h5p";
+  };
   content: string;
   id: string;
   position: number;

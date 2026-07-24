@@ -640,6 +640,15 @@
   z-index: 2;
 }
 
+.video-stage video {
+  background: #0a2f2a;
+  height: 100%;
+  inset: 0;
+  object-fit: contain;
+  position: absolute;
+  width: 100%;
+}
+
 .video-stage > span {
   background: rgba(0, 0, 0, 0.42);
   border-radius: 5px;
@@ -861,15 +870,118 @@
   margin-top: 8px;
 }
 
-.resource-block > button {
+.resource-block > button,
+.resource-block > a {
+  align-items: center;
   background: var(--primary);
   border: 0;
   border-radius: 8px;
   color: #ffffff;
+  display: inline-flex;
   font-size: 0.52rem;
   font-weight: 900;
+  justify-content: center;
   min-height: 38px;
   padding: 0 12px;
+}
+
+.h5p-block {
+  min-height: 420px;
+}
+
+.h5p-heading {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 42px 1fr auto;
+}
+
+.h5p-heading > span {
+  align-items: center;
+  background: #e6f0eb;
+  border-radius: 10px;
+  color: var(--primary);
+  display: flex;
+  font-size: 0.52rem;
+  font-weight: 900;
+  height: 42px;
+  justify-content: center;
+}
+
+.h5p-heading h2,
+.h5p-heading p {
+  margin: 0;
+}
+
+.h5p-heading em {
+  background: #e0f0e8;
+  border-radius: 999px;
+  color: #176050;
+  font-size: 0.44rem;
+  font-style: normal;
+  font-weight: 900;
+  padding: 5px 8px;
+}
+
+.h5p-block iframe {
+  background: #f6f8f5;
+  border: 1px solid #dce3dc;
+  border-radius: 11px;
+  height: 440px;
+  margin-top: 18px;
+  width: 100%;
+}
+
+.h5p-fallback {
+  align-items: center;
+  background: #f3f7f3;
+  border: 1px dashed #cad8d0;
+  border-radius: 11px;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: 38px 1fr;
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.h5p-fallback > span {
+  align-items: center;
+  background: #e3eee9;
+  border-radius: 9px;
+  color: var(--primary);
+  display: flex;
+  height: 38px;
+  justify-content: center;
+}
+
+.h5p-fallback p {
+  color: #5d6d67;
+  font-size: 0.58rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.h5p-fallback strong {
+  color: #30433d;
+  display: block;
+}
+
+.h5p-status {
+  color: #6a7974;
+  font-size: 0.47rem;
+  margin: 9px 0 0;
+}
+
+.h5p-block details {
+  border-top: 1px solid #e5e9e4;
+  color: #566761;
+  font-size: 0.5rem;
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.h5p-block details p {
+  line-height: 1.55;
 }
 
 .lesson-controls {

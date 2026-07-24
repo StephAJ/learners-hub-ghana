@@ -15,6 +15,7 @@ import "./operations.css";
 const navigation = [
   { href: "/teacher/operations", label: "School day", symbol: "⌂" },
   { href: "/teacher/subjects", label: "Lessons", symbol: "▦" },
+  { href: "/teacher/content", label: "Content studio", symbol: "◫" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },
   { href: "/teacher/gradebook", label: "Gradebook", symbol: "↗" },
   { href: "/learn/school-day", label: "Learner view", symbol: "◎" },

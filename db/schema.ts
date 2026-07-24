@@ -340,6 +340,7 @@ export const lessonBlocks = sqliteTable(
     position: integer("position").notNull(),
     title: text("title").notNull(),
     content: text("content").notNull().default(""),
+    config: text("config").notNull().default("{}"),
     ready: integer("ready", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
@@ -463,6 +464,120 @@ export const lessonReleaseRules = sqliteTable(
     index("lesson_prerequisite_lookup_idx").on(
       table.tenantId,
       table.prerequisiteLessonId,
+    ),
+  ],
+);
+
+export const mediaAssets = sqliteTable(
+  "media_assets",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    uploadedByPersonId: text("uploaded_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    kind: text("kind", {
+      enum: ["image", "audio", "video", "document", "h5p-package"],
+    }).notNull(),
+    originalFilename: text("original_filename").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    objectKey: text("object_key").notNull(),
+    status: text("status", {
+      enum: ["ready", "awaiting-runtime", "quarantined", "deleted"],
+    })
+      .notNull()
+      .default("ready"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("media_object_key_idx").on(table.objectKey),
+    index("media_tenant_offering_idx").on(
+      table.tenantId,
+      table.offeringId,
+      table.status,
+    ),
+  ],
+);
+
+export const interactiveActivities = sqliteTable(
+  "interactive_activities",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    createdByPersonId: text("created_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    title: text("title").notNull(),
+    provider: text("provider", { enum: ["h5p"] })
+      .notNull()
+      .default("h5p"),
+    contentType: text("content_type").notNull(),
+    launchUrl: text("launch_url"),
+    launchOrigin: text("launch_origin"),
+    packageAssetId: text("package_asset_id").references(() => mediaAssets.id),
+    fallbackText: text("fallback_text").notNull().default(""),
+    status: text("status", {
+      enum: ["draft", "launchable", "awaiting-runtime", "archived"],
+    })
+      .notNull()
+      .default("draft"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("activities_tenant_offering_idx").on(
+      table.tenantId,
+      table.offeringId,
+      table.status,
+    ),
+  ],
+);
+
+export const interactiveActivityResults = sqliteTable(
+  "interactive_activity_results",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => interactiveActivities.id),
+    learnerPersonId: text("learner_person_id")
+      .notNull()
+      .references(() => people.id),
+    lessonId: text("lesson_id")
+      .notNull()
+      .references(() => lessons.id),
+    lessonVersion: integer("lesson_version").notNull(),
+    verb: text("verb", {
+      enum: ["experienced", "answered", "completed"],
+    }).notNull(),
+    scorePercent: integer("score_percent"),
+    success: integer("success", { mode: "boolean" }),
+    completion: integer("completion", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    statementJson: text("statement_json").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("activity_results_learner_idx").on(
+      table.tenantId,
+      table.learnerPersonId,
+      table.activityId,
+      table.createdAt,
     ),
   ],
 );

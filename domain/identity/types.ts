@@ -16,6 +16,7 @@ export type Permission =
   | "admissions:manage"
   | "student-record:read"
   | "lesson:create"
+  | "content:manage"
   | "assessment:publish"
   | "assignment:manage"
   | "attendance:manage"

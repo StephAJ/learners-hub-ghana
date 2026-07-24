@@ -330,6 +330,9 @@ export default function IntegratedSciencePage() {
           answer={answer}
           answerChecked={answerChecked}
           block={activeBlock}
+          dataMode={dataMode}
+          lessonId={selectedLesson.id}
+          lessonVersion={selectedLesson.version}
           onAnswer={setAnswer}
           onCheck={() => setAnswerChecked(true)}
         />
@@ -359,22 +362,39 @@ function LessonBlockView({
   answer,
   answerChecked,
   block,
+  dataMode,
+  lessonId,
+  lessonVersion,
   onAnswer,
   onCheck,
 }: {
   answer: string;
   answerChecked: boolean;
   block: LessonBlock;
+  dataMode: "loading" | "protected" | "preview";
+  lessonId: string;
+  lessonVersion: number;
   onAnswer: (answer: string) => void;
   onCheck: () => void;
 }) {
   if (block.type === "video") {
+    const mediaUrl = block.config?.mediaAssetId
+      ? `/api/content/media?assetId=${encodeURIComponent(block.config.mediaAssetId)}`
+      : undefined;
     return (
       <article className="lesson-block video-block">
         <div className="video-stage">
-          <div className="body-map" aria-hidden="true"><span /><span /><span /><span /></div>
-          <button type="button" aria-label="Play digestive system video">▶</button>
-          <span>04:12</span>
+          {mediaUrl ? (
+            <video controls playsInline preload="metadata" src={mediaUrl}>
+              Your browser does not support embedded lesson video.
+            </video>
+          ) : (
+            <>
+              <div className="body-map" aria-hidden="true"><span /><span /><span /><span /></div>
+              <button type="button" aria-label="Play digestive system video">▶</button>
+              <span>04:12</span>
+            </>
+          )}
         </div>
         <div className="block-copy"><p className="lesson-eyebrow">Guided video</p><h2>{block.title}</h2><p>{block.content}</p><small>Low-data transcript and captions available</small></div>
       </article>
@@ -382,6 +402,18 @@ function LessonBlockView({
   }
 
   if (block.type === "interactive") {
+    if (block.config?.activityId && block.config.provider === "h5p") {
+      return (
+        <H5pActivityFrame
+          activityId={block.config.activityId}
+          dataMode={dataMode}
+          fallbackText={block.content}
+          lessonId={lessonId}
+          lessonVersion={lessonVersion}
+          title={block.title}
+        />
+      );
+    }
     const correct = answer === "Small intestine";
     return (
       <article className="lesson-block interactive-block">
@@ -399,11 +431,14 @@ function LessonBlockView({
   }
 
   if (block.type === "resource") {
+    const mediaUrl = block.config?.mediaAssetId
+      ? `/api/content/media?assetId=${encodeURIComponent(block.config.mediaAssetId)}`
+      : undefined;
     return (
       <article className="lesson-block resource-block">
         <span aria-hidden="true">↓</span>
         <div><p className="lesson-eyebrow">Study resource</p><h2>{block.title}</h2><p>{block.content}</p><small>PDF · 420 KB · Works offline after download</small></div>
-        <button type="button">Download resource</button>
+        {mediaUrl ? <a href={mediaUrl}>Download resource</a> : <button type="button">Download resource</button>}
       </article>
     );
   }
@@ -416,6 +451,207 @@ function LessonBlockView({
       <div className="science-note"><span aria-hidden="true">★</span><p><strong>Science in daily life</strong>Chewing well increases the surface area of food, helping enzymes begin their work more effectively.</p></div>
     </article>
   );
+}
+
+function H5pActivityFrame({
+  activityId,
+  dataMode,
+  fallbackText,
+  lessonId,
+  lessonVersion,
+  title,
+}: {
+  activityId: string;
+  dataMode: "loading" | "protected" | "preview";
+  fallbackText: string;
+  lessonId: string;
+  lessonVersion: number;
+  title: string;
+}) {
+  const [launch, setLaunch] = useState<{
+    fallbackText: string;
+    launchOrigin: string;
+    launchUrl: string;
+    title: string;
+  }>();
+  const [status, setStatus] = useState(
+    dataMode === "protected"
+      ? "Loading interactive activity…"
+      : "Interactive preview unavailable outside a signed-in lesson.",
+  );
+
+  useEffect(() => {
+    if (dataMode !== "protected") return;
+    let active = true;
+    const params = new URLSearchParams({
+      activityId,
+      lessonId,
+      lessonVersion: String(lessonVersion),
+    });
+    void fetch(`/api/learn/interactions?${params}`)
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          activity?: {
+            fallbackText: string;
+            launchOrigin: string;
+            launchUrl: string;
+            title: string;
+          };
+          error?: string;
+        };
+        if (!response.ok || !payload.activity) {
+          throw new Error(
+            payload.error ?? "Interactive activity unavailable.",
+          );
+        }
+        if (active) {
+          setLaunch(payload.activity);
+          setStatus("Interactive activity ready.");
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "Interactive activity unavailable.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [activityId, dataMode, lessonId, lessonVersion]);
+
+  useEffect(() => {
+    if (!launch) return;
+    function receiveResult(event: MessageEvent) {
+      if (
+        event.origin !== launch?.launchOrigin ||
+        !isH5pResultMessage(event.data)
+      ) {
+        return;
+      }
+      const normalized = normalizeH5pStatement(event.data.statement);
+      void saveInteractiveResult(
+        activityId,
+        lessonId,
+        lessonVersion,
+        normalized,
+      );
+      if (normalized.completion) {
+        setStatus("Interactive activity completion recorded.");
+      }
+    }
+    window.addEventListener("message", receiveResult);
+    return () => window.removeEventListener("message", receiveResult);
+  }, [activityId, launch, lessonId, lessonVersion]);
+
+  return (
+    <article className="lesson-block h5p-block">
+      <div className="h5p-heading">
+        <span>H5P</span>
+        <div><p className="lesson-eyebrow">Interactive activity</p><h2>{launch?.title ?? title}</h2></div>
+        <em>Measured</em>
+      </div>
+      {launch ? (
+        <iframe
+          allow="autoplay; fullscreen"
+          onLoad={() => {
+            setStatus("Interactive activity loaded.");
+            void saveInteractiveResult(
+              activityId,
+              lessonId,
+              lessonVersion,
+              {
+                completion: false,
+                statement: { source: "h5p-iframe", verb: "experienced" },
+                verb: "experienced",
+              },
+            );
+          }}
+          referrerPolicy="strict-origin-when-cross-origin"
+          sandbox="allow-forms allow-scripts allow-same-origin allow-presentation"
+          src={launch.launchUrl}
+          title={launch.title}
+        />
+      ) : (
+        <div className="h5p-fallback"><span>✦</span><p><strong>Accessible lesson alternative</strong>{fallbackText}</p></div>
+      )}
+      <p className="h5p-status" role="status">{status}</p>
+      <details>
+        <summary>Text alternative</summary>
+        <p>{launch?.fallbackText ?? fallbackText}</p>
+      </details>
+    </article>
+  );
+}
+
+function isH5pResultMessage(
+  value: unknown,
+): value is { statement: Record<string, unknown>; type: "h5p-xapi" } {
+  if (!value || typeof value !== "object") return false;
+  const message = value as Record<string, unknown>;
+  return (
+    message.type === "h5p-xapi" &&
+    Boolean(message.statement) &&
+    typeof message.statement === "object"
+  );
+}
+
+function normalizeH5pStatement(statement: Record<string, unknown>) {
+  const result =
+    statement.result && typeof statement.result === "object"
+      ? (statement.result as Record<string, unknown>)
+      : {};
+  const score =
+    result.score && typeof result.score === "object"
+      ? (result.score as Record<string, unknown>)
+      : {};
+  const scaled =
+    typeof score.scaled === "number" ? score.scaled * 100 : undefined;
+  const verbRecord =
+    statement.verb && typeof statement.verb === "object"
+      ? (statement.verb as Record<string, unknown>)
+      : {};
+  const verbId = typeof verbRecord.id === "string" ? verbRecord.id : "";
+  const verb = verbId.endsWith("completed")
+    ? ("completed" as const)
+    : verbId.endsWith("answered")
+      ? ("answered" as const)
+      : ("experienced" as const);
+  return {
+    completion: result.completion === true || verb === "completed",
+    scorePercent: scaled,
+    statement,
+    success:
+      typeof result.success === "boolean" ? result.success : undefined,
+    verb,
+  };
+}
+
+async function saveInteractiveResult(
+  activityId: string,
+  lessonId: string,
+  lessonVersion: number,
+  result: {
+    completion: boolean;
+    scorePercent?: number;
+    statement: Record<string, unknown>;
+    success?: boolean;
+    verb: "experienced" | "answered" | "completed";
+  },
+) {
+  await fetch("/api/learn/interactions", {
+    body: JSON.stringify({
+      activityId,
+      lessonId,
+      lessonVersion,
+      ...result,
+    }),
+    headers: { "content-type": "application/json" },
+    method: "POST",
+  });
 }
 
 function blockLabel(block: LessonBlock) {
