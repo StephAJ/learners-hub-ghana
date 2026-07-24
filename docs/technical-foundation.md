@@ -194,6 +194,26 @@ The interactive block contract creates a safe integration boundary for an
 isolated H5P-compatible service. Media object storage and full H5P package
 processing remain separate infrastructure milestones.
 
+## Self-hosted H5P runtime build
+
+The isolated H5P service now implements the interactive-content boundary:
+
+- Teacher package imports are authenticated by timestamped HMAC signatures
+  bound to the exact package digest.
+- Package imports are idempotent per school and activity.
+- H5P libraries and content use a persistent VPS volume with UUID content
+  identifiers.
+- Learner player URLs carry short-lived grants scoped to a learner, activity,
+  lesson, and published version.
+- The player is restricted to the exact Learners Hub origin and forwards
+  bounded xAPI statements for application-side reporting.
+- Docker Compose and Caddy provide non-root execution, health checks, automatic
+  HTTPS, and persistent data on the Hostinger VPS.
+
+The runtime remains a delivery service rather than an academic record system.
+Learners Hub continues to own enrolment, access, lesson completion, scoring,
+gradebook data, and guardian reporting.
+
 ## Assessment foundation build
 
 The sixth implemented slice adds:

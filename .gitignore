@@ -44,3 +44,7 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+/services/h5p-runtime/build/
+/services/h5p-runtime/data/
+/services/h5p-runtime/h5p/
+/services/h5p-runtime/node_modules/

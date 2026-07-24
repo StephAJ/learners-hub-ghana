@@ -76,3 +76,24 @@ Runtime service contract:
 | Issue five-minute learner grants | Public permanent player URLs | Prevents sharing a durable activity URL outside the assigned class |
 | Store an opaque runtime content ID | Store runtime database details | Keeps the integration replaceable |
 | Keep results in Learners Hub | Use runtime reports as the source of truth | Preserves one gradebook and guardian reporting model |
+| Use filesystem-backed H5P storage for the first VPS | Add PostgreSQL and S3 immediately | A persistent Docker volume is simpler for one runtime instance and can be backed up as a unit |
+| Use UUID content identifiers | Use the library's random integer identifiers | Makes unauthorised asset discovery materially harder |
+| Put Caddy in front of the runtime | Expose Node directly | Provides automatic HTTPS, compression, and one public ingress |
+| Block outbound H5P network access initially | Permit arbitrary external media | Reduces data leakage from uploaded library code; reviewed external providers can be allowlisted later |
+
+## Implementation snapshot
+
+The first runtime implementation is in `services/h5p-runtime`. It includes:
+
+- HMAC validation for package imports with five-minute replay protection.
+- Five-minute learner grants with a hard ten-minute runtime limit.
+- Idempotent activity-to-content mapping with atomic file replacement.
+- UUID-backed H5P content storage and shared library storage.
+- A learner-only H5P player with exact-origin framing and xAPI forwarding.
+- Disabled runtime authoring, downloads, state writes, and public account flows.
+- A health endpoint, non-root container user, persistent `/data` volume, and
+  Caddy HTTPS ingress.
+- Hostinger Compose configuration in `deploy/hostinger`.
+
+Production connection still requires the VPS hostname, DNS record, and one
+shared secret to be configured on both the runtime and Learners Hub.

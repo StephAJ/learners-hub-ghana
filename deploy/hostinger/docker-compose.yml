@@ -1,0 +1,47 @@
+services:
+  h5p-runtime:
+    build:
+      context: ../../services/h5p-runtime
+    environment:
+      H5P_DATA_DIR: /data
+      H5P_RUNTIME_SHARED_SECRET: ${H5P_RUNTIME_SHARED_SECRET:?Set H5P_RUNTIME_SHARED_SECRET}
+      LEARNERS_HUB_ORIGIN: ${LEARNERS_HUB_ORIGIN:?Set LEARNERS_HUB_ORIGIN}
+      NODE_ENV: production
+      PORT: 8080
+    expose:
+      - "8080"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    volumes:
+      - h5p-data:/data
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      h5p-runtime:
+        condition: service_healthy
+    environment:
+      H5P_HOSTNAME: ${H5P_HOSTNAME:?Set H5P_HOSTNAME}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-config:/config
+      - caddy-data:/data
+
+volumes:
+  caddy-config:
+  caddy-data:
+  h5p-data:

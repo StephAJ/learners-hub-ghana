@@ -26,6 +26,10 @@ The secure-content slice adds a teacher content studio, private R2-backed
 media, subject-scoped streaming, validated H5P package storage, HTTPS embed
 contracts, lesson-block attachments, and normalized learner interaction
 results.
+The self-hosted H5P slice adds a signed package-import bridge, an isolated
+Node.js player runtime, short-lived learner launch grants, xAPI forwarding,
+opaque content identifiers, persistent VPS volumes, and a Hostinger-ready
+Docker Compose deployment with automatic HTTPS.
 
 ## Current technology
 
@@ -36,6 +40,8 @@ results.
 - Node's native test runner for rendered-output checks
 - Cloudflare D1 for persistent structured school records
 - Cloudflare R2 for private lesson media and H5P packages
+- Isolated Lumi H5P Node.js runtime for self-hosted interactive content
+- Docker Compose and Caddy for the Hostinger VPS runtime
 - Server-enforced role and relationship permissions
 - PWA manifest and responsive mobile navigation
 
@@ -66,7 +72,7 @@ npm run lint
 ## Near-term implementation order
 
 1. Move the remaining academic and admissions fixtures behind tenant-scoped repositories.
-2. Add a managed H5P/LTI runtime, media transcoding, and rich hotspot authoring.
+2. Deploy and connect the self-hosted H5P runtime, then add media transcoding and rich hotspot authoring.
 3. Generate signed report PDFs and downloadable school documents.
 4. Add approved school communication templates, delivery tracking, and family inboxes.
 5. Start the Expo mobile client using the stable learning, assessment, report, and school-day contracts.
