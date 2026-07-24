@@ -14,13 +14,16 @@ const fallbackSubject: LearnerSubject = {
   teacherName: "Grace Mensah",
   lessons: [
     {
+      availability: "available",
       id: "lesson-digestive-system",
+      estimatedMinutes: 20,
       title: "The human digestive system",
       summary:
         "Follow food through the body and discover how nutrients reach your cells.",
       unitTitle: "Human body systems",
       version: 1,
       progressPercent: 25,
+      standardCodes: ["JHS2.IS.HBS.1", "JHS2.IS.HBS.2"],
       objectives: [
         "Identify the main organs of the digestive system.",
         "Explain how food is broken down and absorbed.",
@@ -62,6 +65,52 @@ const fallbackSubject: LearnerSubject = {
           ready: true,
         },
       ],
+    },
+    {
+      availability: "locked",
+      blocks: [
+        {
+          id: "block-respiration-intro",
+          type: "text",
+          position: 1,
+          title: "The journey of a breath",
+          content:
+            "Air travels through the nose and windpipe into branching tubes that end in tiny air sacs called alveoli.",
+          ready: true,
+        },
+        {
+          id: "block-respiration-video",
+          type: "video",
+          position: 2,
+          title: "Watch gas exchange",
+          content:
+            "A short low-data animation shows oxygen entering the blood and carbon dioxide leaving it.",
+          ready: true,
+        },
+        {
+          id: "block-respiration-practice",
+          type: "practice",
+          position: 3,
+          title: "Label the breathing pathway",
+          content:
+            "Arrange the nose, windpipe, bronchi, lungs, and alveoli in the order air reaches them.",
+          ready: true,
+        },
+      ],
+      estimatedMinutes: 15,
+      id: "lesson-respiratory-system",
+      objectives: [
+        "Identify the main structures of the respiratory system.",
+        "Explain how oxygen reaches body cells.",
+      ],
+      progressPercent: 0,
+      releaseHint: "Complete “The human digestive system” first",
+      standardCodes: ["JHS2.IS.HBS.2"],
+      summary:
+        "Trace oxygen from the air into the blood and connect breathing to energy.",
+      title: "How breathing powers the body",
+      unitTitle: "Human body systems",
+      version: 1,
     },
   ],
 };
@@ -111,6 +160,12 @@ export default function IntegratedSciencePage() {
     subject.lessons[0];
   const activeBlock =
     selectedLesson.blocks[activeBlockIndex] ?? selectedLesson.blocks[0];
+  const subjectProgress = Math.round(
+    subject.lessons.reduce(
+      (total, lesson) => total + lesson.progressPercent,
+      0,
+    ) / Math.max(1, subject.lessons.length),
+  );
   const completedBlocks = Math.max(
     1,
     Math.round((progress / 100) * selectedLesson.blocks.length),
@@ -141,6 +196,24 @@ export default function IntegratedSciencePage() {
     setProgress(100);
     await persistProgress(100);
     setNotice("Lesson complete. Your progress has been recorded.");
+    if (dataMode === "protected") {
+      const response = await fetch(
+        "/api/learn/subjects?offeringId=offering-science-jhs2",
+      );
+      if (response.ok) {
+        const payload = (await response.json()) as { subject: LearnerSubject };
+        setSubject(payload.subject);
+      }
+    } else {
+      setSubject((current) => ({
+        ...current,
+        lessons: current.lessons.map((lesson) =>
+          lesson.availability === "locked"
+            ? { ...lesson, availability: "available", releaseHint: undefined }
+            : lesson,
+        ),
+      }));
+    }
   }
 
   async function persistProgress(percent: number) {
@@ -187,8 +260,8 @@ export default function IntegratedSciencePage() {
           <div><small>{subject.className}</small><strong>{subject.subjectName}</strong><p>{subject.teacherName}</p></div>
         </div>
         <div className="outline-progress">
-          <div><span>Subject progress</span><strong>82%</strong></div>
-          <span><i style={{ width: "82%" }} /></span>
+          <div><span>Subject progress</span><strong>{subjectProgress}%</strong></div>
+          <span><i style={{ width: `${subjectProgress}%` }} /></span>
         </div>
         <div className="outline-lessons">
           <p className="outline-label">Current unit</p>
@@ -196,6 +269,7 @@ export default function IntegratedSciencePage() {
           {subject.lessons.map((lesson, index) => (
             <button
               className={lesson.id === selectedLesson.id ? "active" : ""}
+              disabled={lesson.availability !== "available"}
               key={lesson.id}
               onClick={() => {
                 setSelectedLessonId(lesson.id);
@@ -204,9 +278,9 @@ export default function IntegratedSciencePage() {
               }}
               type="button"
             >
-              <span>{index + 1}</span>
-              <p><strong>{lesson.title}</strong><small>{lesson.blocks.length} learning activities</small></p>
-              <i aria-hidden="true">›</i>
+              <span>{lesson.availability === "locked" ? "⌁" : lesson.progressPercent === 100 ? "✓" : index + 1}</span>
+              <p><strong>{lesson.title}</strong><small>{lesson.releaseHint ?? `${lesson.estimatedMinutes} min · ${lesson.standardCodes.length} standards`}</small></p>
+              <i aria-hidden="true">{lesson.availability === "available" ? "›" : "🔒"}</i>
             </button>
           ))}
         </div>
@@ -223,6 +297,7 @@ export default function IntegratedSciencePage() {
             <p className="lesson-eyebrow">{selectedLesson.unitTitle} · Lesson {lessonPosition}</p>
             <h1>{selectedLesson.title}</h1>
             <p>{selectedLesson.summary}</p>
+            <div className="lesson-standard-chips">{selectedLesson.standardCodes.map((code) => <span key={code}>{code}</span>)}<span>{selectedLesson.estimatedMinutes} min</span></div>
           </div>
           <div className="lesson-progress-ring" style={{ "--lesson-progress": `${progress * 3.6}deg` } as React.CSSProperties}>
             <span><strong>{progress}%</strong><small>complete</small></span>

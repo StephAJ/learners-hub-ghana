@@ -3,15 +3,19 @@ import type { AccessContext } from "../domain/identity/types";
 import {
   addLessonBlock,
   createLessonDraft,
+  evaluateLessonAvailability,
   LessonPolicyError,
   publishLesson,
   recordLessonProgress,
 } from "../domain/learning/lessons";
 import type {
+  CurriculumStandard,
   Lesson,
+  LessonAvailability,
   LessonBlock,
   LessonBlockType,
   LessonProgress,
+  LessonReleaseRule,
 } from "../domain/learning/types";
 import { getD1Database } from "./index";
 
@@ -22,6 +26,9 @@ export type LessonSummary = {
   blockCount: number;
   id: string;
   objectiveCount: number;
+  prerequisiteTitle?: string;
+  releaseMode: "immediate" | "scheduled" | "prerequisite";
+  standardCodes: string[];
   status: Lesson["status"];
   title: string;
   unitId: string;
@@ -36,15 +43,20 @@ export type TeacherLessonWorkspace = {
   coveragePercent: number;
   lessons: LessonSummary[];
   offeringId: string;
+  standards: CurriculumStandard[];
   subjectName: string;
   units: Array<{ id: string; lessonCount: number; title: string }>;
 };
 
 export type LearnerLesson = {
+  availability: LessonAvailability;
   blocks: LessonBlock[];
+  estimatedMinutes: number;
   id: string;
   objectives: string[];
   progressPercent: number;
+  releaseHint?: string;
+  standardCodes: string[];
   summary: string;
   title: string;
   unitTitle: string;
@@ -61,12 +73,17 @@ export type LearnerSubject = {
 };
 
 export type CreateDraftInput = {
-  blockContent: string;
-  blockTitle: string;
-  blockType: LessonBlockType;
-  objective: string;
+  availableFrom?: string;
+  blocks: Array<{
+    content: string;
+    title: string;
+    type: LessonBlockType;
+  }>;
+  objectives: string[];
   offeringId: string;
+  prerequisiteLessonId?: string;
   summary: string;
+  standardIds: string[];
   title: string;
   unitId: string;
 };
@@ -126,7 +143,64 @@ export async function listTeacherLessonWorkspace(
       updated_at: string;
     }>();
 
-  const lessons = lessonsResult.results.map(toLessonSummary);
+  const standardsResult = await database
+    .prepare(
+      `SELECT id, code, strand, sub_strand, description, position
+      FROM curriculum_standards
+      WHERE tenant_id = ? AND offering_id = ?
+      ORDER BY position`,
+    )
+    .bind(access.tenantId, offering.offering_id)
+    .all<{
+      code: string;
+      description: string;
+      id: string;
+      position: number;
+      strand: string;
+      sub_strand: string;
+    }>();
+  const planningResult = await database
+    .prepare(
+      `SELECT
+        l.id AS lesson_id,
+        s.code AS standard_code,
+        r.available_from,
+        r.prerequisite_lesson_id,
+        pv.title AS prerequisite_title
+      FROM lessons l
+      LEFT JOIN lesson_standard_links link ON link.lesson_id = l.id
+      LEFT JOIN curriculum_standards s ON s.id = link.standard_id
+      LEFT JOIN lesson_release_rules r ON r.lesson_id = l.id
+      LEFT JOIN lessons prerequisite ON prerequisite.id = r.prerequisite_lesson_id
+      LEFT JOIN lesson_versions pv
+        ON pv.lesson_id = prerequisite.id
+        AND pv.version = prerequisite.current_version
+      WHERE l.tenant_id = ? AND l.offering_id = ?
+      ORDER BY s.position`,
+    )
+    .bind(access.tenantId, offering.offering_id)
+    .all<{
+      available_from: string | null;
+      lesson_id: string;
+      prerequisite_lesson_id: string | null;
+      prerequisite_title: string | null;
+      standard_code: string | null;
+    }>();
+  const planningByLesson = buildLessonPlanningMap(planningResult.results);
+  const lessons = lessonsResult.results.map((row) => {
+    const summary = toLessonSummary(row);
+    const planning = planningByLesson.get(summary.id);
+    return {
+      ...summary,
+      prerequisiteTitle: planning?.prerequisiteTitle,
+      releaseMode: planning?.prerequisiteLessonId
+        ? "prerequisite"
+        : planning?.availableFrom
+          ? "scheduled"
+          : "immediate",
+      standardCodes: planning?.standardCodes ?? [],
+    } satisfies LessonSummary;
+  });
   const publishedCount = lessons.filter(
     (lesson) => lesson.status === "published",
   ).length;
@@ -139,6 +213,14 @@ export async function listTeacherLessonWorkspace(
       : 0,
     lessons,
     offeringId: offering.offering_id,
+    standards: standardsResult.results.map((standard) => ({
+      code: standard.code,
+      description: standard.description,
+      id: standard.id,
+      position: standard.position,
+      strand: standard.strand,
+      subStrand: standard.sub_strand,
+    })),
     subjectName: offering.subject_name,
     units: unitsResult.results.map((unit) => ({
       id: unit.id,
@@ -167,27 +249,41 @@ export async function createPersistentLessonDraft(
     input.offeringId,
     input.unitId,
   );
+  await requireOfferingStandards(
+    database,
+    access.tenantId,
+    input.offeringId,
+    input.standardIds,
+  );
+  await requirePrerequisiteLesson(
+    database,
+    access.tenantId,
+    input.offeringId,
+    input.prerequisiteLessonId,
+  );
 
   const lessonId = crypto.randomUUID();
   const versionId = `${lessonId}:v0`;
-  const draft = addLessonBlock(
-    createLessonDraft({
+  const emptyDraft = createLessonDraft({
       authorPersonId: access.actorPersonId,
       id: lessonId,
-      objectives: [input.objective.trim()],
+      objectives: input.objectives.map((objective) => objective.trim()),
       offeringId: input.offeringId,
       summary: input.summary.trim(),
       tenantId: access.tenantId,
       title: input.title.trim(),
       unitId: input.unitId,
-    }),
-    {
-      content: input.blockContent.trim(),
-      id: crypto.randomUUID(),
-      ready: true,
-      title: input.blockTitle.trim(),
-      type: input.blockType,
-    },
+    });
+  const draft = input.blocks.reduce(
+    (lesson, block) =>
+      addLessonBlock(lesson, {
+        content: block.content.trim(),
+        id: crypto.randomUUID(),
+        ready: true,
+        title: block.title.trim(),
+        type: block.type,
+      }),
+    emptyDraft,
   );
 
   await database.batch([
@@ -219,19 +315,49 @@ export async function createPersistentLessonDraft(
         JSON.stringify(draft.objectives),
         draft.authorPersonId,
       ),
+    ...draft.blocks.map((block) =>
+      database
+        .prepare(
+          `INSERT INTO lesson_blocks
+            (id, tenant_id, lesson_version_id, type, position, title, content, ready)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        )
+        .bind(
+          block.id,
+          draft.tenantId,
+          versionId,
+          block.type,
+          block.position,
+          block.title,
+          block.content,
+        ),
+    ),
+    ...input.standardIds.map((standardId) =>
+      database
+        .prepare(
+          `INSERT INTO lesson_standard_links
+            (id, tenant_id, lesson_id, standard_id)
+          VALUES (?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          draft.tenantId,
+          draft.id,
+          standardId,
+        ),
+    ),
     database
       .prepare(
-        `INSERT INTO lesson_blocks
-          (id, tenant_id, lesson_version_id, type, position, title, content, ready)
-        VALUES (?, ?, ?, ?, 1, ?, ?, 1)`,
+        `INSERT INTO lesson_release_rules
+          (id, tenant_id, lesson_id, available_from, prerequisite_lesson_id)
+        VALUES (?, ?, ?, ?, ?)`,
       )
       .bind(
-        draft.blocks[0].id,
+        crypto.randomUUID(),
         draft.tenantId,
-        versionId,
-        draft.blocks[0].type,
-        draft.blocks[0].title,
-        draft.blocks[0].content,
+        draft.id,
+        input.availableFrom?.trim() || null,
+        input.prerequisiteLessonId?.trim() || null,
       ),
     auditStatement(
       database,
@@ -243,9 +369,22 @@ export async function createPersistentLessonDraft(
   ]);
 
   return {
-    blockCount: 1,
+    blockCount: draft.blocks.length,
     id: draft.id,
     objectiveCount: draft.objectives.length,
+    prerequisiteTitle: input.prerequisiteLessonId
+      ? await findLessonTitle(database, input.prerequisiteLessonId)
+      : undefined,
+    releaseMode: input.prerequisiteLessonId
+      ? "prerequisite"
+      : input.availableFrom
+        ? "scheduled"
+        : "immediate",
+    standardCodes: await findStandardCodes(
+      database,
+      draft.tenantId,
+      draft.id,
+    ),
     status: draft.status,
     title: draft.title,
     unitId: draft.unitId,
@@ -322,10 +461,28 @@ export async function publishPersistentLesson(
     ),
   ]);
 
+  const releaseRule = await findReleaseRule(
+    database,
+    published.tenantId,
+    published.id,
+  );
   return {
     blockCount: published.blocks.length,
     id: published.id,
     objectiveCount: published.objectives.length,
+    prerequisiteTitle: releaseRule?.prerequisiteLessonId
+      ? await findLessonTitle(database, releaseRule.prerequisiteLessonId)
+      : undefined,
+    releaseMode: releaseRule?.prerequisiteLessonId
+      ? "prerequisite"
+      : releaseRule?.availableFrom
+        ? "scheduled"
+        : "immediate",
+    standardCodes: await findStandardCodes(
+      database,
+      published.tenantId,
+      published.id,
+    ),
     status: published.status,
     title: published.title,
     unitId: published.unitId,
@@ -333,6 +490,54 @@ export async function publishPersistentLesson(
     updatedAt: published.publishedAt ?? "",
     version: published.version,
   };
+}
+
+export async function duplicatePersistentLesson(
+  access: AccessContext,
+  lessonId: string,
+): Promise<LessonSummary> {
+  await ensureLearningFoundation();
+  const scopedAccess = await withTeacherAssignments(access);
+  const database = await getD1Database();
+  const source = await loadLesson(database, access.tenantId, lessonId);
+  if (!canTeachOffering(scopedAccess, source.offeringId)) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+  const standardIds = await findStandardIds(
+    database,
+    source.tenantId,
+    source.id,
+  );
+  const duplicate = await createPersistentLessonDraft(access, {
+    blocks: source.blocks.map((block) => ({
+      content: block.content,
+      title: block.title,
+      type: block.type,
+    })),
+    objectives: source.objectives,
+    offeringId: source.offeringId,
+    standardIds,
+    summary: source.summary,
+    title: `${source.title} — copy`,
+    unitId: source.unitId,
+  });
+  await database
+    .prepare(
+      `INSERT INTO audit_events
+        (id, tenant_id, actor_person_id, action, entity_type, entity_id, metadata)
+      VALUES (?, ?, ?, 'lesson.duplicated', 'lesson', ?, ?)`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      access.tenantId,
+      access.actorPersonId,
+      duplicate.id,
+      JSON.stringify({ sourceLessonId: source.id }),
+    )
+    .run();
+  return duplicate;
 }
 
 export async function getLearnerSubject(
@@ -382,11 +587,20 @@ export async function getLearnerSubject(
         v.summary,
         v.objectives,
         u.title AS unit_title,
+        r.available_from,
+        r.available_until,
+        r.prerequisite_lesson_id,
+        prerequisite_version.title AS prerequisite_title,
         COALESCE(pr.percent, 0) AS progress_percent
       FROM lessons l
       INNER JOIN lesson_versions v
         ON v.lesson_id = l.id AND v.version = l.current_version
       INNER JOIN curriculum_units u ON u.id = l.unit_id
+      LEFT JOIN lesson_release_rules r ON r.lesson_id = l.id
+      LEFT JOIN lessons prerequisite ON prerequisite.id = r.prerequisite_lesson_id
+      LEFT JOIN lesson_versions prerequisite_version
+        ON prerequisite_version.lesson_id = prerequisite.id
+        AND prerequisite_version.version = prerequisite.current_version
       LEFT JOIN lesson_progress pr
         ON pr.lesson_id = l.id
         AND pr.lesson_version = l.current_version
@@ -398,9 +612,13 @@ export async function getLearnerSubject(
     )
     .bind(access.actorPersonId, access.tenantId, offeringId)
     .all<{
+      available_from: string | null;
+      available_until: string | null;
       current_version: number;
       id: string;
       objectives: string;
+      prerequisite_lesson_id: string | null;
+      prerequisite_title: string | null;
       progress_percent: number;
       summary: string;
       title: string;
@@ -408,17 +626,67 @@ export async function getLearnerSubject(
       version_id: string;
     }>();
 
+  const completedResult = await database
+    .prepare(
+      `SELECT lesson_id
+      FROM lesson_progress
+      WHERE tenant_id = ? AND learner_person_id = ? AND status = 'completed'`,
+    )
+    .bind(access.tenantId, access.actorPersonId)
+    .all<{ lesson_id: string }>();
+  const completedLessonIds = new Set(
+    completedResult.results.map((row) => row.lesson_id),
+  );
+  const now = new Date();
   const lessons = await Promise.all(
-    lessonRows.results.map(async (row) => ({
-      blocks: await loadVersionBlocks(database, access.tenantId, row.version_id),
-      id: row.id,
-      objectives: parseObjectives(row.objectives),
-      progressPercent: Number(row.progress_percent),
-      summary: row.summary,
-      title: row.title,
-      unitTitle: row.unit_title,
-      version: row.current_version,
-    })),
+    lessonRows.results.map(async (row) => {
+      const rule: LessonReleaseRule = {
+        availableFrom: row.available_from ?? undefined,
+        availableUntil: row.available_until ?? undefined,
+        lessonId: row.id,
+        prerequisiteLessonId: row.prerequisite_lesson_id ?? undefined,
+      };
+      const availability = evaluateLessonAvailability(
+        rule,
+        completedLessonIds,
+        now,
+      );
+      return {
+        availability,
+        blocks:
+          availability === "available"
+            ? await loadVersionBlocks(
+                database,
+                access.tenantId,
+                row.version_id,
+              )
+            : [],
+        estimatedMinutes: estimateLessonMinutes(
+          await countVersionBlocks(
+            database,
+            access.tenantId,
+            row.version_id,
+          ),
+        ),
+        id: row.id,
+        objectives: parseObjectives(row.objectives),
+        progressPercent: Number(row.progress_percent),
+        releaseHint: lessonReleaseHint(
+          availability,
+          row.available_from,
+          row.prerequisite_title,
+        ),
+        standardCodes: await findStandardCodes(
+          database,
+          access.tenantId,
+          row.id,
+        ),
+        summary: row.summary,
+        title: row.title,
+        unitTitle: row.unit_title,
+        version: row.current_version,
+      };
+    }),
   );
 
   return {
@@ -460,6 +728,25 @@ export async function saveLessonProgress(
   if (!publishedVersion) {
     throw new LessonPolicyError(
       "Progress can only be recorded for the current published lesson.",
+    );
+  }
+  const releaseRule = await findReleaseRule(database, access.tenantId, lessonId);
+  const completedResult = await database
+    .prepare(
+      `SELECT lesson_id
+      FROM lesson_progress
+      WHERE tenant_id = ? AND learner_person_id = ? AND status = 'completed'`,
+    )
+    .bind(access.tenantId, access.actorPersonId)
+    .all<{ lesson_id: string }>();
+  const availability = evaluateLessonAvailability(
+    releaseRule,
+    new Set(completedResult.results.map((row) => row.lesson_id)),
+    new Date(),
+  );
+  if (availability !== "available") {
+    throw new LessonPolicyError(
+      "This lesson is not currently available to the learner.",
     );
   }
   const current = await database
@@ -591,6 +878,33 @@ export async function ensureLearningFoundation() {
       "Nutrients, balanced diets, and healthy choices.",
       2,
     ),
+    seedStandard(
+      database,
+      "standard-human-systems-1",
+      "JHS2.IS.HBS.1",
+      "Systems",
+      "Human body systems",
+      "Describe the structures and functions of major human body systems.",
+      1,
+    ),
+    seedStandard(
+      database,
+      "standard-human-systems-2",
+      "JHS2.IS.HBS.2",
+      "Systems",
+      "Human body systems",
+      "Explain how body systems work together to sustain life.",
+      2,
+    ),
+    seedStandard(
+      database,
+      "standard-nutrition-1",
+      "JHS2.IS.NUT.1",
+      "Diversity of matter",
+      "Food and nutrition",
+      "Classify common foods and apply the principles of a balanced diet.",
+      3,
+    ),
     database
       .prepare(
         `INSERT OR IGNORE INTO teacher_assignments
@@ -671,6 +985,94 @@ export async function ensureLearningFoundation() {
       "Digestive system study sheet",
       "Download the low-data revision sheet and labelled-organ guide.",
     ),
+    seedStandardLink(
+      database,
+      "link-digestion-standard-1",
+      "lesson-digestive-system",
+      "standard-human-systems-1",
+    ),
+    seedStandardLink(
+      database,
+      "link-digestion-standard-2",
+      "lesson-digestive-system",
+      "standard-human-systems-2",
+    ),
+    seedReleaseRule(
+      database,
+      "release-digestive-system",
+      "lesson-digestive-system",
+    ),
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO lessons
+          (id, tenant_id, offering_id, unit_id, author_person_id, status, current_version)
+        VALUES (?, ?, ?, ?, ?, 'published', 1)`,
+      )
+      .bind(
+        "lesson-respiratory-system",
+        TENANT_ID,
+        SCIENCE_OFFERING_ID,
+        "unit-human-systems",
+        "person-grace",
+      ),
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO lesson_versions
+          (id, tenant_id, lesson_id, version, title, summary, objectives, status, published_at, created_by_person_id)
+        VALUES (?, ?, ?, 1, ?, ?, ?, 'published', ?, ?)`,
+      )
+      .bind(
+        "lesson-respiratory-system:v1",
+        TENANT_ID,
+        "lesson-respiratory-system",
+        "How breathing powers the body",
+        "Trace oxygen from the air into the blood and connect breathing to energy.",
+        JSON.stringify([
+          "Identify the main structures of the respiratory system.",
+          "Explain how oxygen reaches body cells.",
+        ]),
+        "2026-07-23T11:00:00Z",
+        "person-grace",
+      ),
+    seedBlock(
+      database,
+      "block-respiration-intro",
+      "lesson-respiratory-system:v1",
+      "text",
+      1,
+      "The journey of a breath",
+      "Air travels through the nose and windpipe into branching tubes that end in tiny air sacs called alveoli.",
+    ),
+    seedBlock(
+      database,
+      "block-respiration-video",
+      "lesson-respiratory-system:v1",
+      "video",
+      2,
+      "Watch gas exchange",
+      "A short low-data animation shows oxygen entering the blood and carbon dioxide leaving it.",
+    ),
+    seedBlock(
+      database,
+      "block-respiration-practice",
+      "lesson-respiratory-system:v1",
+      "practice",
+      3,
+      "Label the breathing pathway",
+      "Arrange the nose, windpipe, bronchi, lungs, and alveoli in the order air reaches them.",
+    ),
+    seedStandardLink(
+      database,
+      "link-respiration-standard-2",
+      "lesson-respiratory-system",
+      "standard-human-systems-2",
+    ),
+    seedReleaseRule(
+      database,
+      "release-respiratory-system",
+      "lesson-respiratory-system",
+      "lesson-digestive-system",
+    ),
     database
       .prepare(
         `INSERT OR IGNORE INTO lessons
@@ -708,6 +1110,17 @@ export async function ensureLearningFoundation() {
       "What makes a meal balanced?",
       "A balanced meal combines energy-giving, body-building, and protective foods in suitable amounts.",
     ),
+    seedStandardLink(
+      database,
+      "link-balanced-standard-1",
+      "lesson-balanced-diet",
+      "standard-nutrition-1",
+    ),
+    seedReleaseRule(
+      database,
+      "release-balanced-diet",
+      "lesson-balanced-diet",
+    ),
   ]);
 }
 
@@ -743,6 +1156,63 @@ function seedBlock(
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
     )
     .bind(id, TENANT_ID, versionId, type, position, title, content);
+}
+
+function seedStandard(
+  database: D1Database,
+  id: string,
+  code: string,
+  strand: string,
+  subStrand: string,
+  description: string,
+  position: number,
+) {
+  return database
+    .prepare(
+      `INSERT OR IGNORE INTO curriculum_standards
+        (id, tenant_id, offering_id, code, strand, sub_strand, description, position)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      TENANT_ID,
+      SCIENCE_OFFERING_ID,
+      code,
+      strand,
+      subStrand,
+      description,
+      position,
+    );
+}
+
+function seedStandardLink(
+  database: D1Database,
+  id: string,
+  lessonId: string,
+  standardId: string,
+) {
+  return database
+    .prepare(
+      `INSERT OR IGNORE INTO lesson_standard_links
+        (id, tenant_id, lesson_id, standard_id)
+      VALUES (?, ?, ?, ?)`,
+    )
+    .bind(id, TENANT_ID, lessonId, standardId);
+}
+
+function seedReleaseRule(
+  database: D1Database,
+  id: string,
+  lessonId: string,
+  prerequisiteLessonId?: string,
+) {
+  return database
+    .prepare(
+      `INSERT OR IGNORE INTO lesson_release_rules
+        (id, tenant_id, lesson_id, prerequisite_lesson_id)
+      VALUES (?, ?, ?, ?)`,
+    )
+    .bind(id, TENANT_ID, lessonId, prerequisiteLessonId ?? null);
 }
 
 async function findAccessibleOffering(access: AccessContext) {
@@ -918,6 +1388,8 @@ function toLessonSummary(row: {
     blockCount: Number(row.block_count),
     id: row.id,
     objectiveCount: parseObjectives(row.objectives).length,
+    releaseMode: "immediate",
+    standardCodes: [],
     status: row.status,
     title: row.title,
     unitId: row.unit_id,
@@ -925,6 +1397,158 @@ function toLessonSummary(row: {
     updatedAt: row.updated_at,
     version: row.current_version,
   };
+}
+
+function buildLessonPlanningMap(
+  rows: Array<{
+    available_from: string | null;
+    lesson_id: string;
+    prerequisite_lesson_id: string | null;
+    prerequisite_title: string | null;
+    standard_code: string | null;
+  }>,
+) {
+  const planning = new Map<
+    string,
+    {
+      availableFrom?: string;
+      prerequisiteLessonId?: string;
+      prerequisiteTitle?: string;
+      standardCodes: string[];
+    }
+  >();
+  for (const row of rows) {
+    const current = planning.get(row.lesson_id) ?? { standardCodes: [] };
+    if (row.available_from) current.availableFrom = row.available_from;
+    if (row.prerequisite_lesson_id) {
+      current.prerequisiteLessonId = row.prerequisite_lesson_id;
+    }
+    if (row.prerequisite_title) {
+      current.prerequisiteTitle = row.prerequisite_title;
+    }
+    if (
+      row.standard_code &&
+      !current.standardCodes.includes(row.standard_code)
+    ) {
+      current.standardCodes.push(row.standard_code);
+    }
+    planning.set(row.lesson_id, current);
+  }
+  return planning;
+}
+
+async function findStandardCodes(
+  database: D1Database,
+  tenantId: string,
+  lessonId: string,
+) {
+  const result = await database
+    .prepare(
+      `SELECT s.code
+      FROM lesson_standard_links link
+      INNER JOIN curriculum_standards s ON s.id = link.standard_id
+      WHERE link.tenant_id = ? AND link.lesson_id = ?
+      ORDER BY s.position`,
+    )
+    .bind(tenantId, lessonId)
+    .all<{ code: string }>();
+  return result.results.map((row) => row.code);
+}
+
+async function findStandardIds(
+  database: D1Database,
+  tenantId: string,
+  lessonId: string,
+) {
+  const result = await database
+    .prepare(
+      `SELECT standard_id
+      FROM lesson_standard_links
+      WHERE tenant_id = ? AND lesson_id = ?`,
+    )
+    .bind(tenantId, lessonId)
+    .all<{ standard_id: string }>();
+  return result.results.map((row) => row.standard_id);
+}
+
+async function findReleaseRule(
+  database: D1Database,
+  tenantId: string,
+  lessonId: string,
+): Promise<LessonReleaseRule | undefined> {
+  const row = await database
+    .prepare(
+      `SELECT available_from, available_until, prerequisite_lesson_id
+      FROM lesson_release_rules
+      WHERE tenant_id = ? AND lesson_id = ?
+      LIMIT 1`,
+    )
+    .bind(tenantId, lessonId)
+    .first<{
+      available_from: string | null;
+      available_until: string | null;
+      prerequisite_lesson_id: string | null;
+    }>();
+  if (!row) return undefined;
+  return {
+    availableFrom: row.available_from ?? undefined,
+    availableUntil: row.available_until ?? undefined,
+    lessonId,
+    prerequisiteLessonId: row.prerequisite_lesson_id ?? undefined,
+  };
+}
+
+async function findLessonTitle(database: D1Database, lessonId: string) {
+  const row = await database
+    .prepare(
+      `SELECT v.title
+      FROM lessons l
+      INNER JOIN lesson_versions v
+        ON v.lesson_id = l.id AND v.version = l.current_version
+      WHERE l.id = ?
+      LIMIT 1`,
+    )
+    .bind(lessonId)
+    .first<{ title: string }>();
+  return row?.title;
+}
+
+async function countVersionBlocks(
+  database: D1Database,
+  tenantId: string,
+  versionId: string,
+) {
+  const row = await database
+    .prepare(
+      `SELECT COUNT(*) AS block_count
+      FROM lesson_blocks
+      WHERE tenant_id = ? AND lesson_version_id = ?`,
+    )
+    .bind(tenantId, versionId)
+    .first<{ block_count: number }>();
+  return Number(row?.block_count ?? 0);
+}
+
+function estimateLessonMinutes(blockCount: number) {
+  return Math.max(8, blockCount * 5);
+}
+
+function lessonReleaseHint(
+  availability: LessonAvailability,
+  availableFrom: string | null,
+  prerequisiteTitle: string | null,
+) {
+  if (availability === "locked" && prerequisiteTitle) {
+    return `Complete “${prerequisiteTitle}” first`;
+  }
+  if (availability === "scheduled" && availableFrom) {
+    return `Opens ${new Date(availableFrom).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+    })}`;
+  }
+  if (availability === "closed") return "The lesson window has closed";
+  return undefined;
 }
 
 function auditStatement(
@@ -961,29 +1585,40 @@ function requireLessonPermission(access: AccessContext) {
 function validateDraftInput(input: CreateDraftInput) {
   if (
     typeof input.title !== "string" ||
-    typeof input.objective !== "string" ||
-    typeof input.blockTitle !== "string" ||
-    typeof input.blockContent !== "string" ||
     typeof input.offeringId !== "string" ||
     typeof input.unitId !== "string" ||
+    !Array.isArray(input.objectives) ||
+    !Array.isArray(input.blocks) ||
+    !Array.isArray(input.standardIds) ||
     !input.title.trim() ||
-    !input.objective.trim() ||
-    !input.blockTitle.trim() ||
-    !input.blockContent.trim() ||
     !input.offeringId.trim() ||
-    !input.unitId.trim()
-  ) {
-    throw new LessonPolicyError(
-      "Offering, unit, title, objective, block title, and block content are required.",
-    );
-  }
-  if (
-    !["text", "video", "interactive", "practice", "resource"].includes(
-      input.blockType,
+    !input.unitId.trim() ||
+    input.objectives.length === 0 ||
+    input.blocks.length === 0 ||
+    input.objectives.some(
+      (objective) => typeof objective !== "string" || !objective.trim(),
+    ) ||
+    input.blocks.some(
+      (block) =>
+        typeof block.title !== "string" ||
+        typeof block.content !== "string" ||
+        !block.title.trim() ||
+        !block.content.trim(),
     )
   ) {
+    throw new LessonPolicyError(
+      "Offering, unit, title, objectives, and complete lesson blocks are required.",
+    );
+  }
+  if (input.blocks.some((block) => !isLessonBlockType(block.type))) {
     throw new LessonPolicyError("Select a supported lesson block type.");
   }
+}
+
+function isLessonBlockType(value: string): value is LessonBlockType {
+  return ["text", "video", "interactive", "practice", "resource"].includes(
+    value,
+  );
 }
 
 async function requireOfferingUnit(
@@ -1004,6 +1639,52 @@ async function requireOfferingUnit(
   if (!unit) {
     throw new LessonPolicyError(
       "The curriculum unit does not belong to this subject offering.",
+    );
+  }
+}
+
+async function requireOfferingStandards(
+  database: D1Database,
+  tenantId: string,
+  offeringId: string,
+  standardIds: string[],
+) {
+  if (standardIds.length === 0) return;
+  const placeholders = standardIds.map(() => "?").join(", ");
+  const result = await database
+    .prepare(
+      `SELECT id
+      FROM curriculum_standards
+      WHERE tenant_id = ? AND offering_id = ? AND id IN (${placeholders})`,
+    )
+    .bind(tenantId, offeringId, ...standardIds)
+    .all<{ id: string }>();
+  if (result.results.length !== new Set(standardIds).size) {
+    throw new LessonPolicyError(
+      "Every selected curriculum standard must belong to this subject.",
+    );
+  }
+}
+
+async function requirePrerequisiteLesson(
+  database: D1Database,
+  tenantId: string,
+  offeringId: string,
+  prerequisiteLessonId?: string,
+) {
+  if (!prerequisiteLessonId) return;
+  const prerequisite = await database
+    .prepare(
+      `SELECT id
+      FROM lessons
+      WHERE id = ? AND tenant_id = ? AND offering_id = ? AND status = 'published'
+      LIMIT 1`,
+    )
+    .bind(prerequisiteLessonId, tenantId, offeringId)
+    .first<{ id: string }>();
+  if (!prerequisite) {
+    throw new LessonPolicyError(
+      "A prerequisite must be a published lesson in this subject.",
     );
   }
 }

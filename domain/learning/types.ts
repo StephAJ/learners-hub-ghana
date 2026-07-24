@@ -18,6 +18,28 @@ export type LessonBlock = {
 
 export type LessonBlockInput = Omit<LessonBlock, "position">;
 
+export type CurriculumStandard = {
+  code: string;
+  description: string;
+  id: string;
+  position: number;
+  strand: string;
+  subStrand: string;
+};
+
+export type LessonReleaseRule = {
+  availableFrom?: string;
+  availableUntil?: string;
+  lessonId: string;
+  prerequisiteLessonId?: string;
+};
+
+export type LessonAvailability =
+  | "available"
+  | "scheduled"
+  | "locked"
+  | "closed";
+
 export type Lesson = {
   authorPersonId: string;
   blocks: LessonBlock[];
@@ -55,4 +77,3 @@ export type RecordLessonProgressCommand = Omit<
   LessonProgress,
   "completedAt" | "status"
 >;
-

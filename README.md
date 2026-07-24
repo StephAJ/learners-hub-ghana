@@ -18,6 +18,10 @@ Guardians can see only released reports for children linked to their accounts.
 The daily-operations slice adds versioned assignments and rubrics, attendance
 registers with reasoned correction history, clash-conscious timetables, and
 relationship-protected guardian absence alerts.
+The advanced lesson release adds ordered multi-activity authoring, Ghanaian
+curriculum-standard mapping, reusable lesson duplication, scheduled and
+prerequisite release rules, and learner pathways that unlock from durable
+completion records.
 
 ## Current technology
 
@@ -57,7 +61,7 @@ npm run lint
 ## Near-term implementation order
 
 1. Move the remaining academic and admissions fixtures behind tenant-scoped repositories.
-2. Add secure media uploads and rich hotspot, composite, and file-response authoring.
+2. Add secure media uploads, H5P package delivery, and rich hotspot authoring.
 3. Generate signed report PDFs and downloadable school documents.
 4. Add approved school communication templates, delivery tracking, and family inboxes.
 5. Start the Expo mobile client using the stable learning, assessment, report, and school-day contracts.

@@ -25,6 +25,34 @@ const previewWorkspace: TeacherLessonWorkspace = {
   code: "IS",
   coveragePercent: 50,
   offeringId: "offering-science-jhs2",
+  standards: [
+    {
+      code: "JHS2.IS.HBS.1",
+      description:
+        "Describe the structures and functions of major human body systems.",
+      id: "standard-human-systems-1",
+      position: 1,
+      strand: "Systems",
+      subStrand: "Human body systems",
+    },
+    {
+      code: "JHS2.IS.HBS.2",
+      description: "Explain how body systems work together to sustain life.",
+      id: "standard-human-systems-2",
+      position: 2,
+      strand: "Systems",
+      subStrand: "Human body systems",
+    },
+    {
+      code: "JHS2.IS.NUT.1",
+      description:
+        "Classify common foods and apply the principles of a balanced diet.",
+      id: "standard-nutrition-1",
+      position: 3,
+      strand: "Diversity of matter",
+      subStrand: "Food and nutrition",
+    },
+  ],
   subjectName: "Integrated Science",
   units: [
     { id: "unit-human-systems", lessonCount: 1, title: "Human body systems" },
@@ -35,6 +63,8 @@ const previewWorkspace: TeacherLessonWorkspace = {
       blockCount: 4,
       id: "lesson-digestive-system",
       objectiveCount: 2,
+      releaseMode: "immediate",
+      standardCodes: ["JHS2.IS.HBS.1", "JHS2.IS.HBS.2"],
       status: "published",
       title: "The human digestive system",
       unitId: "unit-human-systems",
@@ -43,9 +73,25 @@ const previewWorkspace: TeacherLessonWorkspace = {
       version: 1,
     },
     {
+      blockCount: 3,
+      id: "lesson-respiratory-system",
+      objectiveCount: 2,
+      prerequisiteTitle: "The human digestive system",
+      releaseMode: "prerequisite",
+      standardCodes: ["JHS2.IS.HBS.2"],
+      status: "published",
+      title: "How breathing powers the body",
+      unitId: "unit-human-systems",
+      unitTitle: "Human body systems",
+      updatedAt: "2026-07-23T11:00:00Z",
+      version: 1,
+    },
+    {
       blockCount: 1,
       id: "lesson-balanced-diet",
       objectiveCount: 1,
+      releaseMode: "immediate",
+      standardCodes: ["JHS2.IS.NUT.1"],
       status: "draft",
       title: "Building a balanced Ghanaian meal",
       unitId: "unit-food-nutrition",
@@ -115,13 +161,29 @@ export default function TeacherSubjectsPage() {
   const draftCount = workspace.lessons.filter(
     (lesson) => lesson.status === "draft",
   ).length;
+  const mappedStandardCount = new Set(
+    workspace.lessons.flatMap((lesson) => lesson.standardCodes),
+  ).size;
 
   async function createDraft(input: CreateLessonFormInput) {
     if (dataMode !== "protected") {
       const previewLesson: LessonSummary = {
-        blockCount: 1,
+        blockCount: input.blocks.length,
         id: `preview-${Date.now()}`,
-        objectiveCount: 1,
+        objectiveCount: input.objectives.length,
+        prerequisiteTitle: input.prerequisiteLessonId
+          ? workspace.lessons.find(
+              (lesson) => lesson.id === input.prerequisiteLessonId,
+            )?.title
+          : undefined,
+        releaseMode: input.prerequisiteLessonId
+          ? "prerequisite"
+          : input.availableFrom
+            ? "scheduled"
+            : "immediate",
+        standardCodes: workspace.standards
+          .filter((standard) => input.standardIds.includes(standard.id))
+          .map((standard) => standard.code),
         status: "draft",
         title: input.title,
         unitId: input.unitId,
@@ -207,6 +269,50 @@ export default function TeacherSubjectsPage() {
     setNotice(`${payload.lesson.title} is now available to learners.`);
   }
 
+  async function duplicateSelectedLesson() {
+    if (!selectedLesson) return;
+    if (dataMode !== "protected") {
+      const duplicate: LessonSummary = {
+        ...selectedLesson,
+        id: `preview-copy-${Date.now()}`,
+        releaseMode: "immediate",
+        status: "draft",
+        title: `${selectedLesson.title} — copy`,
+        version: 0,
+      };
+      setWorkspace((current) => ({
+        ...current,
+        lessons: [duplicate, ...current.lessons],
+      }));
+      setSelectedLessonId(duplicate.id);
+      setNotice("A reusable private copy was added to the lesson library.");
+      return;
+    }
+
+    const response = await fetch("/api/teacher/lessons", {
+      body: JSON.stringify({
+        action: "duplicate",
+        lessonId: selectedLesson.id,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      lesson?: LessonSummary;
+    };
+    if (!response.ok || !payload.lesson) {
+      setNotice(payload.error ?? "The lesson could not be duplicated.");
+      return;
+    }
+    setWorkspace((current) => ({
+      ...current,
+      lessons: [payload.lesson as LessonSummary, ...current.lessons],
+    }));
+    setSelectedLessonId(payload.lesson.id);
+    setNotice(`${payload.lesson.title} is ready to adapt as a private draft.`);
+  }
+
   return (
     <div className="admin-shell teacher-shell">
       <aside className="admin-sidebar teacher-sidebar" aria-label="Teacher workspace">
@@ -282,7 +388,7 @@ export default function TeacherSubjectsPage() {
             <article><span>≡</span><p><small>Total lessons</small><strong>{workspace.lessons.length}</strong></p></article>
             <article><span>✓</span><p><small>Published</small><strong>{publishedCount}</strong></p></article>
             <article><span>✎</span><p><small>Drafts</small><strong>{draftCount}</strong></p></article>
-            <article><span>↗</span><p><small>Class completion</small><strong>82%</strong></p></article>
+            <article><span>◎</span><p><small>Standards mapped</small><strong>{mappedStandardCount}/{workspace.standards.length}</strong></p></article>
           </section>
 
           {notice && <p className="teacher-notice" role="status">{notice}</p>}
@@ -329,7 +435,8 @@ export default function TeacherSubjectsPage() {
                     <span className="lesson-list-copy">
                       <small>{lesson.unitTitle}</small>
                       <strong>{lesson.title}</strong>
-                      <span>{lesson.blockCount} blocks · {lesson.objectiveCount} objectives · Version {lesson.version}</span>
+                      <span>{lesson.blockCount} blocks · {lesson.objectiveCount} objectives · {lesson.standardCodes.length} standards</span>
+                      <em>{releaseLabel(lesson)}</em>
                     </span>
                     <span className={`lesson-status lesson-${lesson.status}`}>{lesson.status}</span>
                     <b aria-hidden="true">›</b>
@@ -344,7 +451,7 @@ export default function TeacherSubjectsPage() {
                     <p><small>Selected lesson</small><strong>{selectedLesson.title}</strong><span>{selectedLesson.unitTitle}</span></p>
                   </div>
                   <div>
-                    <button type="button">Edit lesson</button>
+                    <button onClick={duplicateSelectedLesson} type="button">Duplicate</button>
                     {selectedLesson.status === "draft" ? (
                       <button className="publish-button" onClick={publishSelectedLesson} type="button">Publish to class →</button>
                     ) : (
@@ -357,7 +464,9 @@ export default function TeacherSubjectsPage() {
 
             <LessonDraftForm
               id="new-lesson"
+              lessons={workspace.lessons}
               onCreate={createDraft}
+              standards={workspace.standards}
               units={workspace.units}
             />
           </div>
@@ -376,10 +485,15 @@ export default function TeacherSubjectsPage() {
 }
 
 type CreateLessonFormInput = {
-  blockContent: string;
-  blockTitle: string;
-  blockType: LessonBlockType;
-  objective: string;
+  availableFrom?: string;
+  blocks: Array<{
+    content: string;
+    title: string;
+    type: LessonBlockType;
+  }>;
+  objectives: string[];
+  prerequisiteLessonId?: string;
+  standardIds: string[];
   summary: string;
   title: string;
   unitId: string;
@@ -387,28 +501,89 @@ type CreateLessonFormInput = {
 
 function LessonDraftForm({
   id,
+  lessons,
   onCreate,
+  standards,
   units,
 }: {
   id: string;
+  lessons: TeacherLessonWorkspace["lessons"];
   onCreate: (input: CreateLessonFormInput) => Promise<void>;
+  standards: TeacherLessonWorkspace["standards"];
   units: TeacherLessonWorkspace["units"];
 }) {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
-  const [objective, setObjective] = useState("");
+  const [objectives, setObjectives] = useState("");
   const [unitId, setUnitId] = useState(units[0]?.id ?? "");
+  const [standardIds, setStandardIds] = useState<string[]>(
+    standards[0] ? [standards[0].id] : [],
+  );
+  const [releaseMode, setReleaseMode] = useState<
+    "immediate" | "scheduled" | "prerequisite"
+  >("immediate");
+  const [availableFrom, setAvailableFrom] = useState("");
+  const [prerequisiteLessonId, setPrerequisiteLessonId] = useState("");
   const [blockType, setBlockType] = useState<LessonBlockType>("text");
   const [blockTitle, setBlockTitle] = useState("");
   const [blockContent, setBlockContent] = useState("");
+  const [blocks, setBlocks] = useState<
+    Array<{
+      content: string;
+      id: string;
+      title: string;
+      type: LessonBlockType;
+    }>
+  >([]);
+
+  function addBlock() {
+    if (!blockTitle.trim() || !blockContent.trim()) return;
+    setBlocks((current) => [
+      ...current,
+      {
+        content: blockContent.trim(),
+        id: crypto.randomUUID(),
+        title: blockTitle.trim(),
+        type: blockType,
+      },
+    ]);
+    setBlockTitle("");
+    setBlockContent("");
+  }
+
+  function moveBlock(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= blocks.length) return;
+    setBlocks((current) => {
+      const reordered = [...current];
+      [reordered[index], reordered[targetIndex]] = [
+        reordered[targetIndex],
+        reordered[index],
+      ];
+      return reordered;
+    });
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (blocks.length === 0) return;
     await onCreate({
-      blockContent,
-      blockTitle,
-      blockType,
-      objective,
+      availableFrom:
+        releaseMode === "scheduled" ? availableFrom : undefined,
+      blocks: blocks.map(({ content, title: blockName, type }) => ({
+        content,
+        title: blockName,
+        type,
+      })),
+      objectives: objectives
+        .split("\n")
+        .map((objective) => objective.trim())
+        .filter(Boolean),
+      prerequisiteLessonId:
+        releaseMode === "prerequisite"
+          ? prerequisiteLessonId
+          : undefined,
+      standardIds,
       summary,
       title,
       unitId,
@@ -422,9 +597,49 @@ function LessonDraftForm({
         <label><span>Curriculum unit</span><select value={unitId} onChange={(event) => setUnitId(event.target.value)}>{units.map((unit) => <option value={unit.id} key={unit.id}>{unit.title}</option>)}</select></label>
         <label><span>Lesson title</span><input required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. How breathing works" /></label>
         <label><span>Short summary</span><textarea required value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="What will learners explore?" /></label>
-        <label><span>Learning objective</span><input required value={objective} onChange={(event) => setObjective(event.target.value)} placeholder="Learners will be able to…" /></label>
+        <label><span>Learning objectives</span><textarea required value={objectives} onChange={(event) => setObjectives(event.target.value)} placeholder={"One objective per line\nExplain how oxygen reaches body cells"} /></label>
+        <fieldset className="standards-picker">
+          <legend>Curriculum standards</legend>
+          {standards.map((standard) => (
+            <label key={standard.id}>
+              <input
+                checked={standardIds.includes(standard.id)}
+                onChange={(event) =>
+                  setStandardIds((current) =>
+                    event.target.checked
+                      ? [...current, standard.id]
+                      : current.filter((id) => id !== standard.id),
+                  )
+                }
+                type="checkbox"
+              />
+              <span><strong>{standard.code}</strong>{standard.description}</span>
+            </label>
+          ))}
+        </fieldset>
+        <fieldset className="release-picker">
+          <legend>Release to learners</legend>
+          <div>
+            {(["immediate", "scheduled", "prerequisite"] as const).map((mode) => (
+              <button
+                className={releaseMode === mode ? "active" : ""}
+                key={mode}
+                onClick={() => setReleaseMode(mode)}
+                type="button"
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+          {releaseMode === "scheduled" && (
+            <label><span>Available from</span><input required type="datetime-local" value={availableFrom} onChange={(event) => setAvailableFrom(event.target.value)} /></label>
+          )}
+          {releaseMode === "prerequisite" && (
+            <label><span>Unlock after</span><select required value={prerequisiteLessonId} onChange={(event) => setPrerequisiteLessonId(event.target.value)}><option value="">Choose a published lesson</option>{lessons.filter((lesson) => lesson.status === "published").map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title}</option>)}</select></label>
+          )}
+        </fieldset>
         <fieldset>
-          <legend>First content block</legend>
+          <legend>Lesson activities</legend>
           <div className="block-type-picker">
             {(["text", "video", "interactive", "practice", "resource"] as LessonBlockType[]).map((type) => (
               <button className={blockType === type ? "active" : ""} key={type} onClick={() => setBlockType(type)} type="button">
@@ -433,13 +648,35 @@ function LessonDraftForm({
             ))}
           </div>
         </fieldset>
-        <label><span>Block title</span><input required value={blockTitle} onChange={(event) => setBlockTitle(event.target.value)} placeholder="A clear section heading" /></label>
-        <label><span>Block content</span><textarea required value={blockContent} onChange={(event) => setBlockContent(event.target.value)} placeholder="Write content or describe the activity…" /></label>
-        <button className="save-draft-button" type="submit">Save private draft <span aria-hidden="true">→</span></button>
+        <label><span>Block title</span><input required={blocks.length === 0} value={blockTitle} onChange={(event) => setBlockTitle(event.target.value)} placeholder="A clear section heading" /></label>
+        <label><span>Block content</span><textarea required={blocks.length === 0} value={blockContent} onChange={(event) => setBlockContent(event.target.value)} placeholder="Write content or describe the activity…" /></label>
+        <button className="add-block-button" onClick={addBlock} type="button">+ Add activity</button>
+        <ol className="draft-block-list">
+          {blocks.map((block, index) => (
+            <li key={block.id}>
+              <span>{blockSymbol(block.type)}</span>
+              <p><strong>{block.title}</strong><small>{block.type} · Activity {index + 1}</small></p>
+              <div>
+                <button aria-label={`Move ${block.title} up`} disabled={index === 0} onClick={() => moveBlock(index, -1)} type="button">↑</button>
+                <button aria-label={`Move ${block.title} down`} disabled={index === blocks.length - 1} onClick={() => moveBlock(index, 1)} type="button">↓</button>
+                <button aria-label={`Remove ${block.title}`} onClick={() => setBlocks((current) => current.filter((item) => item.id !== block.id))} type="button">×</button>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <button className="save-draft-button" disabled={blocks.length === 0 || standardIds.length === 0} type="submit">Save {blocks.length}-activity draft <span aria-hidden="true">→</span></button>
       </form>
-      <p className="builder-rule"><span aria-hidden="true">i</span>Only assigned teachers and academic administrators can publish to this class.</p>
+      <p className="builder-rule"><span aria-hidden="true">i</span>Standards, release rules, and every ordered activity are saved with the private draft.</p>
     </aside>
   );
+}
+
+function releaseLabel(lesson: LessonSummary) {
+  if (lesson.releaseMode === "prerequisite") {
+    return `Unlocks after ${lesson.prerequisiteTitle ?? "the prerequisite lesson"}`;
+  }
+  if (lesson.releaseMode === "scheduled") return "Scheduled release";
+  return "Available when published";
 }
 
 function blockSymbol(type: LessonBlockType) {

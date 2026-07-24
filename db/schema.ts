@@ -381,6 +381,92 @@ export const lessonProgress = sqliteTable(
   ],
 );
 
+export const curriculumStandards = sqliteTable(
+  "curriculum_standards",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    code: text("code").notNull(),
+    strand: text("strand").notNull(),
+    subStrand: text("sub_strand").notNull(),
+    description: text("description").notNull(),
+    position: integer("position").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("standards_offering_code_idx").on(
+      table.tenantId,
+      table.offeringId,
+      table.code,
+    ),
+    index("standards_offering_position_idx").on(
+      table.tenantId,
+      table.offeringId,
+      table.position,
+    ),
+  ],
+);
+
+export const lessonStandardLinks = sqliteTable(
+  "lesson_standard_links",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    lessonId: text("lesson_id")
+      .notNull()
+      .references(() => lessons.id),
+    standardId: text("standard_id")
+      .notNull()
+      .references(() => curriculumStandards.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("lesson_standard_link_idx").on(
+      table.tenantId,
+      table.lessonId,
+      table.standardId,
+    ),
+    index("standard_lesson_lookup_idx").on(
+      table.tenantId,
+      table.standardId,
+    ),
+  ],
+);
+
+export const lessonReleaseRules = sqliteTable(
+  "lesson_release_rules",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    lessonId: text("lesson_id")
+      .notNull()
+      .references(() => lessons.id),
+    availableFrom: text("available_from"),
+    availableUntil: text("available_until"),
+    prerequisiteLessonId: text("prerequisite_lesson_id").references(
+      () => lessons.id,
+    ),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("lesson_release_rule_idx").on(table.tenantId, table.lessonId),
+    index("lesson_prerequisite_lookup_idx").on(
+      table.tenantId,
+      table.prerequisiteLessonId,
+    ),
+  ],
+);
+
 export const questionBankItems = sqliteTable(
   "question_bank_items",
   {

@@ -99,6 +99,9 @@ test("server-renders the teacher lesson workspace", async () => {
   assert.match(html, /Lesson library/);
   assert.match(html, /New lesson draft/);
   assert.match(html, /The human digestive system/);
+  assert.match(html, /How breathing powers the body/);
+  assert.match(html, /Curriculum standards/);
+  assert.match(html, /Release to learners/);
   assert.match(html, /Learner preview/);
 });
 
@@ -110,6 +113,8 @@ test("server-renders the learner lesson player", async () => {
   assert.match(html, /The human digestive system/);
   assert.match(html, /Learning objectives/);
   assert.match(html, /Your body.?s food-processing journey/);
+  assert.match(html, /How breathing powers the body/);
+  assert.match(html, /Complete .*The human digestive system.* first/);
   assert.match(html, /Continue/);
 });
 

@@ -259,6 +259,11 @@
   color: #ffffff;
 }
 
+.outline-lessons > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .outline-lessons > button > span {
   align-items: center;
   background: rgba(255, 255, 255, 0.09);
@@ -374,12 +379,29 @@
   margin: 7px 0 0;
 }
 
-.lesson-heading > div:first-child > p:last-child {
+.lesson-heading > div:first-child > p:nth-of-type(2) {
   color: #64736f;
   font-size: 0.69rem;
   line-height: 1.55;
   margin: 11px 0 0;
   max-width: 580px;
+}
+
+.lesson-standard-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.lesson-standard-chips span {
+  background: #e7f1ec;
+  border: 1px solid #cee1d8;
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: 0.43rem;
+  font-weight: 900;
+  padding: 5px 7px;
 }
 
 .lesson-progress-ring {

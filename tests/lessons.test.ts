@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   addLessonBlock,
   createLessonDraft,
+  evaluateLessonAvailability,
   publishLesson,
   recordLessonProgress,
+  reorderLessonBlocks,
 } from "../domain/learning/lessons";
 import type { AccessContext } from "../domain/identity/types";
 
@@ -106,6 +108,60 @@ describe("lesson lifecycle", () => {
         updatedAt: "2026-07-23T10:45:00Z",
       }),
     ).toThrow("Lesson progress cannot move backwards.");
+  });
+
+  it("reorders every draft activity without mutating content", () => {
+    const draft = addLessonBlock(completeDraft(), {
+      content: "Trace oxygen into the blood.",
+      id: "block-video",
+      ready: true,
+      title: "Watch gas exchange",
+      type: "video",
+    });
+    const reordered = reorderLessonBlocks(draft, [
+      "block-video",
+      "block-introduction",
+    ]);
+
+    expect(reordered.blocks.map((block) => block.id)).toEqual([
+      "block-video",
+      "block-introduction",
+    ]);
+    expect(reordered.blocks.map((block) => block.position)).toEqual([1, 2]);
+  });
+
+  it("evaluates scheduled and prerequisite lesson release rules", () => {
+    const now = new Date("2026-07-24T10:00:00Z");
+    expect(
+      evaluateLessonAvailability(
+        {
+          availableFrom: "2026-07-25T08:00:00Z",
+          lessonId: "lesson-2",
+        },
+        new Set(),
+        now,
+      ),
+    ).toBe("scheduled");
+    expect(
+      evaluateLessonAvailability(
+        {
+          lessonId: "lesson-2",
+          prerequisiteLessonId: "lesson-1",
+        },
+        new Set(),
+        now,
+      ),
+    ).toBe("locked");
+    expect(
+      evaluateLessonAvailability(
+        {
+          lessonId: "lesson-2",
+          prerequisiteLessonId: "lesson-1",
+        },
+        new Set(["lesson-1"]),
+        now,
+      ),
+    ).toBe("available");
   });
 });
 

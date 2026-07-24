@@ -3,8 +3,10 @@ import type { AccessContext } from "../identity/types";
 import type {
   CreateLessonDraftCommand,
   Lesson,
+  LessonAvailability,
   LessonBlockInput,
   LessonProgress,
+  LessonReleaseRule,
   RecordLessonProgressCommand,
 } from "./types";
 
@@ -48,6 +50,55 @@ export function addLessonBlock(
       },
     ],
   };
+}
+
+export function reorderLessonBlocks(
+  lesson: Lesson,
+  orderedBlockIds: string[],
+): Lesson {
+  requireDraft(lesson);
+  if (
+    orderedBlockIds.length !== lesson.blocks.length ||
+    new Set(orderedBlockIds).size !== lesson.blocks.length ||
+    lesson.blocks.some((block) => !orderedBlockIds.includes(block.id))
+  ) {
+    throw new LessonPolicyError(
+      "The block order must include every lesson block exactly once.",
+    );
+  }
+
+  const blocksById = new Map(
+    lesson.blocks.map((block) => [block.id, block]),
+  );
+  return {
+    ...lesson,
+    blocks: orderedBlockIds.map((id, index) => ({
+      ...blocksById.get(id)!,
+      position: index + 1,
+    })),
+  };
+}
+
+export function evaluateLessonAvailability(
+  rule: LessonReleaseRule | undefined,
+  completedLessonIds: ReadonlySet<string>,
+  now: Date,
+): LessonAvailability {
+  if (!rule) return "available";
+
+  if (rule.availableUntil && now >= new Date(rule.availableUntil)) {
+    return "closed";
+  }
+  if (rule.availableFrom && now < new Date(rule.availableFrom)) {
+    return "scheduled";
+  }
+  if (
+    rule.prerequisiteLessonId &&
+    !completedLessonIds.has(rule.prerequisiteLessonId)
+  ) {
+    return "locked";
+  }
+  return "available";
 }
 
 export function publishLesson(

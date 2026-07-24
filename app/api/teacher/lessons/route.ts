@@ -1,5 +1,6 @@
 import {
   createPersistentLessonDraft,
+  duplicatePersistentLesson,
   listTeacherLessonWorkspace,
   publishPersistentLesson,
   type CreateDraftInput,
@@ -26,7 +27,16 @@ export async function POST(request: Request) {
     const schoolUser = await requireSchoolRequestUser();
     const payload = (await request.json()) as
       | ({ action: "create" } & CreateDraftInput)
+      | { action: "duplicate"; lessonId: string }
       | { action: "publish"; lessonId: string };
+
+    if (payload.action === "duplicate") {
+      const lesson = await duplicatePersistentLesson(
+        schoolUser.access,
+        payload.lessonId,
+      );
+      return Response.json({ lesson }, { status: 201 });
+    }
 
     if (payload.action === "publish") {
       const lesson = await publishPersistentLesson(
@@ -49,4 +59,3 @@ export async function POST(request: Request) {
     return schoolApiErrorResponse(error);
   }
 }
-
