@@ -15,7 +15,7 @@ import "../../admin/academic/academic.css";
 import "./teacher-assessments.css";
 
 const navigation = [
-  { href: "#today", label: "My day", symbol: "⌂" },
+  { href: "/teacher/operations", label: "My day", symbol: "⌂" },
   { href: "/teacher/subjects", label: "My subjects", symbol: "▦" },
   { href: "/teacher/subjects", label: "Lessons", symbol: "≡" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },

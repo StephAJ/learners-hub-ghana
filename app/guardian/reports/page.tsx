@@ -118,6 +118,7 @@ export default function GuardianReportsPage() {
         </Link>
         <nav aria-label="Guardian navigation">
           <Link href="/">Home</Link>
+          <Link href="/guardian/school-day">School day</Link>
           <a className="is-active" href="#report-card">
             Reports
           </a>

@@ -236,16 +236,36 @@ Browser printing is supported for convenience. Signed PDF reports, verification
 codes, and QR-based authenticity checks remain a later document-generation
 milestone.
 
+## Daily school operations foundation build
+
+The eighth implemented slice adds:
+
+- Published assignment snapshots with due dates, text/offline submission
+  modes, and learner submission states.
+- Criterion-level rubrics, stored performance levels, explainable totals, and
+  released teacher feedback.
+- Daily attendance registers with configurable codes, write-freezing after
+  submission, reasoned corrections, and preserved prior evidence.
+- Idempotent guardian alerts created only from submitted unexcused absences.
+- Timetable periods and class entries with class, teacher, and room clash
+  rules plus reasoned cancellation and substitution.
+- Responsive teacher, learner, and guardian school-day experiences.
+- Protected APIs suitable for future offline capture and Expo clients.
+
+File submissions remain disabled until object storage, scanning, retention,
+and access controls are available. Automatic timetable generation and outbound
+SMS/email delivery are intentionally deferred.
+
 ## Next engineering milestone
 
-Build assignment, attendance, and daily school-operations workflows:
+Complete school configuration and communication infrastructure:
 
-1. Create assignment briefs, resources, due dates, submissions, and rubric
-   marking.
-2. Capture daily and lesson attendance with reasoned corrections and audit
-   history.
-3. Add timetable management and class-teacher daily workflows.
-4. Feed assignment and attendance evidence into the existing grade and report
-   contracts.
-5. Add guardian absence alerts and learner due-work views.
-6. Keep all new read and write contracts mobile-client ready.
+1. Move remaining academic structure and admissions fixtures behind durable
+   tenant-scoped repositories.
+2. Add school calendar, holidays, and rollover operations.
+3. Add approved communication templates, guardian inboxes, delivery tracking,
+   and communication permission checks.
+4. Add secure object storage for assignment, admissions, and assessment files.
+5. Feed assignment results and attendance summaries into explicit report-card
+   mappings.
+6. Begin the Expo learner and guardian clients against the stable contracts.

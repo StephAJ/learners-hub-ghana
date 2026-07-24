@@ -168,6 +168,43 @@ test("server-renders the guardian released-report workspace", async () => {
   assert.match(html, /Only reports approved and released/);
 });
 
+test("server-renders the teacher daily-operations workspace", async () => {
+  const response = await render("/teacher/operations");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Run the school day from one dependable view/);
+  assert.match(html, /Assignments &amp; rubrics/);
+  assert.match(html, /Attendance/);
+  assert.match(html, /Timetable/);
+  assert.match(html, /Today at a glance/);
+  assert.match(html, /Marking queue/);
+});
+
+test("server-renders the learner school-day workspace", async () => {
+  const response = await render("/learn/school-day");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Your school day, all in one place/);
+  assert.match(html, /Today(?:&#x27;|')s timetable/);
+  assert.match(html, /My assignments/);
+  assert.match(html, /Body systems model/);
+  assert.match(html, /Attendance this week/);
+});
+
+test("server-renders the guardian school-day workspace", async () => {
+  const response = await render("/guardian/school-day");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Know what happened at school today/);
+  assert.match(html, /Attendance alerts/);
+  assert.match(html, /Kwame was marked absent/);
+  assert.match(html, /Due assignments/);
+  assert.match(html, /Relationship-protected updates/);
+});
+
 test("protects persistent school-record APIs from anonymous requests", async () => {
   for (const path of [
     "/api/admin/people",
@@ -177,6 +214,9 @@ test("protects persistent school-record APIs from anonymous requests", async () 
     "/api/learn/assessments",
     "/api/teacher/gradebook",
     "/api/guardian/reports",
+    "/api/teacher/operations",
+    "/api/learn/school-day",
+    "/api/guardian/school-day",
   ]) {
     const response = await render(path);
     assert.equal(response.status, 401);

@@ -7,6 +7,7 @@ import { AuthorizationError } from "../domain/identity/authorization";
 import { LessonPolicyError } from "../domain/learning/lessons";
 import { AssessmentPolicyError } from "../domain/assessment/assessment";
 import { ReportingPolicyError } from "../domain/reporting/gradebook";
+import { DailyOperationsPolicyError } from "../domain/operations/daily-operations";
 
 export async function requireSchoolRequestUser(): Promise<AuthenticatedSchoolUser> {
   const user = await getChatGPTUser();
@@ -30,6 +31,9 @@ export function schoolApiErrorResponse(error: unknown) {
     return Response.json({ error: error.message }, { status: 422 });
   }
   if (error instanceof ReportingPolicyError) {
+    return Response.json({ error: error.message }, { status: 422 });
+  }
+  if (error instanceof DailyOperationsPolicyError) {
     return Response.json({ error: error.message }, { status: 422 });
   }
   const message =

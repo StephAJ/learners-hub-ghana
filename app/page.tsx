@@ -90,7 +90,12 @@ const navigation = [
     label: "Assessments",
     symbol: "✓",
   },
-  { key: "calendar", label: "Calendar", symbol: "□" },
+  {
+    href: "/learn/school-day",
+    key: "calendar",
+    label: "School day",
+    symbol: "□",
+  },
   {
     href: "/guardian/reports",
     key: "reports",
@@ -390,7 +395,9 @@ export default function Home() {
                     </article>
                   ))}
                 </div>
-                <a className="panel-link" href="#calendar">View full timetable</a>
+                <Link className="panel-link" href="/learn/school-day">
+                  View full school day
+                </Link>
               </section>
 
               <section className="panel" id="assessments">

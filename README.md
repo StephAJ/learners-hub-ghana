@@ -15,6 +15,9 @@ responses. Learners can study structured content, take timed assessments with
 autosave, and receive controlled results. Teachers can manage weighted,
 auditable marks and move reports through submission, approval, and release.
 Guardians can see only released reports for children linked to their accounts.
+The daily-operations slice adds versioned assignments and rubrics, attendance
+registers with reasoned correction history, clash-conscious timetables, and
+relationship-protected guardian absence alerts.
 
 ## Current technology
 
@@ -53,8 +56,8 @@ npm run lint
 
 ## Near-term implementation order
 
-1. Add assignment briefs, rubric marking, attendance capture, and timetable operations.
-2. Move the remaining academic and admissions fixtures behind tenant-scoped repositories.
-3. Add secure media uploads and rich hotspot, composite, and file-response authoring.
-4. Generate signed report PDFs and downloadable school documents.
-5. Start the Expo mobile client using the stable learning, assessment, and report contracts.
+1. Move the remaining academic and admissions fixtures behind tenant-scoped repositories.
+2. Add secure media uploads and rich hotspot, composite, and file-response authoring.
+3. Generate signed report PDFs and downloadable school documents.
+4. Add approved school communication templates, delivery tracking, and family inboxes.
+5. Start the Expo mobile client using the stable learning, assessment, report, and school-day contracts.

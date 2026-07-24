@@ -953,3 +953,390 @@ export const reportSubjectResults = sqliteTable(
     ),
   ],
 );
+
+export const assignments = sqliteTable(
+  "assignments",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    offeringId: text("offering_id")
+      .notNull()
+      .references(() => subjectOfferings.id),
+    authorPersonId: text("author_person_id")
+      .notNull()
+      .references(() => people.id),
+    status: text("status", {
+      enum: ["draft", "published", "closed", "archived"],
+    })
+      .notNull()
+      .default("draft"),
+    currentVersion: integer("current_version").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("assignments_offering_status_idx").on(
+      table.tenantId,
+      table.offeringId,
+      table.status,
+    ),
+  ],
+);
+
+export const assignmentVersions = sqliteTable(
+  "assignment_versions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignments.id),
+    version: integer("version").notNull(),
+    title: text("title").notNull(),
+    brief: text("brief").notNull(),
+    opensAt: text("opens_at").notNull(),
+    dueAt: text("due_at").notNull(),
+    maximumPoints: integer("maximum_points").notNull(),
+    submissionMode: text("submission_mode", {
+      enum: ["text", "link", "offline"],
+    }).notNull(),
+    status: text("status", {
+      enum: ["draft", "published", "closed", "archived"],
+    }).notNull(),
+    publishedAt: text("published_at"),
+    createdByPersonId: text("created_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("assignment_version_number_idx").on(
+      table.assignmentId,
+      table.version,
+    ),
+  ],
+);
+
+export const rubricCriteria = sqliteTable(
+  "rubric_criteria",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    assignmentVersionId: text("assignment_version_id")
+      .notNull()
+      .references(() => assignmentVersions.id),
+    position: integer("position").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    maximumPoints: integer("maximum_points").notNull(),
+  },
+  (table) => [
+    uniqueIndex("rubric_criterion_position_idx").on(
+      table.assignmentVersionId,
+      table.position,
+    ),
+  ],
+);
+
+export const rubricLevels = sqliteTable(
+  "rubric_levels",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    criterionId: text("criterion_id")
+      .notNull()
+      .references(() => rubricCriteria.id),
+    position: integer("position").notNull(),
+    name: text("name").notNull(),
+    points: integer("points").notNull(),
+    descriptor: text("descriptor").notNull(),
+  },
+  (table) => [
+    uniqueIndex("rubric_level_position_idx").on(
+      table.criterionId,
+      table.position,
+    ),
+  ],
+);
+
+export const assignmentSubmissions = sqliteTable(
+  "assignment_submissions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignments.id),
+    assignmentVersion: integer("assignment_version").notNull(),
+    learnerPersonId: text("learner_person_id")
+      .notNull()
+      .references(() => people.id),
+    status: text("status", {
+      enum: ["not-started", "submitted", "late", "marked", "released"],
+    })
+      .notNull()
+      .default("not-started"),
+    responseText: text("response_text").notNull().default(""),
+    submittedAt: text("submitted_at"),
+    markedByPersonId: text("marked_by_person_id").references(() => people.id),
+    markedAt: text("marked_at"),
+    totalPoints: integer("total_points"),
+    feedback: text("feedback"),
+    releasedAt: text("released_at"),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("submission_assignment_learner_idx").on(
+      table.assignmentId,
+      table.assignmentVersion,
+      table.learnerPersonId,
+    ),
+    index("submission_marking_queue_idx").on(
+      table.tenantId,
+      table.status,
+      table.updatedAt,
+    ),
+  ],
+);
+
+export const rubricScores = sqliteTable(
+  "rubric_scores",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => assignmentSubmissions.id),
+    criterionId: text("criterion_id")
+      .notNull()
+      .references(() => rubricCriteria.id),
+    points: integer("points").notNull(),
+    comment: text("comment").notNull().default(""),
+    markedByPersonId: text("marked_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    markedAt: text("marked_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("rubric_score_submission_criterion_idx").on(
+      table.submissionId,
+      table.criterionId,
+    ),
+  ],
+);
+
+export const attendanceSessions = sqliteTable(
+  "attendance_sessions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    classGroupId: text("class_group_id").notNull(),
+    sessionDate: text("session_date").notNull(),
+    mode: text("mode", { enum: ["daily", "period"] }).notNull(),
+    timetableEntryId: text("timetable_entry_id"),
+    status: text("status", {
+      enum: ["draft", "submitted", "corrected"],
+    })
+      .notNull()
+      .default("draft"),
+    takenByPersonId: text("taken_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    submittedAt: text("submitted_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("attendance_class_date_mode_idx").on(
+      table.tenantId,
+      table.classGroupId,
+      table.sessionDate,
+      table.mode,
+    ),
+  ],
+);
+
+export const attendanceRecords = sqliteTable(
+  "attendance_records",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => attendanceSessions.id),
+    learnerPersonId: text("learner_person_id")
+      .notNull()
+      .references(() => people.id),
+    code: text("code", {
+      enum: [
+        "present",
+        "absent",
+        "late",
+        "excused",
+        "sick",
+        "school-activity",
+        "remote",
+      ],
+    }).notNull(),
+    note: text("note").notNull().default(""),
+    recordedByPersonId: text("recorded_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    recordedAt: text("recorded_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("attendance_session_learner_idx").on(
+      table.sessionId,
+      table.learnerPersonId,
+    ),
+    index("attendance_learner_idx").on(
+      table.tenantId,
+      table.learnerPersonId,
+    ),
+  ],
+);
+
+export const attendanceCorrections = sqliteTable(
+  "attendance_corrections",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    attendanceRecordId: text("attendance_record_id")
+      .notNull()
+      .references(() => attendanceRecords.id),
+    previousCode: text("previous_code").notNull(),
+    newCode: text("new_code").notNull(),
+    reason: text("reason").notNull(),
+    correctedByPersonId: text("corrected_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    correctedAt: text("corrected_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("attendance_corrections_record_idx").on(
+      table.tenantId,
+      table.attendanceRecordId,
+    ),
+  ],
+);
+
+export const timetablePeriods = sqliteTable(
+  "timetable_periods",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    name: text("name").notNull(),
+    position: integer("position").notNull(),
+    startsAt: text("starts_at").notNull(),
+    endsAt: text("ends_at").notNull(),
+    kind: text("kind", { enum: ["lesson", "break", "assembly"] })
+      .notNull()
+      .default("lesson"),
+  },
+  (table) => [
+    uniqueIndex("timetable_period_position_idx").on(
+      table.tenantId,
+      table.position,
+    ),
+  ],
+);
+
+export const timetableEntries = sqliteTable(
+  "timetable_entries",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    periodId: text("period_id")
+      .notNull()
+      .references(() => timetablePeriods.id),
+    weekday: integer("weekday").notNull(),
+    classGroupId: text("class_group_id").notNull(),
+    offeringId: text("offering_id").references(() => subjectOfferings.id),
+    teacherPersonId: text("teacher_person_id").references(() => people.id),
+    subjectName: text("subject_name").notNull(),
+    room: text("room").notNull(),
+    status: text("status", {
+      enum: ["scheduled", "substituted", "cancelled", "completed"],
+    })
+      .notNull()
+      .default("scheduled"),
+    substituteTeacherPersonId: text("substitute_teacher_person_id").references(
+      () => people.id,
+    ),
+    changeReason: text("change_reason"),
+  },
+  (table) => [
+    index("timetable_class_day_idx").on(
+      table.tenantId,
+      table.classGroupId,
+      table.weekday,
+    ),
+    index("timetable_teacher_day_idx").on(
+      table.tenantId,
+      table.teacherPersonId,
+      table.weekday,
+    ),
+  ],
+);
+
+export const guardianAlerts = sqliteTable(
+  "guardian_alerts",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    guardianPersonId: text("guardian_person_id")
+      .notNull()
+      .references(() => people.id),
+    learnerPersonId: text("learner_person_id")
+      .notNull()
+      .references(() => people.id),
+    sourceType: text("source_type", {
+      enum: ["attendance", "assignment"],
+    }).notNull(),
+    sourceId: text("source_id").notNull(),
+    kind: text("kind", {
+      enum: ["absence", "late-work", "missing-work"],
+    }).notNull(),
+    title: text("title").notNull(),
+    message: text("message").notNull(),
+    status: text("status", { enum: ["issued", "read", "dismissed"] })
+      .notNull()
+      .default("issued"),
+    issuedAt: text("issued_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    readAt: text("read_at"),
+  },
+  (table) => [
+    uniqueIndex("guardian_alert_source_idx").on(
+      table.tenantId,
+      table.guardianPersonId,
+      table.sourceType,
+      table.sourceId,
+      table.kind,
+    ),
+  ],
+);
