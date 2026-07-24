@@ -241,6 +241,60 @@ export default function TeacherContentPage() {
     }
   }
 
+  async function activateActivity(activityId: string) {
+    setBusy(true);
+    setNotice("");
+    if (mode !== "protected") {
+      setWorkspace((current) => ({
+        ...current,
+        activities: current.activities.map((activity) =>
+          activity.id === activityId
+            ? {
+                ...activity,
+                runtimeContentId: `preview-${activity.id}`,
+                runtimeImportedAt: new Date().toISOString(),
+                status: "launchable" as const,
+              }
+            : activity,
+        ),
+      }));
+      setNotice(
+        "Preview package activated. Production will send it to your Hostinger runtime.",
+      );
+      setBusy(false);
+      return;
+    }
+    try {
+      const response = await fetch("/api/teacher/content", {
+        body: JSON.stringify({
+          action: "activate-h5p",
+          activityId,
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        workspace?: TeacherContentWorkspace;
+      };
+      if (!response.ok || !payload.workspace) {
+        throw new Error(
+          payload.error ?? "The H5P package could not be activated.",
+        );
+      }
+      setWorkspace(payload.workspace);
+      setNotice("H5P package imported and ready for learner lessons.");
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "The H5P package could not be activated.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const launchableCount = workspace.activities.filter(
     (activity) => activity.status === "launchable",
   ).length;
@@ -337,7 +391,19 @@ export default function TeacherContentPage() {
                       <div><small>{activity.contentType}</small><strong>{activity.title}</strong><p>{activity.fallbackText}</p></div>
                       <footer>
                         <em className={`activity-status ${activity.status}`}>{humanise(activity.status)}</em>
-                        {activity.launchUrl ? <a href={activity.launchUrl} rel="noreferrer" target="_blank">Test launch ↗</a> : <span>Runtime required</span>}
+                        {activity.launchUrl ? (
+                          <a href={activity.launchUrl} rel="noreferrer" target="_blank">Test launch ↗</a>
+                        ) : activity.runtimeContentId ? (
+                          <span>Self-hosted runtime</span>
+                        ) : (
+                          <button
+                            disabled={busy}
+                            onClick={() => void activateActivity(activity.id)}
+                            type="button"
+                          >
+                            Activate on VPS →
+                          </button>
+                        )}
                       </footer>
                     </article>
                   ))}
@@ -484,4 +550,3 @@ function humanise(value: string) {
 function initials(name: string) {
   return name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 }
-

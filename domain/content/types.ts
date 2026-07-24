@@ -37,6 +37,8 @@ export type InteractiveActivity = {
   offeringId: string;
   packageAssetId?: string;
   provider: "h5p";
+  runtimeContentId?: string;
+  runtimeImportedAt?: string;
   status: InteractiveActivityStatus;
   title: string;
 };
@@ -56,4 +58,3 @@ export type InteractiveResultInput = {
   success?: boolean;
   verb: InteractiveResultVerb;
 };
-

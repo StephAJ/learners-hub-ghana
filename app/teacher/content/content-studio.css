@@ -575,6 +575,22 @@
   font-weight: 800;
 }
 
+.activity-list footer > button {
+  background: transparent;
+  border: 0;
+  color: #0d5f55;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.44rem;
+  font-weight: 900;
+  padding: 4px 0;
+}
+
+.activity-list footer > button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .content-empty {
   align-items: center;
   background: #f8faf7;
@@ -661,4 +677,3 @@
     grid-row: 1 / 3;
   }
 }
-

@@ -1,4 +1,5 @@
 import {
+  activateH5pActivity,
   createH5pActivity,
   getTeacherContentWorkspace,
   uploadTeacherMedia,
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
 
     const payload = (await request.json()) as {
       action?: string;
+      activityId?: string;
     } & Partial<CreateH5pActivityInput>;
     if (payload.action === "create-h5p") {
       const workspace = await createH5pActivity(
@@ -56,6 +58,13 @@ export async function POST(request: Request) {
         payload as CreateH5pActivityInput,
       );
       return Response.json({ workspace }, { status: 201 });
+    }
+    if (payload.action === "activate-h5p") {
+      const workspace = await activateH5pActivity(
+        schoolUser.access,
+        String(payload.activityId ?? ""),
+      );
+      return Response.json({ workspace });
     }
     return Response.json(
       { error: "Unknown content-studio action." },

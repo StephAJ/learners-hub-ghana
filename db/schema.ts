@@ -526,6 +526,8 @@ export const interactiveActivities = sqliteTable(
     launchUrl: text("launch_url"),
     launchOrigin: text("launch_origin"),
     packageAssetId: text("package_asset_id").references(() => mediaAssets.id),
+    runtimeContentId: text("runtime_content_id"),
+    runtimeImportedAt: text("runtime_imported_at"),
     fallbackText: text("fallback_text").notNull().default(""),
     status: text("status", {
       enum: ["draft", "launchable", "awaiting-runtime", "archived"],

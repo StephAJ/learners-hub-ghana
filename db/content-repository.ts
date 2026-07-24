@@ -17,6 +17,10 @@ import type {
 } from "../domain/content/types";
 import { getD1Database, getMediaBucket } from "./index";
 import { ensureLearningFoundation } from "./learning-repository";
+import {
+  createLearnerH5pLaunch,
+  importH5pPackage,
+} from "../server/h5p-runtime";
 
 export type TeacherContentWorkspace = {
   activities: InteractiveActivity[];
@@ -186,6 +190,69 @@ export async function createH5pActivity(
   return loadTeacherContentWorkspace(access.tenantId, offering);
 }
 
+export async function activateH5pActivity(
+  access: AccessContext,
+  activityId: string,
+): Promise<TeacherContentWorkspace> {
+  requireContentPermission(access);
+  await ensureLearningFoundation();
+  const activity = await findAwaitingRuntimeActivity(
+    access.tenantId,
+    activityId,
+  );
+  const offering = await requireAccessibleOffering(
+    access,
+    activity.offering_id,
+  );
+  const bucket = await getMediaBucket();
+  const object = await bucket.get(activity.object_key);
+  if (!object) {
+    throw new ContentPolicyError("The H5P package file is unavailable.");
+  }
+  const runtime = await importH5pPackage({
+    activityId: activity.id,
+    bytes: new Uint8Array(await object.arrayBuffer()),
+    filename: activity.original_filename,
+    tenantId: access.tenantId,
+  });
+  const database = await getD1Database();
+  await database.batch([
+    database
+      .prepare(
+        `UPDATE interactive_activities
+        SET runtime_content_id = ?, runtime_imported_at = CURRENT_TIMESTAMP,
+            launch_origin = ?, status = 'launchable',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE tenant_id = ? AND id = ? AND status = 'awaiting-runtime'`,
+      )
+      .bind(
+        runtime.runtimeContentId,
+        runtime.launchOrigin,
+        access.tenantId,
+        activity.id,
+      ),
+    database
+      .prepare(
+        `UPDATE media_assets
+        SET status = 'ready'
+        WHERE tenant_id = ? AND id = ? AND kind = 'h5p-package'`,
+      )
+      .bind(access.tenantId, activity.package_asset_id),
+    auditStatement(
+      database,
+      access,
+      "content.h5p_activated",
+      "interactive_activity",
+      activity.id,
+      {
+        offeringId: activity.offering_id,
+        runtimeContentId: runtime.runtimeContentId,
+      },
+    ),
+  ]);
+  return loadTeacherContentWorkspace(access.tenantId, offering);
+}
+
 export async function getMediaResponse(
   access: AccessContext,
   assetId: string,
@@ -254,12 +321,30 @@ export async function getLearnerActivityLaunch(
     input.lessonVersion,
     input.activityId,
   );
+  const launch = activity.runtime_content_id
+    ? await createLearnerH5pLaunch({
+        activityId: activity.id,
+        contentId: activity.runtime_content_id,
+        learnerPersonId: access.actorPersonId,
+        lessonId: input.lessonId,
+        lessonVersion: input.lessonVersion,
+        tenantId: access.tenantId,
+      })
+    : {
+        launchOrigin: activity.launch_origin,
+        launchUrl: activity.launch_url,
+      };
+  if (!launch.launchOrigin || !launch.launchUrl) {
+    throw new ContentPolicyError(
+      "This interactive activity has no playable runtime.",
+    );
+  }
   return {
     contentType: activity.content_type,
     fallbackText: activity.fallback_text,
     id: activity.id,
-    launchOrigin: activity.launch_origin,
-    launchUrl: activity.launch_url,
+    launchOrigin: launch.launchOrigin,
+    launchUrl: launch.launchUrl,
     provider: "h5p" as const,
     title: activity.title,
   };
@@ -341,7 +426,8 @@ async function loadTeacherContentWorkspace(
   const activitiesResult = await database
     .prepare(
       `SELECT id, offering_id, title, provider, content_type, launch_url,
-              launch_origin, package_asset_id, fallback_text, status
+              launch_origin, package_asset_id, runtime_content_id,
+              runtime_imported_at, fallback_text, status
       FROM interactive_activities
       WHERE tenant_id = ? AND offering_id = ? AND status != 'archived'
       ORDER BY created_at DESC`,
@@ -356,6 +442,8 @@ async function loadTeacherContentWorkspace(
       offering_id: string;
       package_asset_id: string | null;
       provider: "h5p";
+      runtime_content_id: string | null;
+      runtime_imported_at: string | null;
       status: InteractiveActivity["status"];
       title: string;
     }>();
@@ -371,6 +459,8 @@ async function loadTeacherContentWorkspace(
       offeringId: activity.offering_id,
       packageAssetId: activity.package_asset_id ?? undefined,
       provider: activity.provider,
+      runtimeContentId: activity.runtime_content_id ?? undefined,
+      runtimeImportedAt: activity.runtime_imported_at ?? undefined,
       status: activity.status,
       title: activity.title,
     })),
@@ -544,7 +634,7 @@ async function findLaunchableActivity(tenantId: string, activityId: string) {
   const activity = await database
     .prepare(
       `SELECT id, offering_id, title, content_type, launch_url,
-              launch_origin, fallback_text
+              launch_origin, runtime_content_id, fallback_text
       FROM interactive_activities
       WHERE tenant_id = ? AND id = ? AND status = 'launchable'
       LIMIT 1`,
@@ -554,14 +644,49 @@ async function findLaunchableActivity(tenantId: string, activityId: string) {
       content_type: string;
       fallback_text: string;
       id: string;
-      launch_origin: string;
-      launch_url: string;
+      launch_origin: string | null;
+      launch_url: string | null;
       offering_id: string;
+      runtime_content_id: string | null;
       title: string;
     }>();
   if (!activity) {
     throw new ContentPolicyError(
       "This interactive activity is not ready to launch.",
+    );
+  }
+  return activity;
+}
+
+async function findAwaitingRuntimeActivity(
+  tenantId: string,
+  activityId: string,
+) {
+  const database = await getD1Database();
+  const activity = await database
+    .prepare(
+      `SELECT a.id, a.offering_id, a.package_asset_id,
+              m.object_key, m.original_filename
+      FROM interactive_activities a
+      INNER JOIN media_assets m
+        ON m.id = a.package_asset_id AND m.tenant_id = a.tenant_id
+      WHERE a.tenant_id = ? AND a.id = ?
+        AND a.status = 'awaiting-runtime'
+        AND m.kind = 'h5p-package'
+        AND m.status = 'awaiting-runtime'
+      LIMIT 1`,
+    )
+    .bind(tenantId, activityId)
+    .first<{
+      id: string;
+      object_key: string;
+      offering_id: string;
+      original_filename: string;
+      package_asset_id: string;
+    }>();
+  if (!activity) {
+    throw new ContentPolicyError(
+      "This H5P activity is not awaiting runtime activation.",
     );
   }
   return activity;
