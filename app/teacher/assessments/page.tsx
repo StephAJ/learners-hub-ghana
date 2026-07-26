@@ -15,13 +15,12 @@ import "../../admin/academic/academic.css";
 import "./teacher-assessments.css";
 
 const navigation = [
-  { href: "/teacher/operations", label: "My day", symbol: "⌂" },
+  { href: "/teacher", label: "Today", symbol: "⌂" },
   { href: "/teacher/subjects", label: "My subjects", symbol: "▦" },
   { href: "/teacher/subjects", label: "Lessons", symbol: "≡" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },
   { href: "/teacher/gradebook", label: "Markbook", symbol: "↗" },
   { href: "#classes", label: "Class groups", symbol: "◎" },
-  { href: "/admin/academic", label: "School admin", symbol: "⚙" },
 ];
 
 const typeLabels: Record<QuestionType, string> = {
@@ -413,7 +412,7 @@ export default function TeacherAssessmentsPage() {
   return (
     <main className="assessment-shell">
       <aside className="academic-sidebar assessment-sidebar">
-        <Link className="academic-brand" href="/">
+        <Link className="academic-brand" href="/teacher">
           <span className="academic-brand-mark">LH</span>
           <span>
             <strong>Learners Hub</strong>
@@ -479,12 +478,17 @@ export default function TeacherAssessmentsPage() {
                 automatic and teacher-awarded marks clearly separated.
               </p>
             </div>
-            <Link
+            <button
               className="learner-preview-link"
-              href="/learn/assessments/digestive-system-check"
+              onClick={() =>
+                setNotice(
+                  "Learner preview will open in a clearly labelled preview session.",
+                )
+              }
+              type="button"
             >
-              Open learner preview <span>↗</span>
-            </Link>
+              Preview assessment
+            </button>
           </section>
 
           {notice ? (
@@ -834,9 +838,7 @@ function QuizPanel({
                   Publish quiz
                 </button>
               ) : (
-                <Link href="/learn/assessments/digestive-system-check">
-                  Preview
-                </Link>
+                <span>Published</span>
               )}
             </div>
           </article>

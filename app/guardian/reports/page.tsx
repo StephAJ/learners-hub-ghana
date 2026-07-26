@@ -109,7 +109,7 @@ export default function GuardianReportsPage() {
   return (
     <main className="guardian-shell">
       <header className="guardian-header">
-        <Link className="guardian-brand" href="/">
+        <Link className="guardian-brand" href="/guardian">
           <span>LH</span>
           <div>
             <strong>Learners Hub</strong>
@@ -117,12 +117,11 @@ export default function GuardianReportsPage() {
           </div>
         </Link>
         <nav aria-label="Guardian navigation">
-          <Link href="/">Home</Link>
+          <Link href="/guardian">Home</Link>
           <Link href="/guardian/school-day">School day</Link>
           <a className="is-active" href="#report-card">
             Reports
           </a>
-          <Link href="/teacher/gradebook">School workspace</Link>
         </nav>
         <div className="guardian-profile">
           <div>

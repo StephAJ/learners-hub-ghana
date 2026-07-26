@@ -10,13 +10,11 @@ import "../../admin/academic/academic.css";
 import "./gradebook.css";
 
 const navigation = [
-  { href: "/teacher/operations", label: "My day", symbol: "⌂" },
+  { href: "/teacher", label: "Today", symbol: "⌂" },
   { href: "/teacher/subjects", label: "My subjects", symbol: "▦" },
   { href: "/teacher/subjects", label: "Lessons", symbol: "≡" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },
   { href: "/teacher/gradebook", label: "Gradebook", symbol: "↗" },
-  { href: "/guardian/reports", label: "Guardian view", symbol: "◎" },
-  { href: "/admin/academic", label: "School admin", symbol: "⚙" },
 ];
 
 const previewWorkspace: TeacherGradebookWorkspace = {
@@ -240,7 +238,7 @@ export default function TeacherGradebookPage() {
   return (
     <main className="gradebook-shell">
       <aside className="academic-sidebar gradebook-sidebar">
-        <Link className="academic-brand" href="/">
+        <Link className="academic-brand" href="/teacher">
           <span className="academic-brand-mark">LH</span>
           <span>
             <strong>Learners Hub</strong>
@@ -595,9 +593,7 @@ function ReportsPanel({
           <p>Approval and release</p>
           <h2>Term report workflow</h2>
         </div>
-        <Link className="guardian-preview-link" href="/guardian/reports">
-          Preview guardian view ↗
-        </Link>
+        <span className="guardian-preview-link">Released reports only</span>
       </div>
       <div className="workflow-guide">
         {["Teacher submits", "Academic review", "Leadership approval", "Guardian release"].map(

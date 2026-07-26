@@ -13,14 +13,12 @@ import "../../admin/academic/academic.css";
 import "./operations.css";
 
 const navigation = [
-  { href: "/teacher/operations", label: "School day", symbol: "⌂" },
+  { href: "/teacher", label: "Today", symbol: "⌂" },
+  { href: "/teacher/operations", label: "My classes", symbol: "◎" },
   { href: "/teacher/subjects", label: "Lessons", symbol: "▦" },
   { href: "/teacher/content", label: "Content studio", symbol: "◫" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },
   { href: "/teacher/gradebook", label: "Gradebook", symbol: "↗" },
-  { href: "/learn/school-day", label: "Learner view", symbol: "◎" },
-  { href: "/guardian/school-day", label: "Guardian view", symbol: "◌" },
-  { href: "/admin/academic", label: "School admin", symbol: "⚙" },
 ];
 
 const attendanceRows: AttendanceRow[] = [
@@ -176,7 +174,7 @@ export default function TeacherOperationsPage() {
   return (
     <main className="operations-shell">
       <aside className="academic-sidebar operations-sidebar">
-        <Link className="academic-brand" href="/">
+        <Link className="academic-brand" href="/teacher">
           <span className="academic-brand-mark">LH</span>
           <span>
             <strong>Learners Hub</strong>
@@ -410,15 +408,15 @@ function TodayPanel({
           </div>
           <b>→</b>
         </button>
-        <Link href="/guardian/school-day">
+        <div>
           <span className="action-symbol blue">◎</span>
           <div>
-            <small>Guardian view</small>
-            <strong>Preview family updates</strong>
-            <p>Attendance alerts and due work</p>
+            <small>Family updates</small>
+            <strong>Guardian-ready information</strong>
+            <p>Only released alerts and due work are shared</p>
           </div>
           <b>→</b>
-        </Link>
+        </div>
       </aside>
     </div>
   );

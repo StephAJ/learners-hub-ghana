@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   acceptAdmissionOffer,
   convertAcceptedApplication,
@@ -14,18 +14,16 @@ import type {
   AdmissionDocumentType,
   AdmissionStatus,
 } from "../../../domain/admissions/types";
+import type { ApplicantApplication } from "../../../db/applicant-repository";
 import { academicClasses } from "../../../domain/academic/fixtures";
 import "../academic/academic.css";
 import "./admissions.css";
 
 const navigation = [
-  { href: "/", label: "Overview", symbol: "⌂" },
-  { href: "/admin/academic", label: "Academic setup", symbol: "▦" },
+  { href: "/admin", label: "Home", symbol: "⌂" },
   { href: "/admin/admissions", label: "Admissions", symbol: "+" },
   { href: "/admin/people", label: "People", symbol: "◎" },
-  { href: "/teacher/subjects", label: "Teaching", symbol: "✎" },
-  { href: "/teacher/assessments", label: "Assessment", symbol: "✓" },
-  { href: "/teacher/gradebook", label: "Reports", symbol: "↗" },
+  { href: "/admin/academic", label: "Academics", symbol: "▦" },
 ];
 
 const documentNames: Record<AdmissionDocumentType, string> = {
@@ -53,6 +51,51 @@ export default function AdmissionsPage() {
   );
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSubmittedApplications() {
+      try {
+        const response = await fetch("/api/admin/admissions");
+        const payload = (await response.json()) as {
+          applications?: ApplicantApplication[];
+          error?: string;
+        };
+        if (!response.ok || !payload.applications) {
+          throw new Error(payload.error ?? "Applications could not be loaded.");
+        }
+        if (cancelled || payload.applications.length === 0) return;
+
+        const persistentApplications = payload.applications.map(
+          mapApplicantApplication,
+        );
+        setApplications((current) => {
+          const persistentIds = new Set(
+            persistentApplications.map((application) => application.id),
+          );
+          return [
+            ...persistentApplications,
+            ...current.filter((application) => !persistentIds.has(application.id)),
+          ];
+        });
+        setSelectedId(persistentApplications[0].id);
+      } catch (error) {
+        if (!cancelled) {
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : "Applications could not be loaded.",
+          );
+        }
+      }
+    }
+
+    void loadSubmittedApplications();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const visibleApplications = useMemo(() => {
     const normalisedQuery = query.trim().toLowerCase();
@@ -138,7 +181,7 @@ export default function AdmissionsPage() {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="School administration">
-        <Link className="brand" href="/" aria-label="Learners Hub home">
+        <Link className="brand" href="/admin" aria-label="Administration home">
           <span className="brand-mark" aria-hidden="true">LH</span>
           <span><strong>Learners</strong><small>Hub</small></span>
         </Link>
@@ -168,7 +211,7 @@ export default function AdmissionsPage() {
           <span>Applications close 14 August</span>
         </div>
 
-        <Link className="admin-profile" href="/">
+        <Link className="admin-profile" href="/admin">
           <span className="avatar">SA</span>
           <span><strong>Stephen Arthur</strong><small>School administrator</small></span>
           <b aria-hidden="true">↗</b>
@@ -182,7 +225,7 @@ export default function AdmissionsPage() {
             <strong>Admissions</strong>
           </div>
           <nav aria-label="Breadcrumb">
-            <Link href="/">Greenfield Academy</Link>
+            <Link href="/admin">Greenfield Academy</Link>
             <span aria-hidden="true">/</span>
             <strong>Admissions</strong>
           </nav>
@@ -199,9 +242,9 @@ export default function AdmissionsPage() {
               <h1>Admissions</h1>
               <p>Review applicants, issue offers, and create complete student records.</p>
             </div>
-            <button className="primary-admin-button" type="button" onClick={() => setNotice("Public application intake will connect here after secure identity and document upload are enabled.")}>
-              <span aria-hidden="true">+</span> New application
-            </button>
+            <Link className="primary-admin-button" href="/admissions/apply">
+              <span aria-hidden="true">↗</span> View public form
+            </Link>
           </section>
 
           <section className="admin-stats admissions-stats" aria-label="Admissions summary">
@@ -420,12 +463,13 @@ function fullName(application: AdmissionApplication) {
 
 function formatDate(date?: string) {
   if (!date) return "Not submitted";
+  const parsed = date.includes("T") ? new Date(date) : new Date(`${date}T00:00:00.000Z`);
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00.000Z`));
+  }).format(parsed);
 }
 
 function initials(name: string) {
@@ -443,4 +487,39 @@ function nextAction(status: AdmissionStatus) {
     rejected: "Application closed",
   };
   return actions[status];
+}
+
+function mapApplicantApplication(
+  application: ApplicantApplication,
+): AdmissionApplication {
+  return {
+    applicant: {
+      dateOfBirth: application.dateOfBirth,
+      firstName: application.applicantFirstName,
+      lastName: application.applicantLastName,
+      previousSchool: application.previousSchool || undefined,
+    },
+    applicationNumber: `GA-2026-${application.id.slice(0, 6).toUpperCase()}`,
+    desiredClassGroupId: desiredClassId(application.desiredClass),
+    guardian: {
+      email: application.guardianEmail,
+      fullName: application.guardianName,
+      phone: application.guardianPhone,
+      relationship: "Parent or guardian",
+    },
+    id: application.id,
+    status: application.status,
+    submittedAt: application.submittedAt,
+    submittedDocumentTypes: [],
+    tenantId: "tenant-greenfield",
+  };
+}
+
+function desiredClassId(desiredClass: string) {
+  const classIds: Record<string, string> = {
+    "JHS 1": "class-jhs1-blue",
+    "JHS 2": "class-jhs2-gold",
+    "SHS 1 General Arts": "class-shs1-arts",
+  };
+  return classIds[desiredClass] ?? "";
 }

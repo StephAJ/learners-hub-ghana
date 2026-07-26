@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
+import "./public-site.css";
+import "./workspace.css";
 
 const description =
-  "A class-first learning and school management platform built for Ghanaian schools.";
+  "Admissions, teaching, learning, records, and family updates in one connected school platform.";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -26,15 +28,20 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase,
     openGraph: {
       title: "Learners Hub",
-      description: "Learning built around your class.",
-      images: [{ alt: "Learners Hub class-first learning platform", url: "/og.png" }],
+      description: "Every school day, clearly connected.",
+      images: [
+        {
+          alt: "Learners Hub connects the whole school day",
+          url: "/og-unified.png",
+        },
+      ],
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: "Learners Hub",
-      description: "Learning built around your class.",
-      images: ["/og.png"],
+      description: "Every school day, clearly connected.",
+      images: ["/og-unified.png"],
     },
   };
 }

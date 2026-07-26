@@ -24,13 +24,10 @@ type PlacementRow = {
 };
 
 const navigation = [
-  { href: "/", label: "Overview", symbol: "⌂" },
-  { href: "/admin/academic", label: "Academic setup", symbol: "▦" },
+  { href: "/admin", label: "Home", symbol: "⌂" },
   { href: "/admin/admissions", label: "Admissions", symbol: "+" },
   { href: "/admin/people", label: "People", symbol: "◎" },
-  { href: "/teacher/subjects", label: "Teaching", symbol: "✎" },
-  { href: "/teacher/assessments", label: "Assessment", symbol: "✓" },
-  { href: "/teacher/gradebook", label: "Reports", symbol: "↗" },
+  { href: "/admin/academic", label: "Academics", symbol: "▦" },
 ];
 
 const initialPlacements: PlacementRow[] = [
@@ -149,7 +146,7 @@ export default function AcademicSetupPage() {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="School administration">
-        <Link className="brand" href="/" aria-label="Learners Hub home">
+        <Link className="brand" href="/admin" aria-label="Administration home">
           <span className="brand-mark" aria-hidden="true">LH</span>
           <span>
             <strong>Learners</strong>
@@ -185,7 +182,7 @@ export default function AcademicSetupPage() {
           <span>Term 1 begins 8 September</span>
         </div>
 
-        <Link className="admin-profile" href="/">
+        <Link className="admin-profile" href="/admin">
           <span className="avatar">SA</span>
           <span>
             <strong>Stephen Arthur</strong>
@@ -202,7 +199,7 @@ export default function AcademicSetupPage() {
             <strong>Academic setup</strong>
           </div>
           <nav aria-label="Breadcrumb">
-            <Link href="/">Greenfield Academy</Link>
+            <Link href="/admin">Greenfield Academy</Link>
             <span aria-hidden="true">/</span>
             <strong>Academic setup</strong>
           </nav>

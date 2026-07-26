@@ -110,7 +110,7 @@ export default function GuardianSchoolDayPage() {
   return (
     <main className="school-day-shell guardian-day-shell">
       <header className="school-day-header">
-        <Link className="school-day-brand" href="/">
+        <Link className="school-day-brand" href="/guardian">
           <span>LH</span>
           <div>
             <strong>Learners Hub</strong>
@@ -118,12 +118,11 @@ export default function GuardianSchoolDayPage() {
           </div>
         </Link>
         <nav aria-label="Guardian navigation">
-          <Link href="/">Home</Link>
+          <Link href="/guardian">Home</Link>
           <a className="is-active" href="#family-day">
             School day
           </a>
           <Link href="/guardian/reports">Reports</Link>
-          <Link href="/teacher/operations">School workspace</Link>
         </nav>
         <div className="school-day-profile">
           <div>

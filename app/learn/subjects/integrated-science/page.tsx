@@ -236,12 +236,12 @@ export default function IntegratedSciencePage() {
   return (
     <div className="learning-shell">
       <header className="learning-topbar">
-        <Link className="learning-brand" href="/">
+        <Link className="learning-brand" href="/student">
           <span aria-hidden="true">LH</span>
           <strong>Learners Hub</strong>
         </Link>
         <nav aria-label="Breadcrumb">
-          <Link href="/">My subjects</Link><span aria-hidden="true">/</span>
+          <Link href="/student">My subjects</Link><span aria-hidden="true">/</span>
           <strong>{subject.subjectName}</strong>
         </nav>
         <div>
@@ -288,7 +288,7 @@ export default function IntegratedSciencePage() {
           <span aria-hidden="true">?</span>
           <p><strong>Need help?</strong><small>Ask {subject.teacherName.split(" ")[0]} about this lesson.</small></p>
         </div>
-        <Link className="back-dashboard" href="/">← Back to dashboard</Link>
+        <Link className="back-dashboard" href="/student">← Back to dashboard</Link>
       </aside>
 
       <main className="lesson-main">
@@ -550,7 +550,7 @@ function H5pActivityFrame({
   return (
     <article className="lesson-block h5p-block">
       <div className="h5p-heading">
-        <span>H5P</span>
+        <span>Play</span>
         <div><p className="lesson-eyebrow">Interactive activity</p><h2>{launch?.title ?? title}</h2></div>
         <em>Measured</em>
       </div>

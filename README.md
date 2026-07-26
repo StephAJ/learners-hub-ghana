@@ -1,6 +1,56 @@
 # Learners Hub
 
-A class-first learning and school management platform for Ghanaian schools.
+A unified learning and school management platform for Ghanaian schools.
+
+## How the product is organised
+
+Learners Hub has one public website and one authenticated app. The public home
+page explains the school and starts admission applications. After sign-in,
+`/app` resolves the person's school membership and opens the correct workspace:
+
+- School administrators open `/admin` to review admissions, add teachers and
+  other people, and configure academic structures.
+- Teachers open `/teacher` to run today's classes, create lessons, add
+  interactive activities, publish assessments, and mark work.
+- Students open `/student` for today's learning, due work, progress, and
+  released activities.
+- Parents and guardians open `/guardian` for their linked child's attendance,
+  learning progress, and released reports.
+- Applicants open `/applicant` to continue an application and follow its
+  status.
+
+Each role has its own navigation. A person with more than one active school
+role gets a workspace switcher, while server-side guards prevent a role from
+opening another role's routes directly.
+
+## Core workflows
+
+### Admissions
+
+1. A family opens `/admissions` and selects **Start application**.
+2. After secure sign-in, the form at `/admissions/apply` saves a durable draft
+   and can be submitted.
+3. The applicant tracks the submission at `/applicant`.
+4. Authorised staff see submitted forms in `/admin/admissions`, where the
+   review-to-enrolment workflow is presented.
+
+### Add a teacher
+
+1. A school administrator opens `/admin`.
+2. They choose **Add a teacher**, which opens the invite section in
+   `/admin/people`.
+3. The new member receives a teacher role and only sees the teacher workspace
+   after sign-in.
+
+### Create a lesson and interactive activity
+
+1. A teacher opens `/teacher` and chooses **Create lesson**.
+2. Lesson drafts are managed under `/teacher/subjects`.
+3. Reusable media and interactive activities are managed in
+   `/teacher/content`.
+4. **Create here** is the normal interactive-activity path. Embed and package
+   import are labelled as advanced options. Teachers then attach the activity
+   to a lesson and release it to the assigned learners.
 
 The current build establishes the learner-facing product shell, academic
 administration, admissions, identity, teaching, assessment, and reporting

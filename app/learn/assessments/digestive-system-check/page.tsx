@@ -305,7 +305,7 @@ export default function DigestiveSystemCheckPage() {
     return (
       <main className="quiz-intro-shell">
         <header className="quiz-student-header">
-          <Link href="/">Learners Hub</Link>
+          <Link href="/student">Learners Hub</Link>
           <span>Integrated Science · JHS 2 Gold</span>
           <span className="quiz-student-avatar">KA</span>
         </header>
@@ -408,7 +408,7 @@ export default function DigestiveSystemCheckPage() {
   return (
     <main className="quiz-runner-shell">
       <header className="quiz-runner-header">
-        <Link href="/">LH</Link>
+        <Link href="/student">LH</Link>
         <div>
           <span>Integrated Science</span>
           <strong>{assessment.title}</strong>

@@ -12,14 +12,13 @@ import "../../admin/academic/academic.css";
 import "./teacher-subjects.css";
 
 const navigation = [
-  { href: "/teacher/operations", label: "My day", symbol: "⌂" },
+  { href: "/teacher", label: "Today", symbol: "⌂" },
   { href: "/teacher/subjects", label: "My subjects", symbol: "▦" },
   { href: "/teacher/content", label: "Content studio", symbol: "◫" },
   { href: "#lessons", label: "Lessons", symbol: "≡" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },
   { href: "/teacher/gradebook", label: "Markbook", symbol: "↗" },
   { href: "#classes", label: "Class groups", symbol: "◎" },
-  { href: "/admin/academic", label: "School admin", symbol: "⚙" },
 ];
 
 const previewWorkspace: TeacherLessonWorkspace = {
@@ -116,7 +115,7 @@ const previewContentWorkspace: TeacherContentWorkspace = {
       offeringId: "offering-science-jhs2",
       provider: "h5p",
       status: "launchable",
-      title: "H5P interactive demonstration",
+      title: "Interactive demonstration",
     },
   ],
   className: "JHS 2 Gold",
@@ -371,7 +370,7 @@ export default function TeacherSubjectsPage() {
   return (
     <div className="admin-shell teacher-shell">
       <aside className="admin-sidebar teacher-sidebar" aria-label="Teacher workspace">
-        <Link className="brand" href="/" aria-label="Learners Hub home">
+        <Link className="brand" href="/teacher" aria-label="Teacher home">
           <span className="brand-mark" aria-hidden="true">LH</span>
           <span><strong>Learners</strong><small>Hub</small></span>
         </Link>
@@ -397,7 +396,7 @@ export default function TeacherSubjectsPage() {
           <span><i style={{ width: `${workspace.coveragePercent}%` }} /></span>
           <small>On track for the term plan</small>
         </div>
-        <Link className="admin-profile" href="/">
+        <Link className="admin-profile" href="/teacher">
           <span className="avatar">KA</span>
           <span><strong>Open learner view</strong><small>Preview JHS 2 Gold</small></span>
           <b aria-hidden="true">↗</b>
@@ -420,7 +419,17 @@ export default function TeacherSubjectsPage() {
               <i aria-hidden="true" />
               {dataMode === "protected" ? "Saving to school" : dataMode === "loading" ? "Connecting" : "Preview mode"}
             </span>
-            <Link className="learner-preview-link" href="/learn/subjects/integrated-science">Learner preview →</Link>
+            <button
+              className="learner-preview-link"
+              onClick={() =>
+                setNotice(
+                  "Learner preview will open in a clearly labelled preview session after the draft is saved.",
+                )
+              }
+              type="button"
+            >
+              Preview lesson
+            </button>
             <span className="avatar">{initials(actor)}</span>
           </div>
         </header>
@@ -510,7 +519,16 @@ export default function TeacherSubjectsPage() {
                     {selectedLesson.status === "draft" ? (
                       <button className="publish-button" onClick={publishSelectedLesson} type="button">Publish to class →</button>
                     ) : (
-                      <Link href="/learn/subjects/integrated-science">Open learner view →</Link>
+                      <button
+                        onClick={() =>
+                          setNotice(
+                            "Learner preview will open in a clearly labelled preview session.",
+                          )
+                        }
+                        type="button"
+                      >
+                        Preview lesson
+                      </button>
                     )}
                   </div>
                 </div>
@@ -728,7 +746,7 @@ function LessonDraftForm({
         <label><span>Block title</span><input required={blocks.length === 0} value={blockTitle} onChange={(event) => setBlockTitle(event.target.value)} placeholder="A clear section heading" /></label>
         <label><span>Block content</span><textarea required={blocks.length === 0} value={blockContent} onChange={(event) => setBlockContent(event.target.value)} placeholder="Write content or describe the activity…" /></label>
         {blockType === "interactive" && (
-          <label><span>H5P activity (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use native knowledge check</option>{activities.filter((activity) => activity.status === "launchable").map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></label>
+          <label><span>Interactive activity (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use native knowledge check</option>{activities.filter((activity) => activity.status === "launchable").map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></label>
         )}
         {(blockType === "video" || blockType === "resource") && (
           <label><span>Secure media (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use descriptive placeholder</option>{assets.filter((asset) => asset.kind !== "h5p-package" && asset.status === "ready").map((asset) => <option key={asset.id} value={asset.id}>{asset.originalFilename}</option>)}</select></label>
@@ -738,7 +756,7 @@ function LessonDraftForm({
           {blocks.map((block, index) => (
             <li key={block.id}>
               <span>{blockSymbol(block.type)}</span>
-              <p><strong>{block.title}</strong><small>{block.type} · Activity {index + 1}{block.config?.activityId ? " · H5P attached" : block.config?.mediaAssetId ? " · Secure media attached" : ""}</small></p>
+              <p><strong>{block.title}</strong><small>{block.type} · Activity {index + 1}{block.config?.activityId ? " · Interactive activity attached" : block.config?.mediaAssetId ? " · Secure media attached" : ""}</small></p>
               <div>
                 <button aria-label={`Move ${block.title} up`} disabled={index === 0} onClick={() => moveBlock(index, -1)} type="button">↑</button>
                 <button aria-label={`Move ${block.title} down`} disabled={index === blocks.length - 1} onClick={() => moveBlock(index, 1)} type="button">↓</button>

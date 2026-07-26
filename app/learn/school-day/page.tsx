@@ -126,7 +126,7 @@ export default function LearnerSchoolDayPage() {
   return (
     <main className="school-day-shell">
       <header className="school-day-header">
-        <Link className="school-day-brand" href="/">
+        <Link className="school-day-brand" href="/student">
           <span>LH</span>
           <div>
             <strong>Learners Hub</strong>
@@ -134,12 +134,11 @@ export default function LearnerSchoolDayPage() {
           </div>
         </Link>
         <nav aria-label="Learner navigation">
-          <Link href="/">Overview</Link>
+          <Link href="/student">Overview</Link>
           <a className="is-active" href="#today">
             School day
           </a>
           <Link href="/learn/subjects/integrated-science">Subjects</Link>
-          <Link href="/guardian/reports">Reports</Link>
         </nav>
         <div className="school-day-profile">
           <div>

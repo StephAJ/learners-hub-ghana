@@ -15,13 +15,10 @@ import "../academic/academic.css";
 import "./people.css";
 
 const navigation = [
-  { href: "/", label: "Overview", symbol: "⌂" },
-  { href: "/admin/academic", label: "Academic setup", symbol: "▦" },
+  { href: "/admin", label: "Home", symbol: "⌂" },
   { href: "/admin/admissions", label: "Admissions", symbol: "+" },
   { href: "/admin/people", label: "People", symbol: "◎" },
-  { href: "/teacher/subjects", label: "Teaching", symbol: "✎" },
-  { href: "/teacher/assessments", label: "Assessment", symbol: "✓" },
-  { href: "/teacher/gradebook", label: "Reports", symbol: "↗" },
+  { href: "/admin/academic", label: "Academics", symbol: "▦" },
 ];
 
 const roleLabels: Record<SchoolRole, string> = {
@@ -218,7 +215,7 @@ export default function PeoplePage() {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="School administration">
-        <Link className="brand" href="/" aria-label="Learners Hub home">
+        <Link className="brand" href="/admin" aria-label="Administration home">
           <span className="brand-mark" aria-hidden="true">LH</span>
           <span><strong>Learners</strong><small>Hub</small></span>
         </Link>
@@ -248,7 +245,7 @@ export default function PeoplePage() {
           <span>Role, school, class, subject & child scope</span>
         </div>
 
-        <Link className="admin-profile" href="/">
+        <Link className="admin-profile" href="/admin">
           <span className="avatar">{initials(actor.name)}</span>
           <span><strong>{actor.name}</strong><small>{roleLabels[actor.role]}</small></span>
           <b aria-hidden="true">↗</b>
@@ -262,7 +259,7 @@ export default function PeoplePage() {
             <strong>People & access</strong>
           </div>
           <nav aria-label="Breadcrumb">
-            <Link href="/">Greenfield Academy</Link>
+            <Link href="/admin">Greenfield Academy</Link>
             <span aria-hidden="true">/</span>
             <strong>People & access</strong>
           </nav>
@@ -447,8 +444,8 @@ function InvitePersonForm({
   }
 
   return (
-    <section className="invite-card" aria-labelledby="invite-title">
-      <div><p className="eyebrow">Controlled onboarding</p><h2 id="invite-title">Invite a member</h2></div>
+    <section className="invite-card" id="invite" aria-labelledby="invite-title">
+      <div><p className="eyebrow">Controlled onboarding</p><h2 id="invite-title">Add a teacher or school member</h2></div>
       <form onSubmit={submit}>
         <div className="name-fields">
           <label><span>First name</span><input required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>
@@ -464,20 +461,65 @@ function InvitePersonForm({
         <div className="name-fields">
           <label>
             <span>Scope type</span>
-            <select value={scopeType} onChange={(event) => setScopeType(event.target.value as typeof scopeType)}>
+            <select
+              value={scopeType}
+              onChange={(event) => {
+                const nextScopeType = event.target.value as typeof scopeType;
+                setScopeType(nextScopeType);
+                setScopeId(scopeOptions[nextScopeType][0]?.value ?? "");
+              }}
+            >
               <option value="tenant">Whole school</option>
               <option value="class">Class</option>
               <option value="subject">Subject</option>
               <option value="learner">Learner</option>
             </select>
           </label>
-          <label><span>Scope</span><input value={scopeId} onChange={(event) => setScopeId(event.target.value)} placeholder="e.g. JHS 2 Gold" /></label>
+          <label>
+            <span>Assigned area</span>
+            <select
+              disabled={scopeType === "tenant"}
+              onChange={(event) => setScopeId(event.target.value)}
+              value={scopeId}
+            >
+              {scopeOptions[scopeType].map((option) => (
+                <option key={option.value || "whole-school"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <button type="submit">Create invitation <span aria-hidden="true">→</span></button>
       </form>
     </section>
   );
 }
+
+const scopeOptions: Record<
+  "tenant" | "class" | "subject" | "learner",
+  { label: string; value: string }[]
+> = {
+  tenant: [{ label: "Whole school", value: "" }],
+  class: [
+    { label: "JHS 1 Blue", value: "class-jhs1-blue" },
+    { label: "JHS 2 Gold", value: "class-jhs2-gold" },
+    { label: "JHS 3 Green", value: "class-jhs3-green" },
+    { label: "SHS 1 General Arts", value: "class-shs1-arts" },
+  ],
+  subject: [
+    { label: "Integrated Science", value: "Integrated Science" },
+    { label: "Mathematics", value: "Mathematics" },
+    { label: "English Language", value: "English Language" },
+    { label: "Social Studies", value: "Social Studies" },
+    { label: "Computing", value: "Computing" },
+  ],
+  learner: [
+    { label: "Yaa Nkrumah", value: "learner-yaa" },
+    { label: "Daniel Asare", value: "learner-daniel" },
+    { label: "Adwoa Boateng", value: "learner-adwoa" },
+  ],
+};
 
 function permissionsFor(role: SchoolRole) {
   const permissions: Record<SchoolRole, string[]> = {

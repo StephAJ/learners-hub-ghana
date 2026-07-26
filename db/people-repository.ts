@@ -11,8 +11,10 @@ const GREENFIELD_TENANT_ID = "tenant-greenfield";
 
 export type AuthenticatedSchoolUser = {
   access: AccessContext;
+  availableRoles: SchoolRole[];
   email: string;
   name: string;
+  primaryRole: SchoolRole;
   schoolName: string;
 };
 
@@ -40,21 +42,29 @@ type IdentityRow = {
 
 export async function resolveAuthenticatedSchoolUser(
   user: ChatGPTUser,
+  preferredRoles: SchoolRole[] = [],
 ): Promise<AuthenticatedSchoolUser> {
   await ensurePeopleSeed();
   const email = user.email.trim().toLowerCase();
-  let identity = await findIdentity(email);
+  let identities = await findIdentities(email);
 
-  if (!identity) {
+  if (identities.length === 0) {
     await bootstrapFirstAdministrator(user, email);
-    identity = await findIdentity(email);
+    identities = await findIdentities(email);
   }
 
-  if (!identity) {
+  if (identities.length === 0) {
     throw new AuthorizationError(
       "Your signed-in identity is not a member of this school.",
     );
   }
+
+  const primaryIdentity = identities[0];
+  const identity =
+    identities.find((membership) =>
+      membership.membership_status === "active" &&
+      preferredRoles.includes(membership.role),
+    ) ?? primaryIdentity;
 
   return {
     access: {
@@ -63,11 +73,23 @@ export async function resolveAuthenticatedSchoolUser(
       role: identity.role,
       tenantId: identity.tenant_id,
     },
+    availableRoles: Array.from(
+      new Set(
+        identities
+          .filter(
+            (membership) =>
+              membership.membership_status === "active" &&
+              membership.tenant_id === identity.tenant_id,
+          )
+          .map((membership) => membership.role),
+      ),
+    ),
     email: identity.email,
     name:
       user.fullName ??
       `${identity.first_name} ${identity.last_name}`.trim() ??
       identity.email,
+    primaryRole: primaryIdentity.role,
     schoolName: identity.school_name,
   };
 }
@@ -372,9 +394,9 @@ function seedMembership(
     );
 }
 
-async function findIdentity(email: string): Promise<IdentityRow | null> {
+async function findIdentities(email: string): Promise<IdentityRow[]> {
   const database = await getD1Database();
-  return database
+  const result = await database
     .prepare(
       `SELECT
         i.email,
@@ -390,11 +412,15 @@ async function findIdentity(email: string): Promise<IdentityRow | null> {
       INNER JOIN tenant_memberships m ON m.person_id = p.id
       INNER JOIN tenants t ON t.id = m.tenant_id
       WHERE i.provider = 'chatgpt' AND i.provider_subject = ?
-      ORDER BY m.accepted_at DESC
-      LIMIT 1`,
+      ORDER BY
+        CASE m.status WHEN 'active' THEN 1 WHEN 'invited' THEN 2 ELSE 3 END,
+        m.accepted_at ASC,
+        m.invited_at ASC`,
     )
     .bind(email)
-    .first<IdentityRow>();
+    .all<IdentityRow>();
+
+  return result.results;
 }
 
 async function bootstrapFirstAdministrator(

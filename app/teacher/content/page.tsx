@@ -10,12 +10,11 @@ import "../../admin/academic/academic.css";
 import "./content-studio.css";
 
 const navigation = [
-  { href: "/teacher/operations", label: "My day", symbol: "⌂" },
+  { href: "/teacher", label: "Today", symbol: "⌂" },
   { href: "/teacher/subjects", label: "Lessons", symbol: "▦" },
   { href: "/teacher/content", label: "Content studio", symbol: "◫" },
   { href: "/teacher/assessments", label: "Assessments", symbol: "✓" },
   { href: "/teacher/gradebook", label: "Gradebook", symbol: "↗" },
-  { href: "/admin/academic", label: "School admin", symbol: "⚙" },
 ];
 
 const previewWorkspace: TeacherContentWorkspace = {
@@ -199,13 +198,17 @@ export default function TeacherContentPage() {
             offeringId: current.offeringId,
             packageAssetId: input.packageAssetId || undefined,
             provider: "h5p",
-            status: input.launchUrl ? "launchable" : "awaiting-runtime",
+            status: input.launchUrl
+              ? "launchable"
+              : input.packageAssetId
+                ? "awaiting-runtime"
+                : "draft",
             title: input.title,
           },
           ...current.activities,
         ],
       }));
-      setNotice("Preview H5P activity registered for lesson authors.");
+      setNotice("Interactive activity draft created.");
       setBusy(false);
       return;
     }
@@ -229,7 +232,11 @@ export default function TeacherContentPage() {
         );
       }
       setWorkspace(payload.workspace);
-      setNotice(`${input.title} is now available to lesson authors.`);
+      setNotice(
+        input.launchUrl || input.packageAssetId
+          ? `${input.title} is now available to lesson authors.`
+          : `${input.title} is ready to continue in the interactive editor.`,
+      );
     } catch (error) {
       setNotice(
         error instanceof Error
@@ -259,7 +266,7 @@ export default function TeacherContentPage() {
         ),
       }));
       setNotice(
-        "Preview package activated. Production will send it to your Hostinger runtime.",
+        "Imported activity prepared for lesson authors.",
       );
       setBusy(false);
       return;
@@ -279,16 +286,16 @@ export default function TeacherContentPage() {
       };
       if (!response.ok || !payload.workspace) {
         throw new Error(
-          payload.error ?? "The H5P package could not be activated.",
+          payload.error ?? "The interactive activity could not be prepared.",
         );
       }
       setWorkspace(payload.workspace);
-      setNotice("H5P package imported and ready for learner lessons.");
+      setNotice("Interactive activity is ready for learner lessons.");
     } catch (error) {
       setNotice(
         error instanceof Error
           ? error.message
-          : "The H5P package could not be activated.",
+          : "The interactive activity could not be prepared.",
       );
     } finally {
       setBusy(false);
@@ -302,7 +309,7 @@ export default function TeacherContentPage() {
   return (
     <div className="admin-shell content-shell">
       <aside className="admin-sidebar content-sidebar">
-        <Link className="brand" href="/">
+        <Link className="brand" href="/teacher">
           <span className="brand-mark">LH</span>
           <span><strong>Learners</strong><small>Hub</small></span>
         </Link>
@@ -340,7 +347,7 @@ export default function TeacherContentPage() {
             <div>
               <p className="eyebrow">Media and interactive learning</p>
               <h1>Content studio</h1>
-              <p>Create one secure library for {workspace.subjectName}, then reuse its files and H5P activities across lessons.</p>
+              <p>Create one secure library for {workspace.subjectName}, then reuse its files and interactive activities across lessons.</p>
               <div><span>{workspace.className}</span><span>25 MB upload limit</span><span>Mobile-ready contracts</span></div>
             </div>
             <Link href="/teacher/subjects">Use content in a lesson →</Link>
@@ -348,7 +355,7 @@ export default function TeacherContentPage() {
 
           <section className="content-metrics">
             <article><span>◫</span><p><small>Private assets</small><strong>{workspace.mediaAssets.length}</strong></p></article>
-            <article><span>✦</span><p><small>H5P activities</small><strong>{workspace.activities.length}</strong></p></article>
+            <article><span>✦</span><p><small>Interactive activities</small><strong>{workspace.activities.length}</strong></p></article>
             <article><span>▶</span><p><small>Launchable now</small><strong>{launchableCount}</strong></p></article>
             <article><span>↓</span><p><small>Storage used</small><strong>{formatBytes(workspace.totalBytes)}</strong></p></article>
           </section>
@@ -378,37 +385,49 @@ export default function TeacherContentPage() {
                     </article>
                   ))}
                 </div>
-              ) : <EmptyState title="No media uploaded yet" copy="Add a low-data lesson file or H5P package above." />}
+              ) : <EmptyState title="No media uploaded yet" copy="Add a low-data lesson file or import an existing interactive activity above." />}
             </section>
 
             <section className="content-panel">
-              <PanelHeading eyebrow="H5P-compatible launch contracts" title="Interactive activities" count={workspace.activities.length} />
+              <PanelHeading eyebrow="Built-in interactive learning" title="Interactive activities" count={workspace.activities.length} />
               {workspace.activities.length ? (
                 <div className="activity-list">
                   {workspace.activities.map((activity) => (
                     <article key={activity.id}>
-                      <span>H5P</span>
+                      <span>IA</span>
                       <div><small>{activity.contentType}</small><strong>{activity.title}</strong><p>{activity.fallbackText}</p></div>
                       <footer>
                         <em className={`activity-status ${activity.status}`}>{humanise(activity.status)}</em>
                         {activity.launchUrl ? (
                           <a href={activity.launchUrl} rel="noreferrer" target="_blank">Test launch ↗</a>
                         ) : activity.runtimeContentId ? (
-                          <span>Self-hosted runtime</span>
+                          <span>Ready for lessons</span>
+                        ) : activity.status === "draft" ? (
+                          <button
+                            disabled={busy}
+                            onClick={() =>
+                              setNotice(
+                                `${activity.title} is ready for the built-in editor.`,
+                              )
+                            }
+                            type="button"
+                          >
+                            Continue editing →
+                          </button>
                         ) : (
                           <button
                             disabled={busy}
                             onClick={() => void activateActivity(activity.id)}
                             type="button"
                           >
-                            Activate on VPS →
+                            Prepare activity →
                           </button>
                         )}
                       </footer>
                     </article>
                   ))}
                 </div>
-              ) : <EmptyState title="No H5P activities yet" copy="Register an embed or pair an uploaded package above." />}
+              ) : <EmptyState title="No interactive activities yet" copy="Create the first activity for this subject above." />}
             </section>
           </div>
         </div>
@@ -466,7 +485,9 @@ function H5pActivityForm({
   onCreate: (input: H5pFormInput) => Promise<void>;
   packages: TeacherContentWorkspace["mediaAssets"];
 }) {
-  const [source, setSource] = useState<"embed" | "package">("embed");
+  const [source, setSource] = useState<"authoring" | "embed" | "package">(
+    "authoring",
+  );
   const [title, setTitle] = useState("");
   const [contentType, setContentType] = useState("Interactive Video");
   const [launchUrl, setLaunchUrl] = useState("");
@@ -484,22 +505,53 @@ function H5pActivityForm({
   }
   return (
     <section className="content-form-card">
-      <div className="content-form-heading"><span>✦</span><div><p className="eyebrow">Interactive learning</p><h2>Register H5P activity</h2></div></div>
+      <div className="content-form-heading"><span>✦</span><div><p className="eyebrow">Interactive learning</p><h2>Create interactive activity</h2></div></div>
       <form onSubmit={submit}>
-        <div className="source-toggle">{(["embed", "package"] as const).map((item) => <button className={source === item ? "active" : ""} key={item} onClick={() => setSource(item)} type="button">{item === "embed" ? "HTTPS embed" : "Uploaded package"}</button>)}</div>
+        <div className="source-toggle">
+          {(["authoring", "embed", "package"] as const).map((item) => (
+            <button
+              className={source === item ? "active" : ""}
+              key={item}
+              onClick={() => setSource(item)}
+              type="button"
+            >
+              {item === "authoring"
+                ? "Create here"
+                : item === "embed"
+                  ? "Advanced embed"
+                  : "Import activity"}
+            </button>
+          ))}
+        </div>
         <div className="h5p-field-row">
           <label><span>Activity title</span><input onChange={(event) => setTitle(event.target.value)} required value={title} /></label>
-          <label><span>H5P content type</span><input onChange={(event) => setContentType(event.target.value)} required value={contentType} /></label>
+          <label>
+            <span>Activity type</span>
+            <select onChange={(event) => setContentType(event.target.value)} value={contentType}>
+              <option>Interactive Video</option>
+              <option>Drag and Drop</option>
+              <option>Course Presentation</option>
+              <option>Branching Scenario</option>
+              <option>Memory Game</option>
+            </select>
+          </label>
         </div>
         {source === "embed" ? (
-          <label><span>H5P embed URL</span><input onChange={(event) => setLaunchUrl(event.target.value)} placeholder="https://…/content/…/embed" required type="url" value={launchUrl} /></label>
-        ) : (
-          <label><span>Uploaded .h5p package</span><select onChange={(event) => setPackageAssetId(event.target.value)} required value={packageAssetId}><option value="">Choose a package</option>{packages.map((asset) => <option key={asset.id} value={asset.id}>{asset.originalFilename}</option>)}</select></label>
-        )}
+          <label><span>Advanced activity link</span><input onChange={(event) => setLaunchUrl(event.target.value)} placeholder="https://…/content/…/embed" required type="url" value={launchUrl} /></label>
+        ) : source === "package" ? (
+          <label><span>Imported activity file</span><select onChange={(event) => setPackageAssetId(event.target.value)} required value={packageAssetId}><option value="">Choose an uploaded activity</option>{packages.map((asset) => <option key={asset.id} value={asset.id}>{asset.originalFilename}</option>)}</select></label>
+        ) : null}
         <label><span>Accessible fallback</span><textarea onChange={(event) => setFallbackText(event.target.value)} placeholder="Describe the equivalent transcript, reading, or activity." required value={fallbackText} /></label>
-        <button disabled={busy} type="submit">{source === "embed" ? "Register launchable activity" : "Store package contract"}<span>→</span></button>
+        <button disabled={busy} type="submit">
+          {source === "authoring"
+            ? "Create activity draft"
+            : source === "embed"
+              ? "Add advanced activity"
+              : "Import activity"}
+          <span>→</span>
+        </button>
       </form>
-      <p><span>i</span>Embed origins are checked exactly. Uploaded packages remain private until a compatible runtime is connected.</p>
+      <p><span>i</span>Teachers normally create activities here. Import options are available for existing H5P content.</p>
     </section>
   );
 }
@@ -544,6 +596,8 @@ function formatDate(value: string) {
 }
 
 function humanise(value: string) {
+  if (value === "h5p-package") return "Interactive package";
+  if (value === "awaiting-runtime") return "Preparing";
   return value.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
 }
 

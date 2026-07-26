@@ -150,7 +150,11 @@ export async function createH5pActivity(
   }
 
   const activityId = crypto.randomUUID();
-  const status = launch ? "launchable" : "awaiting-runtime";
+  const status = launch
+    ? "launchable"
+    : input.packageAssetId
+      ? "awaiting-runtime"
+      : "draft";
   await database.batch([
     database
       .prepare(
@@ -767,9 +771,9 @@ function validateH5pInput(input: CreateH5pActivityInput) {
       "Title, H5P content type, and accessible fallback are required.",
     );
   }
-  if (Boolean(input.launchUrl) === Boolean(input.packageAssetId)) {
+  if (input.launchUrl && input.packageAssetId) {
     throw new ContentPolicyError(
-      "Choose either an H5P embed URL or an uploaded package.",
+      "Choose only one advanced H5P import source.",
     );
   }
 }

@@ -1543,3 +1543,51 @@ export const guardianAlerts = sqliteTable(
     ),
   ],
 );
+
+export const admissionApplicationRecords = sqliteTable(
+  "admission_application_records",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    intakeId: text("intake_id").notNull(),
+    applicantEmail: text("applicant_email").notNull(),
+    applicantFirstName: text("applicant_first_name").notNull().default(""),
+    applicantLastName: text("applicant_last_name").notNull().default(""),
+    dateOfBirth: text("date_of_birth").notNull().default(""),
+    guardianName: text("guardian_name").notNull().default(""),
+    guardianEmail: text("guardian_email").notNull().default(""),
+    guardianPhone: text("guardian_phone").notNull().default(""),
+    previousSchool: text("previous_school").notNull().default(""),
+    desiredClass: text("desired_class").notNull().default(""),
+    supportNeeds: text("support_needs").notNull().default(""),
+    status: text("status", {
+      enum: [
+        "draft",
+        "submitted",
+        "under-review",
+        "offered",
+        "accepted",
+        "rejected",
+        "enrolled",
+      ],
+    })
+      .notNull()
+      .default("draft"),
+    submittedAt: text("submitted_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("admission_records_tenant_intake_email_unique").on(
+      table.tenantId,
+      table.intakeId,
+      table.applicantEmail,
+    ),
+    index("admission_records_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+    ),
+  ],
+);
