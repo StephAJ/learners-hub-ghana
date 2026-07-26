@@ -57,6 +57,36 @@ curl --fail http://127.0.0.1:13000/api/health
 curl --fail http://127.0.0.1:18080/health
 ```
 
+After CyberPanel has created both child domains, configure their reverse
+proxies as root:
+
+```bash
+bash configure-openlitespeed-proxies.sh
+```
+
+The script verifies both container backends, preserves each original vhost
+configuration, validates the resulting OpenLiteSpeed configuration, and
+performs a graceful restart.
+
+On hosts where Nginx owns port 80, install the included ACME challenge
+location before asking CyberPanel to issue certificates:
+
+```bash
+install -m 644 nginx-acme-location.conf \
+  /etc/nginx/default.d/learners-hub-acme.conf
+nginx -t
+systemctl reload nginx
+```
+
+Install the hostname-specific HTTP redirects after certificates are issued:
+
+```bash
+install -m 644 nginx-http-redirects.conf \
+  /etc/nginx/conf.d/learners-hub.conf
+nginx -t
+systemctl reload nginx
+```
+
 ## Current staging boundary
 
 The portal UI can run in the standard Node container. H5P also runs as an
