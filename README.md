@@ -48,9 +48,10 @@ opening another role's routes directly.
 2. Lesson drafts are managed under `/teacher/subjects`.
 3. Reusable media and interactive activities are managed in
    `/teacher/content`.
-4. **Create here** is the normal interactive-activity path. Embed and package
-   import are labelled as advanced options. Teachers then attach the activity
-   to a lesson and release it to the assigned learners.
+4. A teacher can save an activity plan in the content studio. The currently
+   executable H5P path is to import an existing `.h5p` package or use an
+   advanced activity link; the isolated player records learner interactions.
+   Full in-app H5P editing is not yet connected.
 
 The current build establishes the learner-facing product shell, academic
 administration, admissions, identity, teaching, assessment, and reporting

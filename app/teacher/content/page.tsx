@@ -403,17 +403,7 @@ export default function TeacherContentPage() {
                         ) : activity.runtimeContentId ? (
                           <span>Ready for lessons</span>
                         ) : activity.status === "draft" ? (
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              setNotice(
-                                `${activity.title} is ready for the built-in editor.`,
-                              )
-                            }
-                            type="button"
-                          >
-                            Continue editing →
-                          </button>
+                          <span>Planning draft · editor not connected</span>
                         ) : (
                           <button
                             disabled={busy}
@@ -516,7 +506,7 @@ function H5pActivityForm({
               type="button"
             >
               {item === "authoring"
-                ? "Create here"
+                ? "Plan activity"
                 : item === "embed"
                   ? "Advanced embed"
                   : "Import activity"}
@@ -544,14 +534,14 @@ function H5pActivityForm({
         <label><span>Accessible fallback</span><textarea onChange={(event) => setFallbackText(event.target.value)} placeholder="Describe the equivalent transcript, reading, or activity." required value={fallbackText} /></label>
         <button disabled={busy} type="submit">
           {source === "authoring"
-            ? "Create activity draft"
+            ? "Save planning draft"
             : source === "embed"
               ? "Add advanced activity"
               : "Import activity"}
           <span>→</span>
         </button>
       </form>
-      <p><span>i</span>Teachers normally create activities here. Import options are available for existing H5P content.</p>
+      <p><span>i</span>Planning drafts record the intended activity. To make an activity playable now, import an existing H5P file or use an advanced activity link.</p>
     </section>
   );
 }
