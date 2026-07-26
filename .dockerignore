@@ -1,7 +1,6 @@
 .git
 .github
 .next
-.openai
 .vinext
 coverage
 deploy
