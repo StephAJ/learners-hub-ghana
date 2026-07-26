@@ -1,0 +1,16 @@
+.git
+.github
+.next
+.openai
+.vinext
+coverage
+deploy
+node_modules
+outputs
+services/h5p-runtime/build
+services/h5p-runtime/data
+services/h5p-runtime/h5p
+services/h5p-runtime/node_modules
+work
+*.log
+.env*

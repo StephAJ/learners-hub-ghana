@@ -29,7 +29,7 @@ results.
 The self-hosted H5P slice adds a signed package-import bridge, an isolated
 Node.js player runtime, short-lived learner launch grants, xAPI forwarding,
 opaque content identifiers, persistent VPS volumes, and a Hostinger-ready
-Docker Compose deployment with automatic HTTPS.
+Docker Compose deployment behind the VPS reverse proxy.
 
 ## Current technology
 
@@ -41,7 +41,7 @@ Docker Compose deployment with automatic HTTPS.
 - Cloudflare D1 for persistent structured school records
 - Cloudflare R2 for private lesson media and H5P packages
 - Isolated Lumi H5P Node.js runtime for self-hosted interactive content
-- Docker Compose and Caddy for the Hostinger VPS runtime
+- Docker Compose behind the existing CyberPanel/OpenLiteSpeed reverse proxy
 - Server-enforced role and relationship permissions
 - PWA manifest and responsive mobile navigation
 
@@ -60,6 +60,13 @@ npm run dev
 ```
 
 The development site runs at `http://localhost:3000`.
+
+## Hostinger staging
+
+The VPS deployment model, DNS prerequisites, and operating commands are in
+[`deploy/hostinger/README.md`](deploy/hostinger/README.md). Public hostnames
+are environment and reverse-proxy configuration, so they can be changed
+without rebuilding the application images.
 
 ## Validation
 

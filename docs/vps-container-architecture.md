@@ -17,7 +17,8 @@ its identity, academic, assessment, or storage models.
 ## Understanding summary
 
 - The complete application layer will be containerized on Hostinger.
-- The VPS will run Caddy, the Learners Hub web/API application, H5P, and Redis.
+- The VPS will run the Learners Hub web/API application, H5P, and Redis behind
+  its existing CyberPanel/OpenLiteSpeed reverse proxy.
 - Managed PostgreSQL will hold permanent academic and identity records.
 - Cloudflare R2 will hold private files, lesson media, submissions, H5P
   packages, and encrypted backups.
@@ -83,8 +84,8 @@ debugging paths and does not satisfy the containerization objective.
 
 ```mermaid
 flowchart LR
-    U["Web and future mobile users"] --> CF["Cloudflare DNS and protection"]
-    CF --> C["Caddy HTTPS reverse proxy"]
+    U["Web and future mobile users"] --> DNS["Hostinger DNS"]
+    DNS --> C["CyberPanel/OpenLiteSpeed HTTPS reverse proxy"]
 
     C --> W["Learners Hub web and API container"]
     C --> H["Isolated H5P runtime"]
@@ -185,7 +186,7 @@ logically separate so changes to login methods cannot rewrite academic history.
 
 ## Protected request flow
 
-1. Caddy terminates HTTPS and forwards the request.
+1. CyberPanel/OpenLiteSpeed terminates HTTPS and forwards the request.
 2. Better Auth validates the session or bearer token.
 3. Learners Hub resolves the active tenant membership.
 4. Domain policies verify role, class, subject, and relationship access.
@@ -203,11 +204,11 @@ The development profile contains:
 - PostgreSQL;
 - Redis;
 - an S3-compatible development object store;
-- Caddy or a direct local development endpoint.
+- a direct local development endpoint or a developer-selected proxy.
 
 The production profile contains:
 
-- Caddy;
+- the existing host-managed HTTPS reverse proxy;
 - Learners Hub web/API;
 - H5P;
 - Redis;
@@ -225,7 +226,7 @@ storage containers.
 | Learners Hub web/API | 1 GB |
 | H5P runtime | 1.25 GB |
 | Redis | 256 MB |
-| Caddy | 128 MB |
+| Existing host reverse proxy | included in operating-system margin |
 | Operating system and safety margin | approximately 1.3 GB |
 
 KVM 1 is not approved as the long-term production tier. Work concurrency,
@@ -415,3 +416,4 @@ succeeds.
 | Keep H5P isolated | Execute H5P in the web container | Reduces the security and failure impact of third-party interactive packages |
 | Use a PostgreSQL outbox | Depend on Redis durability | Preserves important asynchronous work through Redis outages |
 | Avoid indefinite dual writes | Keep Sites and VPS active together | Prevents reconciliation ambiguity during migration |
+| Reuse the VPS reverse proxy | Run a Caddy sidecar on public ports | Avoids port conflicts with existing CyberPanel websites and keeps TLS ownership in one place |
