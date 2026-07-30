@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
+import { getAuthenticatedUser } from "../../../auth";
 import {
   inviteDirectoryPerson,
   listDirectoryPeople,
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 }
 
 async function requireRequestUser() {
-  const user = await getChatGPTUser();
+  const user = await getAuthenticatedUser();
   if (!user) {
     throw new RequestIdentityError();
   }

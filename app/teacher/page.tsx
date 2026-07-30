@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { WorkspaceShell } from "../components/workspace-shell";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
+import { firstName, schoolDateLabel, schoolGreeting } from "../school-time";
 
 const timetable = [
   {
@@ -29,9 +30,9 @@ export default async function TeacherHomePage() {
   return (
     <WorkspaceShell
       activeHref="/teacher"
-      description="Your classes, lessons, attendance, and marking in one dependable view."
-      eyebrow="Sunday, 26 July"
-      title={`Good afternoon, ${firstName(user.name)}.`}
+      description="3 classes today, 12 submissions to review, and 1 register due."
+      eyebrow={schoolDateLabel()}
+      title={schoolGreeting(firstName(user.name))}
       user={user}
       workspace="teacher"
     >
@@ -129,8 +130,4 @@ export default async function TeacherHomePage() {
       </div>
     </WorkspaceShell>
   );
-}
-
-function firstName(name: string): string {
-  return name.split(" ")[0] || name;
 }

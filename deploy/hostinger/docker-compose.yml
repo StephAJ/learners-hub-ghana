@@ -6,11 +6,24 @@ services:
       context: ../..
       dockerfile: Dockerfile
     environment:
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${LEARNERS_HUB_ORIGIN:?Set LEARNERS_HUB_ORIGIN}
       H5P_RUNTIME_BASE_URL: ${H5P_PUBLIC_ORIGIN:?Set H5P_PUBLIC_ORIGIN}
       H5P_RUNTIME_SHARED_SECRET: ${H5P_RUNTIME_SHARED_SECRET:?Set H5P_RUNTIME_SHARED_SECRET}
       HOSTNAME: 0.0.0.0
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:?Set INITIAL_ADMIN_EMAIL}
+      INITIAL_ADMIN_NAME: ${INITIAL_ADMIN_NAME:-School Administrator}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?Set INITIAL_ADMIN_PASSWORD}
       NODE_ENV: production
+      PGDATABASE: ${POSTGRES_DB:-learners_hub}
+      PGHOST: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-learners_hub}
       PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD
@@ -30,6 +43,28 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp:size=64m,mode=1777
+
+  postgres:
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-learners_hub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-learners_hub}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    image: postgres:17-alpine
+    mem_limit: 512m
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 128mb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
 
   h5p-runtime:
     build:
@@ -84,3 +119,4 @@ services:
 
 volumes:
   h5p-data:
+  postgres-data:

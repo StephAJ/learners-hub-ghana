@@ -5,7 +5,7 @@ import "./public-site.css";
 import "./workspace.css";
 
 const description =
-  "Admissions, teaching, learning, records, and family updates in one connected school platform.";
+  "The school system Greenfield Academy uses for admissions, lesson planning, attendance, marking, and end-of-term reports.";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -28,10 +28,10 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase,
     openGraph: {
       title: "Learners Hub",
-      description: "Every school day, clearly connected.",
+      description: "One school system, from admissions to reports.",
       images: [
         {
-          alt: "Learners Hub connects the whole school day",
+          alt: "The Learners Hub school workspace",
           url: "/og-unified.png",
         },
       ],
@@ -40,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
     twitter: {
       card: "summary_large_image",
       title: "Learners Hub",
-      description: "Every school day, clearly connected.",
+      description: "One school system, from admissions to reports.",
       images: ["/og-unified.png"],
     },
   };

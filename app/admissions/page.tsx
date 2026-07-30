@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getChatGPTUser } from "../chatgpt-auth";
+import { getAuthenticatedUser, registrationPath } from "../auth";
+
+export const dynamic = "force-dynamic";
 
 const requirements = [
   "Applicant and guardian contact details",
@@ -10,7 +12,7 @@ const requirements = [
 ];
 
 export default async function PublicAdmissionsPage() {
-  const user = await getChatGPTUser();
+  const user = await getAuthenticatedUser();
 
   return (
     <div className="admissions-public-page">
@@ -29,10 +31,10 @@ export default async function PublicAdmissionsPage() {
         <section className="admissions-public-hero">
           <div>
             <p className="public-kicker">2026 / 2027 admissions</p>
-            <h1>Your child’s next chapter starts with a clear application.</h1>
+            <h1>Apply for a place at Greenfield Academy.</h1>
             <p>
-              Apply for JHS and SHS entry, save your progress, follow document
-              requirements, and receive updates from the admissions team.
+              JHS and SHS entry for September 2026. Save your progress as you
+              go and track every document the school still needs.
             </p>
             <div>
               <Link
@@ -40,7 +42,7 @@ export default async function PublicAdmissionsPage() {
                 href={
                   user
                     ? "/admissions/apply"
-                    : "/signin-with-chatgpt?return_to=/admissions/apply"
+                    : registrationPath("/admissions/apply")
                 }
               >
                 {user ? "Continue my application" : "Start an application"}
@@ -91,8 +93,8 @@ export default async function PublicAdmissionsPage() {
 
         <section className="admissions-help">
           <div>
-            <p className="public-kicker">Need assistance?</p>
-            <h2>The admissions team can help.</h2>
+            <p className="public-kicker">Need help?</p>
+            <h2>Talk to the admissions team.</h2>
           </div>
           <p>
             Call +233 30 200 4812 on weekdays from 8:00 to 16:00, or email

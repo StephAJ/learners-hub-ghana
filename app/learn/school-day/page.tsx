@@ -153,10 +153,10 @@ export default function LearnerSchoolDayPage() {
         <section className="school-day-welcome">
           <div>
             <p>{formatLongDate(workspace.currentDate)}</p>
-            <h1>Your school day, all in one place.</h1>
+            <h1>Your school day</h1>
             <span>
-              See what is next, keep up with due work, and follow your own
-              attendance record.
+              Your timetable, the work that is due, and your own attendance
+              record.
             </span>
           </div>
           <div className="school-day-next">

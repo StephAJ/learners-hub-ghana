@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { requireChatGPTUser } from "../chatgpt-auth";
+import { requireAuthenticatedUser } from "../auth";
+import { SignOutButton } from "../components/sign-out-button";
 import { getApplicantApplication } from "../../db/applicant-repository";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApplicantHomePage() {
-  const user = await requireChatGPTUser("/applicant");
+  const user = await requireAuthenticatedUser("/applicant");
   const application = await getApplicantApplication(user);
 
   return (
@@ -20,16 +21,16 @@ export default async function ApplicantHomePage() {
         </Link>
         <div>
           <span>{user.displayName}</span>
-          <Link href="/signout-with-chatgpt?return_to=/">Sign out</Link>
+          <SignOutButton />
         </div>
       </header>
       <main>
         <section className="applicant-welcome">
           <p className="public-kicker">2026 / 2027 admissions</p>
-          <h1>Your application, clearly organised.</h1>
+          <h1>Your application to Greenfield Academy</h1>
           <p>
-            Continue your form, follow requirements, and return here for
-            decisions and next steps.
+            Pick up the form where you left it. Document requests and the
+            school’s decision arrive on this page.
           </p>
         </section>
 
@@ -42,7 +43,7 @@ export default async function ApplicantHomePage() {
             <p>
               {application?.status === "submitted"
                 ? "Greenfield Academy has received your application."
-                : "Complete the standard application when you are ready."}
+                : "The form takes about 20 minutes and saves as you go."}
             </p>
           </div>
           <Link href="/admissions/apply">

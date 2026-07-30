@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { AuthenticatedSchoolUser } from "../../db/people-repository";
 import type { SchoolRole } from "../../domain/identity/types";
+import { SignOutButton } from "./sign-out-button";
 import {
   workspaceHrefForRole,
   workspaceLabelForRole,
@@ -126,12 +127,7 @@ export function WorkspaceShell({
               <small>{humaniseRole(user.access.role)}</small>
             </span>
           </div>
-          <Link
-            className="workspace-signout"
-            href="/signout-with-chatgpt?return_to=/"
-          >
-            Sign out
-          </Link>
+          <SignOutButton className="workspace-signout" />
         </div>
       </aside>
 

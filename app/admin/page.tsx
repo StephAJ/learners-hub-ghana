@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { WorkspaceShell } from "../components/workspace-shell";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
+import { schoolDateLabel, schoolGreeting } from "../school-time";
 
 const readinessSteps = [
   { complete: true, label: "School profile and campus" },
@@ -16,9 +17,9 @@ export default async function AdminHomePage() {
   return (
     <WorkspaceShell
       activeHref="/admin"
-      description="See what needs attention across admissions, people, and academics."
-      eyebrow="School operations"
-      title="Good afternoon. Here is what needs your attention."
+      description="34 applications, 4 staff invitations, and 2 reports are waiting."
+      eyebrow={schoolDateLabel()}
+      title={schoolGreeting()}
       user={user}
       workspace="admin"
     >
@@ -89,7 +90,7 @@ export default async function AdminHomePage() {
             <Link href="/admin/people">
               <span>People</span>
               <strong>2 teachers have no subject assignment</strong>
-              <small>Complete onboarding to populate their workspace</small>
+              <small>They cannot plan lessons until this is set</small>
             </Link>
             <Link href="/admin/academic">
               <span>Academics</span>
@@ -99,28 +100,6 @@ export default async function AdminHomePage() {
           </div>
         </section>
       </div>
-
-      <section className="workflow-map">
-        <header>
-          <p className="workspace-eyebrow">How the system comes together</p>
-          <h2>From admission to a complete school record</h2>
-        </header>
-        <div>
-          {[
-            "Admit learner",
-            "Place in class",
-            "Assign subjects",
-            "Teach",
-            "Assess",
-            "Release report",
-          ].map((step, index) => (
-            <article key={step}>
-              <span>{index + 1}</span>
-              <strong>{step}</strong>
-            </article>
-          ))}
-        </div>
-      </section>
     </WorkspaceShell>
   );
 }

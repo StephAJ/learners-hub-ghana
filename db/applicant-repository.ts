@@ -1,7 +1,8 @@
-import type { ChatGPTUser } from "../app/chatgpt-auth";
+import type { AuthenticatedUser } from "../app/auth";
 import { AuthorizationError, canPerform } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
-import { getD1Database } from "./index";
+import { ensurePlatformReady } from "../server/platform-ready";
+import { getPostgresPool } from "./postgres";
 
 const GREENFIELD_TENANT_ID = "tenant-greenfield";
 const CURRENT_INTAKE_ID = "2026-2027";
@@ -35,39 +36,26 @@ export type SaveApplicantApplicationInput = Omit<
   "applicantEmail" | "id" | "status" | "submittedAt" | "updatedAt"
 >;
 
+export type ManagedAdmissionStatus = Exclude<
+  ApplicantApplication["status"],
+  "draft" | "submitted"
+>;
+
 export async function getApplicantApplication(
-  user: ChatGPTUser,
+  user: AuthenticatedUser,
 ): Promise<ApplicantApplication | null> {
-  const database = await getD1Database();
-  await ensureAdmissionsTenant(database);
-  const row = await database
-    .prepare(
-      `SELECT
-        id,
-        applicant_email,
-        applicant_first_name,
-        applicant_last_name,
-        date_of_birth,
-        guardian_name,
-        guardian_email,
-        guardian_phone,
-        previous_school,
-        desired_class,
-        support_needs,
-        status,
-        submitted_at,
-        updated_at
-      FROM admission_application_records
-      WHERE tenant_id = ? AND intake_id = ? AND applicant_email = ?
-      LIMIT 1`,
-    )
-    .bind(
+  await ensurePlatformReady();
+  const result = await getPostgresPool().query<ApplicantApplicationRow>(
+    `${applicationSelect}
+     WHERE tenant_id = $1 AND intake_id = $2 AND applicant_email = $3
+     LIMIT 1`,
+    [
       GREENFIELD_TENANT_ID,
       CURRENT_INTAKE_ID,
       user.email.trim().toLowerCase(),
-    )
-    .first<ApplicantApplicationRow>();
-
+    ],
+  );
+  const row = result.rows[0];
   return row ? mapApplication(row) : null;
 }
 
@@ -80,94 +68,74 @@ export async function listApplicantApplications(
     );
   }
 
-  const database = await getD1Database();
-  await ensureAdmissionsTenant(database);
-  const result = await database
-    .prepare(
-      `SELECT
-        id,
-        applicant_email,
-        applicant_first_name,
-        applicant_last_name,
-        date_of_birth,
-        guardian_name,
-        guardian_email,
-        guardian_phone,
-        previous_school,
-        desired_class,
-        support_needs,
-        status,
-        submitted_at,
-        updated_at
-      FROM admission_application_records
-      WHERE tenant_id = ? AND intake_id = ? AND status <> 'draft'
-      ORDER BY COALESCE(submitted_at, updated_at) DESC`,
-    )
-    .bind(access.tenantId, CURRENT_INTAKE_ID)
-    .all<ApplicantApplicationRow>();
-
-  return result.results.map(mapApplication);
+  await ensurePlatformReady();
+  const result = await getPostgresPool().query<ApplicantApplicationRow>(
+    `${applicationSelect}
+     WHERE tenant_id = $1 AND intake_id = $2 AND status <> 'draft'
+     ORDER BY COALESCE(submitted_at, updated_at) DESC`,
+    [access.tenantId, CURRENT_INTAKE_ID],
+  );
+  return result.rows.map(mapApplication);
 }
 
 export async function saveApplicantApplication(
-  user: ChatGPTUser,
+  user: AuthenticatedUser,
   input: SaveApplicantApplicationInput,
   submit: boolean,
 ): Promise<ApplicantApplication> {
   validateApplication(input, submit);
-  const database = await getD1Database();
-  await ensureAdmissionsTenant(database);
-  const email = user.email.trim().toLowerCase();
-  const existing = await database
-    .prepare(
-      `SELECT id, status
-      FROM admission_application_records
-      WHERE tenant_id = ? AND intake_id = ? AND applicant_email = ?
-      LIMIT 1`,
-    )
-    .bind(GREENFIELD_TENANT_ID, CURRENT_INTAKE_ID, email)
-    .first<{ id: string; status: ApplicantApplication["status"] }>();
+  await ensurePlatformReady();
 
-  if (
-    existing &&
-    existing.status !== "draft" &&
-    existing.status !== "submitted"
-  ) {
+  const database = getPostgresPool();
+  const email = user.email.trim().toLowerCase();
+  const existing = await database.query<{
+    id: string;
+    status: ApplicantApplication["status"];
+  }>(
+    `SELECT id, status
+     FROM admission_application_records
+     WHERE tenant_id = $1 AND intake_id = $2 AND applicant_email = $3
+     LIMIT 1`,
+    [GREENFIELD_TENANT_ID, CURRENT_INTAKE_ID, email],
+  );
+  const current = existing.rows[0];
+
+  if (current && current.status !== "draft" && current.status !== "submitted") {
     throw new ApplicantApplicationError(
       "This application is already being processed. Contact admissions to request a correction.",
     );
   }
 
-  const applicationId = existing?.id ?? crypto.randomUUID();
-  const status = submit ? "submitted" : existing?.status ?? "draft";
+  const applicationId = current?.id ?? crypto.randomUUID();
+  const status = submit ? "submitted" : current?.status ?? "draft";
   const submittedAt = submit ? new Date().toISOString() : null;
 
-  await database
-    .prepare(
-      `INSERT INTO admission_application_records
-        (
-          id, tenant_id, intake_id, applicant_email, applicant_first_name,
-          applicant_last_name, date_of_birth, guardian_name, guardian_email,
-          guardian_phone, previous_school, desired_class, support_needs,
-          status, submitted_at
-        )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (tenant_id, intake_id, applicant_email)
-      DO UPDATE SET
-        applicant_first_name = excluded.applicant_first_name,
-        applicant_last_name = excluded.applicant_last_name,
-        date_of_birth = excluded.date_of_birth,
-        guardian_name = excluded.guardian_name,
-        guardian_email = excluded.guardian_email,
-        guardian_phone = excluded.guardian_phone,
-        previous_school = excluded.previous_school,
-        desired_class = excluded.desired_class,
-        support_needs = excluded.support_needs,
-        status = excluded.status,
-        submitted_at = COALESCE(excluded.submitted_at, submitted_at),
-        updated_at = CURRENT_TIMESTAMP`,
-    )
-    .bind(
+  await database.query(
+    `INSERT INTO admission_application_records
+      (
+        id, tenant_id, intake_id, applicant_email, applicant_first_name,
+        applicant_last_name, date_of_birth, guardian_name, guardian_email,
+        guardian_phone, previous_school, desired_class, support_needs,
+        status, submitted_at
+      )
+     VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+     )
+     ON CONFLICT (tenant_id, intake_id, applicant_email)
+     DO UPDATE SET
+       applicant_first_name = EXCLUDED.applicant_first_name,
+       applicant_last_name = EXCLUDED.applicant_last_name,
+       date_of_birth = EXCLUDED.date_of_birth,
+       guardian_name = EXCLUDED.guardian_name,
+       guardian_email = EXCLUDED.guardian_email,
+       guardian_phone = EXCLUDED.guardian_phone,
+       previous_school = EXCLUDED.previous_school,
+       desired_class = EXCLUDED.desired_class,
+       support_needs = EXCLUDED.support_needs,
+       status = EXCLUDED.status,
+       submitted_at = COALESCE(EXCLUDED.submitted_at, admission_application_records.submitted_at),
+       updated_at = CURRENT_TIMESTAMP`,
+    [
       applicationId,
       GREENFIELD_TENANT_ID,
       CURRENT_INTAKE_ID,
@@ -183,8 +151,8 @@ export async function saveApplicantApplication(
       input.supportNeeds.trim(),
       status,
       submittedAt,
-    )
-    .run();
+    ],
+  );
 
   const saved = await getApplicantApplication(user);
   if (!saved) {
@@ -193,6 +161,84 @@ export async function saveApplicantApplication(
     );
   }
   return saved;
+}
+
+export async function updateApplicantApplicationStatus(
+  access: AccessContext,
+  applicationId: string,
+  nextStatus: ManagedAdmissionStatus,
+): Promise<ApplicantApplication> {
+  if (!canPerform(access, "admissions:manage")) {
+    throw new AuthorizationError(
+      "You do not have permission to manage admissions.",
+    );
+  }
+
+  await ensurePlatformReady();
+  const database = getPostgresPool();
+  const currentResult = await database.query<ApplicantApplicationRow>(
+    `${applicationSelect}
+     WHERE tenant_id = $1 AND intake_id = $2 AND id = $3
+     LIMIT 1`,
+    [access.tenantId, CURRENT_INTAKE_ID, applicationId],
+  );
+  const current = currentResult.rows[0];
+  if (!current) {
+    throw new ApplicantApplicationError("The application could not be found.");
+  }
+  if (!isAllowedStatusChange(current.status, nextStatus)) {
+    throw new ApplicantApplicationError(
+      `An application cannot move from ${current.status} to ${nextStatus}.`,
+    );
+  }
+
+  const client = await database.connect();
+  try {
+    await client.query("BEGIN");
+    const updated = await client.query<ApplicantApplicationRow>(
+      `UPDATE admission_application_records
+       SET status = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE tenant_id = $2 AND intake_id = $3 AND id = $4
+       RETURNING
+         id,
+         applicant_email,
+         applicant_first_name,
+         applicant_last_name,
+         date_of_birth,
+         guardian_name,
+         guardian_email,
+         guardian_phone,
+         previous_school,
+         desired_class,
+         support_needs,
+         status,
+         submitted_at::text,
+         updated_at::text`,
+      [nextStatus, access.tenantId, CURRENT_INTAKE_ID, applicationId],
+    );
+    await client.query(
+      `INSERT INTO audit_events
+        (id, tenant_id, actor_person_id, action, entity_type, entity_id, metadata)
+       VALUES (
+         $1, $2, $3, 'admissions.status_changed', 'admission_application', $4,
+         $5::jsonb
+       )`,
+      [
+        crypto.randomUUID(),
+        access.tenantId,
+        access.actorPersonId,
+        applicationId,
+        JSON.stringify({ from: current.status, to: nextStatus }),
+      ],
+    );
+    await client.query("COMMIT");
+    return mapApplication(updated.rows[0]);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export class ApplicantApplicationError extends Error {
@@ -218,6 +264,24 @@ type ApplicantApplicationRow = {
   support_needs: string;
   updated_at: string;
 };
+
+const applicationSelect = `
+  SELECT
+    id,
+    applicant_email,
+    applicant_first_name,
+    applicant_last_name,
+    date_of_birth,
+    guardian_name,
+    guardian_email,
+    guardian_phone,
+    previous_school,
+    desired_class,
+    support_needs,
+    status,
+    submitted_at::text,
+    updated_at::text
+  FROM admission_application_records`;
 
 function mapApplication(row: ApplicantApplicationRow): ApplicantApplication {
   return {
@@ -264,11 +328,17 @@ function validateApplication(
   }
 }
 
-async function ensureAdmissionsTenant(database: D1Database) {
-  await database
-    .prepare(
-      "INSERT OR IGNORE INTO tenants (id, name, slug) VALUES (?, ?, ?)",
-    )
-    .bind(GREENFIELD_TENANT_ID, "Greenfield Academy", "greenfield-academy")
-    .run();
+function isAllowedStatusChange(
+  currentStatus: ApplicantApplication["status"],
+  nextStatus: ManagedAdmissionStatus,
+): boolean {
+  const allowedTransitions: Partial<
+    Record<ApplicantApplication["status"], ManagedAdmissionStatus[]>
+  > = {
+    accepted: ["enrolled"],
+    offered: ["accepted"],
+    submitted: ["under-review"],
+    "under-review": ["offered", "rejected"],
+  };
+  return allowedTransitions[currentStatus]?.includes(nextStatus) ?? false;
 }

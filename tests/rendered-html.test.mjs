@@ -30,7 +30,7 @@ test("server-renders one clear public landing page", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Learners Hub<\/title>/i);
-  assert.match(html, /Every school day, clearly connected/);
+  assert.match(html, /One school system/);
   assert.match(html, /Apply for admission/);
   assert.match(html, /One sign-in opens the right workspace/);
   assert.match(html, /School leaders/);
@@ -47,7 +47,7 @@ test("server-renders the public admissions journey", async () => {
   assert.equal(response.status, 200);
 
   const html = await response.text();
-  assert.match(html, /Your child’s next chapter starts with a clear application/);
+  assert.match(html, /Apply for a place at Greenfield Academy/);
   assert.match(html, /What you will need/);
   assert.match(html, /Start an application/);
   assert.match(html, /Birth certificate/);
@@ -82,7 +82,7 @@ test("redirects workspace entry to sign-in for anonymous visitors", async () => 
     );
     assert.match(
       response.headers.get("location") ?? "",
-      /\/signin-with-chatgpt/,
+      /\/sign-in/,
       `${path} should redirect to sign-in`,
     );
   }

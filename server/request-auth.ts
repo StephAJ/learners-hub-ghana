@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "../app/chatgpt-auth";
+import { getAuthenticatedUser } from "../app/auth";
 import {
   resolveAuthenticatedSchoolUser,
   type AuthenticatedSchoolUser,
@@ -11,7 +11,7 @@ import { DailyOperationsPolicyError } from "../domain/operations/daily-operation
 import { ContentPolicyError } from "../domain/content/content-policy";
 
 export async function requireSchoolRequestUser(): Promise<AuthenticatedSchoolUser> {
-  const user = await getChatGPTUser();
+  const user = await getAuthenticatedUser();
   if (!user) {
     throw new RequestIdentityError();
   }

@@ -238,10 +238,10 @@ export default function TeacherOperationsPage() {
               <p>
                 {workspace.className} · Class and subject operations
               </p>
-              <h2>Run the school day from one dependable view.</h2>
+              <h2>Registers, marking, and guardian alerts</h2>
               <p>
-                Due work, rubric marking, attendance evidence, guardian alerts,
-                and timetable changes stay connected to the same class record.
+                Everything recorded here writes to the {workspace.className}{" "}
+                class record.
               </p>
             </div>
             <div className="operations-next">
@@ -356,10 +356,7 @@ function TodayPanel({
   return (
     <div className="today-layout">
       <section className="operations-panel">
-        <PanelHeading
-          eyebrow="Friday timetable"
-          title="Today at a glance"
-        />
+        <PanelHeading eyebrow="Timetable" title="Today’s lessons" />
         <div className="today-timeline">
           {todayEntries.map((entry, index) => {
             const period = periodFor(workspace, entry);

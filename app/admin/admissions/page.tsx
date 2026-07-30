@@ -51,6 +51,7 @@ export default function AdmissionsPage() {
   );
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,23 +120,57 @@ export default function AdmissionsPage() {
     applications[0];
   const selectedClass = className(selected.desiredClassGroupId);
 
-  function updateApplication(updated: AdmissionApplication, message: string) {
-    setApplications((current) =>
-      current.map((application) =>
-        application.id === updated.id ? updated : application,
-      ),
-    );
-    setNotice(message);
+  async function updateApplication(
+    updated: AdmissionApplication,
+    message: string,
+  ) {
+    setSaving(true);
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/admissions", {
+        body: JSON.stringify({
+          applicationId: updated.id,
+          status: updated.status,
+        }),
+        headers: { "content-type": "application/json" },
+        method: "PATCH",
+      });
+      const payload = (await response.json()) as {
+        application?: ApplicantApplication;
+        error?: string;
+      };
+      if (!response.ok || !payload.application) {
+        throw new Error(payload.error ?? "The application could not be updated.");
+      }
+
+      setApplications((current) =>
+        current.map((application) =>
+          application.id === updated.id ? updated : application,
+        ),
+      );
+      setNotice(message);
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "The application could not be updated.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function advanceApplication() {
+  async function advanceApplication() {
     if (selected.status === "submitted") {
       const reviewing = startApplicationReview(
         selected,
         "staff-admissions-1",
         "2026-07-23",
       );
-      updateApplication(reviewing, `${fullName(selected)} is now under review.`);
+      await updateApplication(
+        reviewing,
+        `${fullName(selected)} is now under review.`,
+      );
       return;
     }
 
@@ -147,7 +182,10 @@ export default function AdmissionsPage() {
         note: "Application reviewed and entry requirements confirmed.",
         offerExpiresAt: "2026-08-15",
       });
-      updateApplication(offered, `An admission offer was prepared for ${fullName(selected)}.`);
+      await updateApplication(
+        offered,
+        `An admission offer was prepared for ${fullName(selected)}.`,
+      );
       return;
     }
 
@@ -157,7 +195,10 @@ export default function AdmissionsPage() {
         "2026-07-23",
         `guardian-${selected.id}`,
       );
-      updateApplication(accepted, `${fullName(selected)}'s offer is now accepted.`);
+      await updateApplication(
+        accepted,
+        `${fullName(selected)}'s offer is now accepted.`,
+      );
       return;
     }
 
@@ -171,7 +212,7 @@ export default function AdmissionsPage() {
         placementId: `placement-${selected.id}`,
         studentId: `GA-26${sequence}`,
       });
-      updateApplication(
+      await updateApplication(
         conversion.application,
         `${fullName(selected)} now has student ID ${conversion.learner.studentId} and a ${selectedClass} placement.`,
       );
@@ -424,11 +465,16 @@ export default function AdmissionsPage() {
                 <button className="secondary-action" type="button">Save note</button>
                 <button
                   className="primary-action"
-                  disabled={selected.status === "enrolled" || selected.status === "rejected"}
-                  onClick={advanceApplication}
+                  disabled={
+                    saving ||
+                    selected.status === "enrolled" ||
+                    selected.status === "rejected"
+                  }
+                  onClick={() => void advanceApplication()}
                   type="button"
                 >
-                  {nextAction(selected.status)} <span aria-hidden="true">→</span>
+                  {saving ? "Saving…" : nextAction(selected.status)}{" "}
+                  <span aria-hidden="true">→</span>
                 </button>
               </div>
             </aside>

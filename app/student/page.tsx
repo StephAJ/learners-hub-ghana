@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { WorkspaceShell } from "../components/workspace-shell";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
+import { firstName, schoolDateLabel, schoolGreeting } from "../school-time";
 
 const subjects = [
   { name: "Integrated Science", progress: "82%", teacher: "Ms. Asante" },
@@ -15,9 +16,9 @@ export default async function StudentHomePage() {
   return (
     <WorkspaceShell
       activeHref="/student"
-      description="Your next lesson, due work, feedback, and progress."
-      eyebrow="Today’s learning"
-      title={`Good afternoon, ${firstName(user.name)}.`}
+      description="3 pieces of work are due and 2 have new feedback."
+      eyebrow={schoolDateLabel()}
+      title={schoolGreeting(firstName(user.name))}
       user={user}
       workspace="student"
     >
@@ -30,7 +31,7 @@ export default async function StudentHomePage() {
         </div>
         <div className="student-continue-progress" aria-label="82 percent complete">
           <strong>82%</strong>
-          <span>Weekly science goal</span>
+          <span>Lesson 6 of 8</span>
         </div>
       </section>
 
@@ -48,12 +49,12 @@ export default async function StudentHomePage() {
         <article>
           <small>Overall average</small>
           <strong>82%</strong>
-          <span>Keep the momentum going</span>
+          <span>Across 4 subjects</span>
         </article>
         <article>
           <small>New feedback</small>
           <strong>2</strong>
-          <span>Released by your teachers</span>
+          <Link href="/learn/school-day">Read feedback</Link>
         </article>
       </section>
 
@@ -109,8 +110,4 @@ export default async function StudentHomePage() {
       </div>
     </WorkspaceShell>
   );
-}
-
-function firstName(name: string): string {
-  return name.split(" ")[0] || name;
 }

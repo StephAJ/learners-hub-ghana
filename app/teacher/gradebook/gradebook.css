@@ -23,20 +23,20 @@
 
 .gradebook-sidebar nav a b {
   margin-left: auto;
-  width: 21px;
-  height: 21px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: #f1bd54;
   color: #3b2a06;
-  font-size: 0.68rem;
+  font-size: var(--fs-14);
 }
 
 .gradebook-lock-note {
   margin-top: auto;
-  padding: 17px;
-  border-radius: 17px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
   background: linear-gradient(145deg, #17493b, #0e3028);
   color: white;
   display: grid;
@@ -46,12 +46,12 @@
 .gradebook-lock-note span,
 .gradebook-lock-note small {
   color: #bad5ca;
-  font-size: 0.67rem;
+  font-size: var(--fs-14);
 }
 
 .gradebook-lock-note strong {
-  font-family: Georgia, serif;
-  font-size: 1.35rem;
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
 }
 
 .gradebook-main {
@@ -60,7 +60,7 @@
 
 .gradebook-topbar {
   min-height: 84px;
-  padding: 15px 32px;
+  padding: 16px 32px;
   background: rgba(255, 255, 255, 0.9);
   border-bottom: 1px solid var(--grade-line);
   display: flex;
@@ -77,21 +77,21 @@
 .gradebook-panel-heading p {
   margin: 0;
   color: var(--grade-muted);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-label);
 }
 
 .gradebook-topbar h1 {
-  margin: 3px 0 0;
-  font-family: Georgia, serif;
-  font-size: 1.5rem;
+  margin: 4px 0 0;
+  font-family: var(--font-serif);
+  font-size: var(--fs-28);
 }
 
 .gradebook-account {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 
 .gradebook-account div {
@@ -100,23 +100,23 @@
 }
 
 .gradebook-account strong {
-  font-size: 0.8rem;
+  font-size: var(--fs-16);
 }
 
 .gradebook-account small {
   color: var(--grade-muted);
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
 }
 
 .gradebook-account > span:last-child {
   width: 39px;
   height: 39px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   display: grid;
   place-items: center;
   background: #ffd677;
-  font-size: 0.72rem;
-  font-weight: 900;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
 }
 
 .gradebook-data-dot {
@@ -134,20 +134,20 @@
 .gradebook-content {
   width: min(1320px, calc(100% - 58px));
   margin: 0 auto;
-  padding: 28px 0 70px;
+  padding: 28px 0 72px;
 }
 
 .gradebook-hero {
   min-height: 210px;
-  padding: 34px 38px;
-  border-radius: 24px;
+  padding: 36px 40px;
+  border-radius: var(--radius-2xl);
   background:
     radial-gradient(circle at 75% 25%, rgba(246, 200, 106, 0.35), transparent 22%),
     linear-gradient(130deg, #135b49, #173a31);
   color: white;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 270px;
-  gap: 30px;
+  gap: 32px;
   align-items: end;
 }
 
@@ -159,11 +159,11 @@
   width: 42px;
   height: 42px;
   margin-bottom: 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.13);
-  font-weight: 900;
+  font-weight: var(--fw-semibold);
 }
 
 .gradebook-hero p {
@@ -172,21 +172,21 @@
 }
 
 .gradebook-hero h2 {
-  margin: 6px 0 10px;
-  font-family: Georgia, serif;
-  font-size: clamp(1.9rem, 3vw, 2.75rem);
+  margin: 8px 0 12px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-page);
 }
 
 .gradebook-policy-card {
-  padding: 18px;
+  padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.08);
 }
 
 .gradebook-policy-card > span {
   color: #c4d9d1;
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
 }
 
 .gradebook-policy-card > div {
@@ -197,21 +197,21 @@
 }
 
 .gradebook-policy-card strong {
-  font-family: Georgia, serif;
-  font-size: 1.25rem;
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
 }
 
 .gradebook-policy-card small {
   color: #d5e4de;
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
 }
 
 .gradebook-notice {
   width: 100%;
-  margin-top: 13px;
-  padding: 12px 15px;
+  margin-top: 12px;
+  padding: 12px 16px;
   border: 1px solid #b8decf;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   background: #eaf8f2;
   color: #0b5c45;
   display: flex;
@@ -221,14 +221,14 @@
 .gradebook-metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 13px;
-  margin: 18px 0;
+  gap: 12px;
+  margin: 20px 0;
 }
 
 .gradebook-metrics article {
-  padding: 19px;
+  padding: 20px;
   border: 1px solid var(--grade-line);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: white;
   display: grid;
   gap: 4px;
@@ -237,38 +237,38 @@
 .gradebook-metrics span,
 .gradebook-metrics small {
   color: var(--grade-muted);
-  font-size: 0.68rem;
+  font-size: var(--fs-14);
 }
 
 .gradebook-metrics strong {
-  font-family: Georgia, serif;
-  font-size: 1.55rem;
+  font-family: var(--font-serif);
+  font-size: var(--fs-28);
 }
 
 .gradebook-metrics .metric-state {
   color: var(--grade-green);
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: var(--fs-18);
   text-transform: capitalize;
 }
 
 .gradebook-tabs {
   width: max-content;
-  margin: 23px 0 14px;
-  padding: 5px;
-  border-radius: 13px;
+  margin: 24px 0 16px;
+  padding: 4px;
+  border-radius: var(--radius-md);
   background: #eceedf;
   display: flex;
   gap: 4px;
 }
 
 .gradebook-tabs button {
-  padding: 10px 16px;
+  padding: 12px 16px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: #68726d;
-  font-weight: 800;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
 }
 
@@ -281,7 +281,7 @@
 .gradebook-panel {
   padding: 24px;
   border: 1px solid var(--grade-line);
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   background: white;
 }
 
@@ -294,18 +294,18 @@
 
 .gradebook-panel-heading h2 {
   margin: 4px 0 0;
-  font-family: Georgia, serif;
-  font-size: 1.45rem;
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
 }
 
 .gradebook-state-pill,
 .policy-version {
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: #eef6f2;
   color: var(--grade-green);
-  font-size: 0.66rem;
-  font-weight: 900;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
   text-transform: capitalize;
 }
 
@@ -313,7 +313,7 @@
   display: inline-block;
   width: 6px;
   height: 6px;
-  margin-right: 5px;
+  margin-right: 4px;
   border-radius: 50%;
   background: var(--grade-green);
 }
@@ -330,7 +330,7 @@
 
 .marks-table th,
 .marks-table td {
-  padding: 13px 11px;
+  padding: 12px 12px;
   border-bottom: 1px solid #e7ebe8;
   text-align: center;
 }
@@ -338,7 +338,7 @@
 .marks-table th {
   background: #f7f8f6;
   color: #49534e;
-  font-size: 0.68rem;
+  font-size: var(--fs-14);
 }
 
 .marks-table th:first-child,
@@ -353,28 +353,28 @@
 }
 
 .marks-table th small {
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--grade-muted);
-  font-size: 0.57rem;
-  font-weight: 500;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
 }
 
 .gradebook-learner {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 
 .gradebook-learner > b,
 .report-avatar {
   width: 35px;
   height: 35px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: grid;
   place-items: center;
   background: #edf5f1;
   color: var(--grade-green);
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
 }
 
 .gradebook-learner > span {
@@ -382,17 +382,17 @@
 }
 
 .gradebook-learner strong {
-  font-size: 0.75rem;
+  font-size: var(--fs-16);
 }
 
 .gradebook-learner small {
   color: var(--grade-muted);
-  font-size: 0.6rem;
+  font-size: var(--fs-13);
 }
 
 .mark-value {
-  font-weight: 800;
-  font-size: 0.8rem;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-16);
 }
 
 .mark-value.is-adjusted {
@@ -401,21 +401,21 @@
 }
 
 .mark-value i {
-  font-size: 0.5rem;
+  font-size: var(--fs-13);
   font-style: normal;
   text-transform: uppercase;
 }
 
 .missing-mark-input {
   display: inline-flex;
-  gap: 3px;
+  gap: 4px;
 }
 
 .missing-mark-input input {
   width: 58px;
   padding: 8px;
   border: 1px solid #e2b85d;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #fffaf0;
   text-align: center;
 }
@@ -423,7 +423,7 @@
 .missing-mark-input button {
   width: 30px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--grade-green);
   color: white;
   cursor: pointer;
@@ -434,7 +434,7 @@
 }
 
 .weighted-score {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   color: var(--grade-green-dark);
 }
 
@@ -442,12 +442,12 @@
   width: 31px;
   height: 31px;
   margin: 0 auto;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   background: #e8f5ef;
   color: var(--grade-green);
-  font-weight: 900;
+  font-weight: var(--fw-semibold);
 }
 
 .grade-badge.incomplete {
@@ -456,14 +456,14 @@
 }
 
 .gradebook-submit-row {
-  margin-top: 18px;
-  padding: 17px;
-  border-radius: 13px;
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: var(--radius-md);
   background: #f5f7f4;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
 }
 
 .gradebook-submit-row div {
@@ -471,23 +471,23 @@
 }
 
 .gradebook-submit-row strong {
-  font-size: 0.78rem;
+  font-size: var(--fs-16);
 }
 
 .gradebook-submit-row small {
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--grade-muted);
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
 }
 
 .gradebook-submit-row button,
 .report-review-list footer button {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--grade-green);
   color: white;
-  font-weight: 800;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
 }
 
@@ -500,20 +500,20 @@
 .guardian-preview-link {
   color: var(--grade-green);
   text-decoration: none;
-  font-size: 0.7rem;
-  font-weight: 900;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
 }
 
 .workflow-guide {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 
 .workflow-guide div {
-  padding: 11px;
-  border-radius: 11px;
+  padding: 12px;
+  border-radius: var(--radius-md);
   background: #f5f7f4;
   display: flex;
   align-items: center;
@@ -521,52 +521,52 @@
 }
 
 .workflow-guide span {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--grade-green-dark);
   color: white;
-  font-size: 0.6rem;
+  font-size: var(--fs-13);
 }
 
 .workflow-guide strong {
-  font-size: 0.67rem;
+  font-size: var(--fs-14);
 }
 
 .report-review-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .report-review-list article {
   padding: 16px;
   border: 1px solid var(--grade-line);
-  border-radius: 15px;
+  border-radius: var(--radius-lg);
 }
 
 .report-review-list header {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
 .report-review-list h3 {
   margin: 0;
-  font-size: 0.83rem;
+  font-size: var(--fs-16);
 }
 
 .report-review-list p {
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   color: var(--grade-muted);
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
 }
 
 .report-status {
-  font-size: 0.6rem;
-  font-weight: 900;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
 }
 
@@ -584,7 +584,7 @@
 }
 
 .report-completeness {
-  margin: 14px 0;
+  margin: 16px 0;
 }
 
 .report-completeness > span {
@@ -603,9 +603,9 @@
 
 .report-completeness small {
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
   color: var(--grade-muted);
-  font-size: 0.61rem;
+  font-size: var(--fs-13);
 }
 
 .report-review-list footer {
@@ -617,12 +617,12 @@
 
 .report-review-list footer > span {
   color: var(--grade-muted);
-  font-size: 0.62rem;
+  font-size: var(--fs-14);
 }
 
 .released-indicator {
   color: var(--grade-green);
-  font-size: 0.68rem;
+  font-size: var(--fs-14);
 }
 
 .policy-layout {
@@ -634,12 +634,12 @@
 .policy-layout article {
   padding: 20px;
   border: 1px solid var(--grade-line);
-  border-radius: 15px;
+  border-radius: var(--radius-lg);
 }
 
 .policy-layout h3 {
   margin: 0 0 16px;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
 }
 
 .category-policy > div {
@@ -655,21 +655,21 @@
 }
 
 .category-policy strong {
-  font-size: 0.75rem;
+  font-size: var(--fs-16);
 }
 
 .category-policy small {
   color: var(--grade-muted);
-  font-size: 0.6rem;
+  font-size: var(--fs-13);
 }
 
 .category-policy > div > b {
-  font-family: Georgia, serif;
-  font-size: 1.25rem;
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
 }
 
 .category-policy footer {
-  padding-top: 14px;
+  padding-top: 16px;
   display: flex;
   justify-content: space-between;
 }
@@ -681,29 +681,29 @@
 }
 
 .scale-policy > div > span {
-  padding: 10px;
-  border-radius: 10px;
+  padding: 12px;
+  border-radius: var(--radius-md);
   background: #f5f7f4;
   display: grid;
 }
 
 .scale-policy b {
   color: var(--grade-green);
-  font-size: 1rem;
+  font-size: var(--fs-18);
 }
 
 .scale-policy strong {
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
 }
 
 .scale-policy small,
 .scale-policy p {
   color: var(--grade-muted);
-  font-size: 0.6rem;
+  font-size: var(--fs-14);
 }
 
 .scale-policy p {
-  margin: 14px 0 0;
+  margin: 16px 0 0;
   line-height: 1.55;
 }
 
@@ -734,7 +734,7 @@
 
 @media (max-width: 700px) {
   .gradebook-topbar {
-    padding: 14px 17px;
+    padding: 16px 16px;
   }
 
   .gradebook-account div,
@@ -744,17 +744,17 @@
 
   .gradebook-content {
     width: min(100% - 26px, 1320px);
-    padding-top: 15px;
+    padding-top: 16px;
   }
 
   .gradebook-hero {
-    padding: 25px;
+    padding: 24px;
     grid-template-columns: 1fr;
   }
 
   .gradebook-policy-card {
     display: flex;
-    gap: 18px;
+    gap: 20px;
     align-items: center;
   }
 

@@ -1,7 +1,8 @@
 # Hostinger VPS deployment
 
-This deployment runs Learners Hub behind the VPS's existing
-CyberPanel/OpenLiteSpeed proxy. Containers never bind public ports 80 or 443.
+This deployment runs Learners Hub, PostgreSQL, Redis, and the H5P runtime
+behind the VPS's existing CyberPanel/OpenLiteSpeed proxy. Containers never bind
+public ports 80 or 443.
 
 ## Hostnames
 
@@ -27,9 +28,24 @@ Do not request certificates until both names resolve publicly.
 
 ## Runtime configuration
 
-Copy `.env.example` to `.env` on the VPS and set a unique H5P shared secret.
-The production `.env` file must remain untracked and readable only by the
-deployment user.
+Copy `.env.example` to `.env` on the VPS. Set unique PostgreSQL, Better Auth,
+administrator, and H5P secrets. The deployment `.env` file must remain
+untracked and readable only by the deployment user.
+
+Generate the two machine secrets on the VPS:
+
+```bash
+openssl rand -base64 48
+openssl rand -base64 48
+```
+
+Use one value for `BETTER_AUTH_SECRET` and the other for
+`H5P_RUNTIME_SHARED_SECRET`. Use separately generated strong passwords for
+`POSTGRES_PASSWORD` and `INITIAL_ADMIN_PASSWORD`.
+
+`INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD` create the first school
+administrator idempotently. Subsequent applicant registrations never receive a
+school role.
 
 The default loopback bindings are:
 
@@ -50,12 +66,18 @@ docker compose up -d
 docker compose ps
 ```
 
+The web health check applies idempotent Better Auth and Learners Hub database
+migrations, creates the configured administrator when absent, and verifies the
+PostgreSQL connection. A failed migration keeps the web service unhealthy.
+
 Local health checks:
 
 ```bash
 curl --fail http://127.0.0.1:13000/api/health
 curl --fail http://127.0.0.1:18080/health
 ```
+
+The web response should include `"database":"connected"`.
 
 After CyberPanel has created both child domains, configure their reverse
 proxies as root:
@@ -87,10 +109,33 @@ nginx -t
 systemctl reload nginx
 ```
 
-## Current staging boundary
+## Staging boundary
 
-The portal UI can run in the standard Node container. H5P also runs as an
-isolated Node service. The persistent school APIs still use the existing
-Cloudflare D1, R2, and platform-authentication adapters. PostgreSQL, S3/R2
-access, and Better Auth must replace those adapters before production data is
-cut over to the VPS.
+VPS email/password authentication, school membership resolution, and
+admissions records use PostgreSQL. The remaining school repositories and
+private media still have Cloudflare-specific adapters and are outside this
+admissions test slice. Do not enter real learner data until private-file
+storage, backups, recovery testing, password-reset delivery, staff MFA, and the
+remaining PostgreSQL adapters are complete.
+
+## Staging test journey
+
+1. Open `https://learn.stephenarthur.org/sign-in`.
+2. Sign in with `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD`.
+3. Confirm `/app` opens the administration workspace.
+4. Sign out, return to `/sign-in?mode=register&returnTo=/admissions/apply`, and
+   create an applicant account.
+5. Save an application draft, reload the page, and confirm it remains.
+6. Submit the application.
+7. Sign back in as the administrator and confirm it appears under
+   `/admin/admissions`.
+
+## PostgreSQL backup for staging
+
+Create a logical backup before upgrades that change persistence:
+
+```bash
+docker compose exec -T postgres pg_dump \
+  -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  > "learners-hub-$(date +%Y%m%d-%H%M%S).sql"
+```

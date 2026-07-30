@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { requireChatGPTUser } from "../../chatgpt-auth";
+import { requireAuthenticatedUser } from "../../auth";
 import { getApplicantApplication } from "../../../db/applicant-repository";
 import { ApplicationForm } from "./application-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApplyForAdmissionPage() {
-  const user = await requireChatGPTUser("/admissions/apply");
+  const user = await requireAuthenticatedUser("/admissions/apply");
   const application = await getApplicantApplication(user);
 
   return (

@@ -6,19 +6,19 @@
   align-items: center;
   background: var(--primary);
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: #ffffff;
   cursor: pointer;
   display: flex;
-  font-size: 0.66rem;
-  font-weight: 900;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
   gap: 8px;
   min-height: 42px;
-  padding: 0 15px;
+  padding: 0 16px;
 }
 
 .primary-admin-button span {
-  font-size: 1rem;
+  font-size: var(--fs-18);
 }
 
 .primary-admin-button:hover,
@@ -28,23 +28,23 @@
 }
 
 .admissions-stats {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .pipeline-panel {
   background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  margin-bottom: 18px;
-  padding: 13px 17px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
 }
 
 .pipeline-panel > div {
   align-items: center;
   display: grid;
-  gap: 9px;
+  gap: 8px;
   grid-template-columns: 27px 1fr auto;
   min-width: 0;
 }
@@ -55,11 +55,11 @@
   border-radius: 50%;
   color: var(--primary);
   display: flex;
-  font-size: 0.55rem;
-  font-weight: 900;
-  height: 27px;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  height: 28px;
   justify-content: center;
-  width: 27px;
+  width: 28px;
 }
 
 .pipeline-panel p,
@@ -70,37 +70,37 @@
 
 .pipeline-panel p {
   color: #687772;
-  font-size: 0.54rem;
+  font-size: var(--fs-14);
 }
 
 .pipeline-panel strong {
   color: var(--ink);
-  font-size: 0.75rem;
-  margin-top: 2px;
+  font-size: var(--fs-16);
+  margin-top: 4px;
 }
 
 .pipeline-panel i {
   color: #b6c0bc;
-  font-size: 0.7rem;
+  font-size: var(--fs-14);
   font-style: normal;
-  padding-right: 11px;
+  padding-right: 12px;
 }
 
 .admissions-notice {
   background: #eaf4ef;
   border: 1px solid #cfe3d9;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: #295e52;
-  font-size: 0.62rem;
+  font-size: var(--fs-14);
   line-height: 1.5;
-  margin: 0 0 18px;
-  padding: 10px 13px;
+  margin: 0 0 20px;
+  padding: 12px 12px;
 }
 
 .admissions-workspace {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: 20px;
   grid-template-columns: minmax(0, 1fr) 370px;
 }
 
@@ -108,7 +108,7 @@
 .applicant-detail {
   background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
 }
 
@@ -121,11 +121,11 @@
   align-items: center;
   display: flex;
   justify-content: space-between;
-  padding: 20px 21px 13px;
+  padding: 20px 20px 12px;
 }
 
 .queue-heading h2 {
-  font-size: 1rem;
+  font-size: var(--fs-18);
   margin: 4px 0 0;
 }
 
@@ -133,27 +133,27 @@
   background: #eef3ef;
   border-radius: 999px;
   color: #60736d;
-  font-size: 0.52rem;
-  font-weight: 800;
-  padding: 5px 8px;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  padding: 4px 8px;
 }
 
 .queue-controls {
   border-bottom: 1px solid #e6eae4;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: 1fr 145px;
-  padding: 0 21px 15px;
+  padding: 0 20px 16px;
 }
 
 .admission-search {
   align-items: center;
   background: #f5f7f4;
   border: 1px solid #dfe4dd;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: flex;
-  gap: 7px;
-  padding: 0 10px;
+  gap: 8px;
+  padding: 0 12px;
 }
 
 .admission-search span {
@@ -165,7 +165,7 @@
   background: transparent;
   border: 0;
   color: var(--ink);
-  font-size: 0.59rem;
+  font-size: var(--fs-14);
   height: 36px;
   outline: none;
   width: 100%;
@@ -174,7 +174,7 @@
 .queue-controls select {
   background: #f5f7f4;
   border: 1px solid #dfe4dd;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0 8px;
 }
 
@@ -190,10 +190,10 @@
   color: inherit;
   cursor: pointer;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: 38px minmax(150px, 1.4fr) minmax(92px, 0.7fr) 80px 10px;
   min-height: 68px;
-  padding: 9px 18px 9px 21px;
+  padding: 8px 20px 8px 20px;
   text-align: left;
   width: 100%;
 }
@@ -213,11 +213,11 @@
 .detail-avatar {
   align-items: center;
   background: #dcebe5;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   color: var(--primary);
   display: flex;
-  font-size: 0.57rem;
-  font-weight: 900;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
   height: 38px;
   justify-content: center;
   width: 38px;
@@ -230,38 +230,38 @@
 }
 
 .application-summary strong {
-  font-size: 0.64rem;
+  font-size: var(--fs-14);
 }
 
 .application-summary small,
 .application-date small {
   color: #7d8985;
-  font-size: 0.5rem;
+  font-size: var(--fs-14);
   margin-top: 4px;
 }
 
 .application-date {
   color: #52635e;
-  font-size: 0.55rem;
+  font-size: var(--fs-13);
 }
 
 .application-date small {
-  margin: 0 0 3px;
+  margin: 0 0 4px;
 }
 
 .application-list > button > b {
   color: #9ca8a4;
-  font-size: 1rem;
+  font-size: var(--fs-18);
 }
 
 .admission-status {
   border-radius: 999px;
   display: inline-flex;
-  font-size: 0.48rem;
-  font-weight: 900;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
   justify-content: center;
   justify-self: start;
-  padding: 5px 7px;
+  padding: 4px 8px;
   white-space: nowrap;
 }
 
@@ -298,8 +298,8 @@
 
 .empty-queue {
   color: var(--muted);
-  font-size: 0.62rem;
-  padding: 34px 21px;
+  font-size: var(--fs-14);
+  padding: 36px 20px;
   text-align: center;
 }
 
@@ -312,15 +312,15 @@
 .applicant-detail-head {
   align-items: center;
   display: grid;
-  gap: 11px;
+  gap: 12px;
   grid-template-columns: 48px 1fr auto;
 }
 
 .detail-avatar {
   background: var(--primary);
-  border-radius: 13px;
+  border-radius: var(--radius-md);
   color: white;
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
   height: 48px;
   width: 48px;
 }
@@ -332,21 +332,21 @@
 
 .applicant-detail-head p {
   color: #81908b;
-  font-size: 0.49rem;
-  font-weight: 800;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-regular);
 }
 
 .applicant-detail-head h2 {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.06rem;
-  font-weight: 500;
-  margin: 2px 0 5px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-18);
+  font-weight: var(--fw-regular);
+  margin: 4px 0 4px;
 }
 
 .applicant-detail-head > button {
   background: #f1f4f0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: #72807b;
   cursor: pointer;
   height: 31px;
@@ -355,7 +355,7 @@
 
 .detail-section {
   border-top: 1px solid #e8ece6;
-  margin-top: 18px;
+  margin-top: 20px;
   padding-top: 16px;
 }
 
@@ -366,20 +366,20 @@
 }
 
 .detail-section-title h3 {
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
   margin: 0;
 }
 
 .detail-section-title span {
   color: #80908b;
-  font-size: 0.48rem;
+  font-size: var(--fs-13);
 }
 
 .applicant-data {
   display: grid;
   gap: 12px 16px;
   grid-template-columns: 1fr 1fr;
-  margin: 13px 0 0;
+  margin: 12px 0 0;
 }
 
 .applicant-data div {
@@ -388,13 +388,13 @@
 
 .applicant-data dt {
   color: #85918e;
-  font-size: 0.48rem;
+  font-size: var(--fs-13);
 }
 
 .applicant-data dd {
   color: #344641;
-  font-size: 0.57rem;
-  font-weight: 700;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
   line-height: 1.4;
   margin: 4px 0 0;
 }
@@ -402,12 +402,12 @@
 .guardian-card {
   align-items: center;
   background: #f6f8f5;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: grid;
-  gap: 9px;
+  gap: 8px;
   grid-template-columns: 34px 1fr;
-  margin-top: 11px;
-  padding: 10px;
+  margin-top: 12px;
+  padding: 12px;
 }
 
 .guardian-card > span {
@@ -416,8 +416,8 @@
   border-radius: 50%;
   color: var(--primary);
   display: flex;
-  font-size: 0.5rem;
-  font-weight: 900;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
   height: 34px;
   justify-content: center;
 }
@@ -429,14 +429,14 @@
 }
 
 .guardian-card strong {
-  font-size: 0.58rem;
+  font-size: var(--fs-13);
 }
 
 .guardian-card small,
 .guardian-card a {
   color: #73817d;
-  font-size: 0.48rem;
-  margin-top: 3px;
+  font-size: var(--fs-14);
+  margin-top: 4px;
 }
 
 .guardian-card a {
@@ -446,29 +446,29 @@
 .document-list {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
   list-style: none;
-  margin: 11px 0 0;
+  margin: 12px 0 0;
   padding: 0;
 }
 
 .document-list li {
   align-items: center;
   border: 1px solid #e2e7e0;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   display: grid;
-  gap: 9px;
+  gap: 8px;
   grid-template-columns: 27px 1fr;
   padding: 8px;
 }
 
 .document-list li > span {
   align-items: center;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
   display: flex;
-  font-size: 0.55rem;
-  font-weight: 900;
-  height: 27px;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  height: 28px;
   justify-content: center;
 }
 
@@ -490,34 +490,34 @@
 }
 
 .document-list strong {
-  font-size: 0.55rem;
+  font-size: var(--fs-13);
 }
 
 .document-list small {
   color: #80908b;
-  font-size: 0.46rem;
-  margin-top: 3px;
+  font-size: var(--fs-13);
+  margin-top: 4px;
 }
 
 .review-note {
   background: #f7efd9;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: grid;
   gap: 8px;
   grid-template-columns: 22px 1fr;
   margin-top: 16px;
-  padding: 11px;
+  padding: 12px;
 }
 
 .review-note > span {
   color: #a07827;
-  font-family: Georgia, serif;
-  font-size: 1.3rem;
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
 }
 
 .review-note p {
   color: #695b3d;
-  font-size: 0.52rem;
+  font-size: var(--fs-14);
   line-height: 1.5;
   margin: 0;
 }
@@ -525,21 +525,21 @@
 .review-note strong {
   color: #504327;
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .detail-actions {
   display: grid;
   gap: 8px;
   grid-template-columns: 92px 1fr;
-  margin-top: 17px;
+  margin-top: 16px;
 }
 
 .detail-actions button {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 0.56rem;
-  font-weight: 900;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
   min-height: 39px;
 }
 
@@ -638,7 +638,7 @@
     gap: 8px;
     grid-template-columns: 35px minmax(0, 1fr) 10px;
     min-height: 74px;
-    padding: 9px 14px;
+    padding: 8px 16px;
   }
 
   .applicant-avatar {

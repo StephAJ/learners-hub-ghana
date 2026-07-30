@@ -16,7 +16,9 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/services/h5p-runtime/node_modules ./services/h5p-runtime/node_modules
 COPY . .
-RUN npm run build:node
+RUN BETTER_AUTH_SECRET=build-validation-only-not-a-runtime-secret \
+    BETTER_AUTH_URL=http://localhost:3000 \
+    npm run build:node
 
 FROM node:22-bookworm-slim AS runtime
 
@@ -33,6 +35,7 @@ RUN groupadd --system learnershub \
 COPY --from=builder --chown=learnershub:learnershub /app/public ./public
 COPY --from=builder --chown=learnershub:learnershub /app/.next/standalone ./
 COPY --from=builder --chown=learnershub:learnershub /app/.next/static ./.next/static
+RUN rm -rf ./node_modules/sharp ./node_modules/@img
 
 USER learnershub
 

@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
+import { getAuthenticatedUser } from "../../../auth";
 import {
   ApplicantApplicationError,
   getApplicantApplication,
@@ -9,7 +9,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const user = await getChatGPTUser();
+  const user = await getAuthenticatedUser();
   if (!user) {
     return Response.json(
       { error: "Sign in is required to access your application." },
@@ -31,7 +31,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getChatGPTUser();
+  const user = await getAuthenticatedUser();
   if (!user) {
     return Response.json(
       { error: "Sign in is required to save your application." },

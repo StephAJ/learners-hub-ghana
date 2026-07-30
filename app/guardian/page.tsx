@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { WorkspaceShell } from "../components/workspace-shell";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
+import { schoolDateLabel } from "../school-time";
 
 export default async function GuardianHomePage() {
   const user = await requireWorkspaceUser("guardian", "/guardian");
@@ -8,9 +9,9 @@ export default async function GuardianHomePage() {
   return (
     <WorkspaceShell
       activeHref="/guardian"
-      description="Attendance, learning, results, and school updates for your child."
-      eyebrow="Family overview"
-      title="Kwame is building a strong term."
+      description="3 pieces of work due this week and 2 new school notices."
+      eyebrow={schoolDateLabel()}
+      title="Kwame Agyeman · JHS 2 Gold"
       user={user}
       workspace="guardian"
     >
@@ -45,7 +46,7 @@ export default async function GuardianHomePage() {
         <article>
           <small>New school notices</small>
           <strong>2</strong>
-          <span>One requires attention</span>
+          <span>One needs a reply</span>
         </article>
       </section>
 
@@ -81,7 +82,7 @@ export default async function GuardianHomePage() {
           <header>
             <div>
               <p className="workspace-eyebrow">School updates</p>
-              <h2>What you should know</h2>
+              <h2>Notices and alerts</h2>
             </div>
           </header>
           <div className="attention-list">

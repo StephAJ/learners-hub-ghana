@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireChatGPTUser } from "../app/chatgpt-auth";
+import { requireAuthenticatedUser } from "../app/auth";
 import {
   resolveAuthenticatedSchoolUser,
   type AuthenticatedSchoolUser,
@@ -33,7 +33,7 @@ export async function requireWorkspaceUser(
   workspace: WorkspaceKind,
   returnTo: string,
 ): Promise<AuthenticatedSchoolUser> {
-  const identity = await requireChatGPTUser(returnTo);
+  const identity = await requireAuthenticatedUser(returnTo);
   const schoolUser = await resolveAuthenticatedSchoolUser(
     identity,
     workspaceRoles[workspace],

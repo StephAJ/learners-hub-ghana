@@ -1,6 +1,6 @@
 .skip-link {
   background: #fff;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: #103f39;
   left: 16px;
   padding: 12px 16px;
@@ -19,7 +19,7 @@
   --workspace-canvas: #f5f6f1;
   --workspace-ink: #1a2b28;
   --workspace-line: #dfe5de;
-  --workspace-muted: #687874;
+  --workspace-muted: #566461;
   --workspace-sidebar: #123f3a;
   background: var(--workspace-canvas);
   color: var(--workspace-ink);
@@ -54,7 +54,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 26px 18px 20px;
+  padding: 28px 20px 20px;
   position: sticky;
   top: 0;
 }
@@ -62,18 +62,18 @@
 .workspace-brand {
   align-items: center;
   display: flex;
-  gap: 11px;
-  margin: 0 8px 34px;
+  gap: 12px;
+  margin: 0 8px 36px;
 }
 
 .workspace-brand > span:first-child {
   align-items: center;
   background: #e9b84b;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   color: #173d38;
   display: inline-flex;
-  font-size: 0.76rem;
-  font-weight: 900;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
   height: 40px;
   justify-content: center;
   width: 40px;
@@ -86,35 +86,35 @@
 }
 
 .workspace-brand strong {
-  font-size: 0.96rem;
+  font-size: var(--fs-18);
 }
 
 .workspace-brand small {
   color: #a9c3bc;
-  font-size: 0.7rem;
-  margin-top: 3px;
+  font-size: var(--fs-14);
+  margin-top: 4px;
 }
 
 .workspace-context {
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 13px;
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   margin-bottom: 24px;
-  padding: 14px 15px;
+  padding: 16px 16px;
 }
 
 .workspace-context small {
   color: #9eb8b1;
-  font-size: 0.65rem;
-  font-weight: 750;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .workspace-context strong {
-  font-size: 0.9rem;
+  font-size: var(--fs-18);
   margin-top: 4px;
 }
 
@@ -126,15 +126,15 @@
 
 .workspace-sidebar > nav a {
   align-items: center;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: #c5d7d1;
   display: grid;
-  font-size: 0.84rem;
-  font-weight: 650;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
   gap: 12px;
   grid-template-columns: 9px 1fr;
   min-height: 44px;
-  padding: 0 13px;
+  padding: 0 12px;
   transition:
     background 180ms ease,
     color 180ms ease;
@@ -170,16 +170,16 @@
 
 .workspace-switcher {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  margin-bottom: 14px;
-  padding-bottom: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
 }
 
 .workspace-switcher summary {
   cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 750;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
   min-height: 36px;
-  padding: 8px 2px;
+  padding: 8px 4px;
 }
 
 .workspace-switcher div {
@@ -190,10 +190,10 @@
 }
 
 .workspace-switcher a {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: #c5d7d1;
-  font-size: 0.75rem;
-  padding: 9px;
+  font-size: var(--fs-16);
+  padding: 8px;
 }
 
 .workspace-switcher a:hover {
@@ -203,7 +203,7 @@
 .workspace-person {
   align-items: center;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: auto 1fr;
 }
 
@@ -213,29 +213,42 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 50%;
   display: inline-flex;
-  font-size: 0.7rem;
-  font-weight: 850;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
   height: 38px;
   justify-content: center;
   width: 38px;
 }
 
 .workspace-person strong {
-  font-size: 0.78rem;
+  font-size: var(--fs-16);
 }
 
 .workspace-person small {
   color: #9eb8b1;
-  font-size: 0.67rem;
-  margin-top: 2px;
+  font-size: var(--fs-14);
+  margin-top: 4px;
 }
 
 .workspace-signout {
+  align-items: center;
+  background: transparent;
+  border: 0;
   color: #afc4be;
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  margin: 12px 0 0 48px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  /* 40px + 8px of padding keeps the label aligned with the person's name,
+     which sits past the 38px avatar and its 10px gap. */
+  margin: 8px 0 0 40px;
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+}
+
+.workspace-signout:hover,
+.workspace-signout:focus-visible {
+  color: #fff;
 }
 
 .workspace-main {
@@ -248,7 +261,7 @@
   border-bottom: 1px solid var(--workspace-line);
   backdrop-filter: blur(14px);
   display: grid;
-  gap: 18px;
+  gap: 20px;
   grid-template-columns: 1fr auto;
   min-height: 108px;
   padding: 20px clamp(24px, 4vw, 58px);
@@ -264,27 +277,27 @@
 .workspace-topbar p,
 .workspace-eyebrow {
   color: var(--workspace-accent);
-  font-size: 0.66rem;
-  font-weight: 850;
-  letter-spacing: 0.11em;
-  margin: 0 0 5px;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  margin: 0 0 4px;
   text-transform: uppercase;
 }
 
 .workspace-topbar h1 {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.45rem, 2.5vw, 2.1rem);
-  font-weight: 500;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
+  font-family: var(--font-serif);
+  font-size: var(--fs-page);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--lh-display);
   margin: 0;
 }
 
 .workspace-topbar > div:first-of-type > span {
   color: var(--workspace-muted);
   display: block;
-  font-size: 0.78rem;
-  margin-top: 7px;
+  font-size: var(--fs-16);
+  margin-top: 8px;
 }
 
 .workspace-topbar-person {
@@ -295,12 +308,12 @@
 
 .workspace-topbar-person small {
   color: var(--workspace-muted);
-  font-size: 0.65rem;
+  font-size: var(--fs-14);
 }
 
 .workspace-topbar-person strong {
-  font-size: 0.78rem;
-  margin-top: 3px;
+  font-size: var(--fs-16);
+  margin-top: 4px;
 }
 
 .workspace-mobile-brand,
@@ -318,20 +331,20 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 24px;
 }
 
 .workspace-action-row a {
   align-items: center;
   border: 1px solid #ccd7d1;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: inline-flex;
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
   justify-content: center;
   min-height: 44px;
-  padding: 10px 16px;
+  padding: 12px 16px;
   transition:
     background 180ms ease,
     border-color 180ms ease,
@@ -359,7 +372,7 @@
 
 .workspace-metric-grid {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 20px;
 }
@@ -372,7 +385,7 @@
 .guardian-child-card {
   background: #fff;
   border: 1px solid var(--workspace-line);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 14px 35px rgba(30, 56, 51, 0.045);
 }
 
@@ -385,24 +398,33 @@
 
 .workspace-metric-grid small {
   color: var(--workspace-muted);
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
   line-height: 1.4;
 }
 
 .workspace-metric-grid strong {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 2rem;
-  font-weight: 500;
-  margin: 14px 0 9px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-34);
+  font-weight: var(--fw-regular);
+  margin: 16px 0 8px;
 }
 
 .workspace-metric-grid a,
 .workspace-metric-grid span {
   color: var(--workspace-accent);
-  font-size: 0.68rem;
-  font-weight: 750;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
   margin-top: auto;
+}
+
+/* Hold the card link at the 24px minimum target size without disturbing the
+   card's vertical rhythm. */
+.workspace-metric-grid a {
+  align-items: center;
+  align-self: flex-start;
+  display: inline-flex;
+  min-height: 1.5rem;
 }
 
 .workspace-dashboard-grid {
@@ -423,7 +445,7 @@
   display: flex;
   gap: 16px;
   justify-content: space-between;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
 .workspace-panel h2,
@@ -431,10 +453,10 @@
 .teacher-next-card h2,
 .student-continue-card h2,
 .guardian-child-card h2 {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.35rem;
-  font-weight: 500;
-  letter-spacing: -0.025em;
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-display);
   margin: 0;
 }
 
@@ -442,14 +464,17 @@
   background: var(--workspace-accent-soft);
   border-radius: 999px;
   color: var(--workspace-accent);
-  font-size: 0.7rem;
-  padding: 8px 10px;
+  font-size: var(--fs-14);
+  padding: 8px 12px;
 }
 
 .workspace-panel > header > a {
+  align-items: center;
   color: var(--workspace-accent);
-  font-size: 0.7rem;
-  font-weight: 800;
+  display: inline-flex;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-height: 1.5rem;
 }
 
 .readiness-list {
@@ -481,13 +506,13 @@
 }
 
 .readiness-list strong {
-  font-size: 0.8rem;
+  font-size: var(--fs-16);
 }
 
 .readiness-list small {
   color: var(--workspace-muted);
-  font-size: 0.66rem;
-  font-weight: 700;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
 }
 
 .attention-list {
@@ -501,7 +526,7 @@
   display: flex;
   flex-direction: column;
   min-height: 84px;
-  padding: 15px 0;
+  padding: 16px 0;
 }
 
 .attention-list > a {
@@ -516,21 +541,21 @@
 
 .attention-list span {
   color: var(--workspace-accent);
-  font-size: 0.63rem;
-  font-weight: 850;
-  letter-spacing: 0.07em;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .attention-list strong {
-  font-size: 0.8rem;
+  font-size: var(--fs-16);
   line-height: 1.45;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .attention-list small {
   color: var(--workspace-muted);
-  font-size: 0.68rem;
+  font-size: var(--fs-14);
   margin-top: 4px;
 }
 
@@ -546,21 +571,21 @@
 
 .workflow-map article {
   background: var(--workspace-accent-soft);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   min-height: 104px;
-  padding: 15px;
+  padding: 16px;
 }
 
 .workflow-map article span {
   color: var(--workspace-accent);
-  font-size: 0.66rem;
-  font-weight: 850;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
 }
 
 .workflow-map article strong {
-  font-size: 0.72rem;
+  font-size: var(--fs-16);
   line-height: 1.35;
   margin-top: auto;
 }
@@ -585,10 +610,20 @@
   color: #fff;
 }
 
+/* These three cards invert to a dark ground, so the eyebrow cannot keep using
+   --workspace-accent: the accent is the same hue as the card behind it and was
+   landing at 1.6:1. */
+.teacher-next-card .workspace-eyebrow,
+.student-continue-card .workspace-eyebrow,
+.teacher-next-card > div > p.workspace-eyebrow,
+.student-continue-card > div > p.workspace-eyebrow {
+  color: #f2c45f;
+}
+
 .teacher-next-card p:not(.workspace-eyebrow) {
   color: #b9cedb;
-  font-size: 0.78rem;
-  margin: 9px 0 0;
+  font-size: var(--fs-16);
+  margin: 8px 0 0;
 }
 
 .teacher-next-card > div:last-child {
@@ -600,19 +635,19 @@
 
 .teacher-next-card a {
   background: #fff;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: #173e58;
-  font-size: 0.74rem;
-  font-weight: 850;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
   min-height: 44px;
-  padding: 13px 15px;
+  padding: 12px 16px;
 }
 
 .teacher-timetable article {
   align-items: center;
   border-top: 1px solid var(--workspace-line);
   display: grid;
-  gap: 14px;
+  gap: 16px;
   grid-template-columns: 58px 1fr auto;
   min-height: 72px;
 }
@@ -622,8 +657,8 @@
 }
 
 .teacher-timetable time {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1rem;
+  font-family: var(--font-serif);
+  font-size: var(--fs-18);
 }
 
 .teacher-timetable div {
@@ -632,13 +667,13 @@
 }
 
 .teacher-timetable strong {
-  font-size: 0.78rem;
+  font-size: var(--fs-16);
 }
 
 .teacher-timetable span,
 .teacher-timetable small {
   color: var(--workspace-muted);
-  font-size: 0.67rem;
+  font-size: var(--fs-14);
   margin-top: 4px;
 }
 
@@ -651,19 +686,19 @@
 
 .student-continue-card p:not(.workspace-eyebrow) {
   color: #c7c3df;
-  font-size: 0.78rem;
-  margin: 9px 0 22px;
+  font-size: var(--fs-16);
+  margin: 8px 0 24px;
 }
 
 .student-continue-card a {
   background: #fff;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: #2f2c59;
   display: inline-flex;
-  font-size: 0.75rem;
-  font-weight: 850;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
   min-height: 44px;
-  padding: 13px 16px;
+  padding: 12px 16px;
 }
 
 .student-continue-progress {
@@ -679,42 +714,42 @@
 }
 
 .student-continue-progress strong {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 2.1rem;
-  font-weight: 500;
+  font-family: var(--font-serif);
+  font-size: var(--fs-34);
+  font-weight: var(--fw-regular);
 }
 
 .student-continue-progress span {
   color: #c7c3df;
-  font-size: 0.62rem;
-  margin-top: 5px;
+  font-size: var(--fs-14);
+  margin-top: 4px;
 }
 
 .student-subject-list {
   display: grid;
-  gap: 9px;
+  gap: 8px;
   grid-template-columns: 1fr 1fr;
 }
 
 .student-subject-list article {
   align-items: center;
   background: #f7f7f3;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: auto 1fr auto;
   min-width: 0;
-  padding: 13px;
+  padding: 12px;
 }
 
 .student-subject-list article > span {
   align-items: center;
   background: var(--workspace-accent-soft);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   color: var(--workspace-accent);
   display: inline-flex;
-  font-size: 0.64rem;
-  font-weight: 900;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
   height: 34px;
   justify-content: center;
   width: 34px;
@@ -727,7 +762,7 @@
 }
 
 .student-subject-list strong {
-  font-size: 0.73rem;
+  font-size: var(--fs-16);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -735,13 +770,13 @@
 
 .student-subject-list small {
   color: var(--workspace-muted);
-  font-size: 0.63rem;
-  margin-top: 3px;
+  font-size: var(--fs-14);
+  margin-top: 4px;
 }
 
 .student-subject-list b {
   color: var(--workspace-accent);
-  font-size: 0.74rem;
+  font-size: var(--fs-16);
 }
 
 .guardian-child-card {
@@ -760,8 +795,8 @@
   border-radius: 50%;
   color: var(--workspace-accent);
   display: inline-flex;
-  font-size: 0.85rem;
-  font-weight: 900;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
   height: 58px;
   justify-content: center;
   width: 58px;
@@ -769,27 +804,27 @@
 
 .guardian-child-identity small {
   color: var(--workspace-accent);
-  font-size: 0.62rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .guardian-child-identity p {
   color: var(--workspace-muted);
-  font-size: 0.72rem;
-  margin: 5px 0 0;
+  font-size: var(--fs-16);
+  margin: 4px 0 0;
 }
 
 .guardian-child-card button {
   background: #fff;
   border: 1px solid var(--workspace-line);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
   min-height: 44px;
-  padding: 11px 14px;
+  padding: 12px 16px;
 }
 
 .workspace-shell a:focus-visible,
@@ -820,20 +855,20 @@
   }
 
   .workspace-topbar {
-    gap: 13px;
+    gap: 12px;
     grid-template-columns: auto 1fr;
     min-height: 92px;
-    padding: 15px 18px;
+    padding: 16px 20px;
   }
 
   .workspace-mobile-brand {
     align-items: center;
     background: #e9b84b;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     color: #173d38;
     display: inline-flex;
-    font-size: 0.7rem;
-    font-weight: 900;
+    font-size: var(--fs-14);
+    font-weight: var(--fw-semibold);
     height: 38px;
     justify-content: center;
     width: 38px;
@@ -844,7 +879,7 @@
   }
 
   .workspace-content {
-    padding: 20px 16px 42px;
+    padding: 20px 16px 44px;
   }
 
   .workspace-dashboard-grid {
@@ -869,8 +904,8 @@
     color: var(--workspace-muted);
     display: flex;
     flex: 1 0 auto;
-    font-size: 0.66rem;
-    font-weight: 750;
+    font-size: var(--fs-14);
+    font-weight: var(--fw-semibold);
     justify-content: center;
     min-width: 74px;
     padding: 8px;
@@ -883,7 +918,7 @@
 
 @media (max-width: 580px) {
   .workspace-topbar h1 {
-    font-size: 1.3rem;
+    font-size: var(--fs-22);
   }
 
   .workspace-topbar > div:first-of-type > span {
@@ -910,7 +945,7 @@
   }
 
   .workspace-metric-grid strong {
-    font-size: 1.7rem;
+    font-size: var(--fs-28);
   }
 
   .workflow-map > div {
@@ -923,7 +958,7 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 24px;
-    padding: 22px;
+    padding: 24px;
   }
 
   .teacher-next-card > div:last-child {
