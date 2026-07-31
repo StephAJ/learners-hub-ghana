@@ -458,6 +458,44 @@
   padding: 8px;
 }
 
+.media-preview-toggle {
+  background: transparent;
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  cursor: pointer;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  min-height: 1.75rem;
+  padding: 0 var(--space-3);
+}
+
+.media-preview-toggle:hover,
+.media-preview-toggle:focus-visible {
+  background: var(--brand-soft);
+  outline: none;
+}
+
+/* The inline player spans the whole row so it is not squeezed into the
+   metadata column. */
+.media-preview {
+  grid-column: 1 / -1;
+  margin-top: var(--space-1);
+}
+
+.media-preview video {
+  aspect-ratio: 16 / 9;
+  background: #0a2320;
+  border-radius: var(--radius-sm);
+  display: block;
+  max-height: 20rem;
+  width: 100%;
+}
+
+.media-preview audio {
+  width: 100%;
+}
+
 .media-kind {
   align-items: center;
   background: #e5f0eb;

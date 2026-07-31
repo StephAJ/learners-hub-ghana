@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { AuthenticatedSchoolUser } from "../../db/people-repository";
 import type { SchoolRole } from "../../domain/identity/types";
+import { schoolBrandStyle } from "../school-brand";
 import { SignOutButton } from "./sign-out-button";
 import {
   workspaceHrefForRole,
@@ -70,8 +71,14 @@ export function WorkspaceShell({
 }) {
   const roleWorkspaces = uniqueWorkspaces(user.availableRoles);
 
+  /* The workspace class no longer carries a colour — it is kept so
+     role-specific layout tweaks stay possible. The school's colour comes from
+     the brand ramp, identically for every role. */
   return (
-    <div className={`workspace-shell workspace-${workspace}`}>
+    <div
+      className={`workspace-shell workspace-${workspace}`}
+      style={schoolBrandStyle(user.brand)}
+    >
       <a className="skip-link" href="#workspace-content">
         Skip to content
       </a>

@@ -1,10 +1,10 @@
 :root {
-  --guardian-green: #0c7256;
-  --guardian-deep: #123c31;
+  --guardian-green: var(--brand);
+  --guardian-deep: var(--brand-deep);
   --guardian-ink: #17231e;
   --guardian-muted: #68746e;
   --guardian-line: #dde5e0;
-  --guardian-gold: #e8b950;
+  --guardian-gold: var(--brand-accent);
   --guardian-paper: #fffefb;
 }
 

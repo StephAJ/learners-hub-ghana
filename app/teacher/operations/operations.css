@@ -1,10 +1,10 @@
 :root {
-  --ops-green: #0c7458;
-  --ops-deep: #123e32;
+  --ops-green: var(--brand);
+  --ops-deep: var(--brand-deep);
   --ops-ink: #17241e;
   --ops-muted: #68746e;
   --ops-line: #dfe6e1;
-  --ops-gold: #e7b84d;
+  --ops-gold: var(--brand-accent);
 }
 
 .operations-shell {

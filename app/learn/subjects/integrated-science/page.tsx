@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LearnerSubject } from "../../../../db/learning-repository";
 import type { LessonBlock } from "../../../../domain/learning/types";
+import { previewLessonsFor, previewMediaUrl } from "../../../preview-workspace";
 import "./lesson-player.css";
 
 const fallbackSubject: LearnerSubject = {
@@ -155,16 +156,30 @@ export default function IntegratedSciencePage() {
     };
   }, []);
 
+  /* Lessons a teacher published from the authoring screens while the school
+     API was unreachable. Without them the preview path is a dead end: the
+     teacher publishes, and the learner still sees only the sample lesson.
+     Derived rather than merged into state, so the published lesson appears in
+     the outline without seizing the learner's current place in the subject. */
+  const lessons = useMemo(() => {
+    if (dataMode !== "preview") return subject.lessons;
+    const published = previewLessonsFor(subject.offeringId);
+    if (published.length === 0) return subject.lessons;
+    return [
+      ...published,
+      ...subject.lessons.filter(
+        (lesson) => !published.some((item) => item.id === lesson.id),
+      ),
+    ];
+  }, [dataMode, subject.lessons, subject.offeringId]);
+
   const selectedLesson =
-    subject.lessons.find((lesson) => lesson.id === selectedLessonId) ??
-    subject.lessons[0];
+    lessons.find((lesson) => lesson.id === selectedLessonId) ?? lessons[0];
   const activeBlock =
     selectedLesson.blocks[activeBlockIndex] ?? selectedLesson.blocks[0];
   const subjectProgress = Math.round(
-    subject.lessons.reduce(
-      (total, lesson) => total + lesson.progressPercent,
-      0,
-    ) / Math.max(1, subject.lessons.length),
+    lessons.reduce((total, lesson) => total + lesson.progressPercent, 0) /
+      Math.max(1, lessons.length),
   );
   const completedBlocks = Math.max(
     1,
@@ -174,10 +189,9 @@ export default function IntegratedSciencePage() {
     () =>
       Math.max(
         1,
-        subject.lessons.findIndex((lesson) => lesson.id === selectedLesson.id) +
-          1,
+        lessons.findIndex((lesson) => lesson.id === selectedLesson.id) + 1,
       ),
-    [selectedLesson.id, subject.lessons],
+    [lessons, selectedLesson.id],
   );
 
   async function moveToBlock(index: number) {
@@ -266,7 +280,7 @@ export default function IntegratedSciencePage() {
         <div className="outline-lessons">
           <p className="outline-label">Current unit</p>
           <h2>{selectedLesson.unitTitle}</h2>
-          {subject.lessons.map((lesson, index) => (
+          {lessons.map((lesson, index) => (
             <button
               className={lesson.id === selectedLesson.id ? "active" : ""}
               disabled={lesson.availability !== "available"}
@@ -293,15 +307,13 @@ export default function IntegratedSciencePage() {
 
       <main className="lesson-main">
         <section className="lesson-heading">
-          <div>
+          <div className="lesson-heading-copy">
             <p className="lesson-eyebrow">{selectedLesson.unitTitle} · Lesson {lessonPosition}</p>
             <h1>{selectedLesson.title}</h1>
             <p>{selectedLesson.summary}</p>
-            <div className="lesson-standard-chips">{selectedLesson.standardCodes.map((code) => <span key={code}>{code}</span>)}<span>{selectedLesson.estimatedMinutes} min</span></div>
+            <div className="lesson-standard-chips">{selectedLesson.standardCodes.map((code) => <span key={code}>{code}</span>)}<span className="chip-quiet">{selectedLesson.estimatedMinutes} min</span></div>
           </div>
-          <div className="lesson-progress-ring" style={{ "--lesson-progress": `${progress * 3.6}deg` } as React.CSSProperties}>
-            <span><strong>{progress}%</strong><small>complete</small></span>
-          </div>
+          <LessonProgressRing percent={progress} />
         </section>
 
         <section className="objective-card" aria-labelledby="objectives-title">
@@ -358,6 +370,41 @@ export default function IntegratedSciencePage() {
   );
 }
 
+/* A stroked SVG arc rather than a conic-gradient with a radial-gradient punched
+   out of the middle. The gradient version had to fake its inner edge with a
+   hard colour stop, which the compositor cannot antialias — that is what made
+   the ring look jagged and cheap at 25%. A stroke is a real shape: crisp at any
+   density, rounded at the ends, and it can animate as progress changes. */
+function LessonProgressRing({ percent }: { percent: number }) {
+  const radius = 33;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, percent));
+
+  return (
+    <div
+      aria-label={`${clamped}% of this lesson complete`}
+      className="lesson-progress-ring"
+      role="img"
+    >
+      <svg aria-hidden="true" viewBox="0 0 80 80">
+        <circle className="ring-track" cx="40" cy="40" r={radius} />
+        <circle
+          className="ring-value"
+          cx="40"
+          cy="40"
+          r={radius}
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - clamped / 100)}
+        />
+      </svg>
+      <span aria-hidden="true">
+        <strong>{clamped}%</strong>
+        <small>complete</small>
+      </span>
+    </div>
+  );
+}
+
 function LessonBlockView({
   answer,
   answerChecked,
@@ -378,27 +425,7 @@ function LessonBlockView({
   onCheck: () => void;
 }) {
   if (block.type === "video") {
-    const mediaUrl = block.config?.mediaAssetId
-      ? `/api/content/media?assetId=${encodeURIComponent(block.config.mediaAssetId)}`
-      : undefined;
-    return (
-      <article className="lesson-block video-block">
-        <div className="video-stage">
-          {mediaUrl ? (
-            <video controls playsInline preload="metadata" src={mediaUrl}>
-              Your browser does not support embedded lesson video.
-            </video>
-          ) : (
-            <>
-              <div className="body-map" aria-hidden="true"><span /><span /><span /><span /></div>
-              <button type="button" aria-label="Play digestive system video">▶</button>
-              <span>04:12</span>
-            </>
-          )}
-        </div>
-        <div className="block-copy"><p className="lesson-eyebrow">Guided video</p><h2>{block.title}</h2><p>{block.content}</p><small>Low-data transcript and captions available</small></div>
-      </article>
-    );
+    return <LessonVideoBlock block={block} />;
   }
 
   if (block.type === "interactive") {
@@ -431,8 +458,10 @@ function LessonBlockView({
   }
 
   if (block.type === "resource") {
-    const mediaUrl = block.config?.mediaAssetId
-      ? `/api/content/media?assetId=${encodeURIComponent(block.config.mediaAssetId)}`
+    const resourceAssetId = block.config?.mediaAssetId;
+    const mediaUrl = resourceAssetId
+      ? (previewMediaUrl(resourceAssetId) ??
+        `/api/content/media?assetId=${encodeURIComponent(resourceAssetId)}`)
       : undefined;
     return (
       <article className="lesson-block resource-block">
@@ -451,6 +480,138 @@ function LessonBlockView({
       <div className="science-note"><span aria-hidden="true">★</span><p><strong>Science in daily life</strong>Chewing well increases the surface area of food, helping enzymes begin their work more effectively.</p></div>
     </article>
   );
+}
+
+/**
+ * The lesson video.
+ *
+ * The previous version drew a play triangle with no click handler over a
+ * decorative gradient, so pressing it did nothing — the reported "the video
+ * does not play at all". A video block now has exactly three honest states:
+ * a real player when the lesson has a video attached, a clear explanation when
+ * it does not, and a recoverable error when the stream fails.
+ */
+function LessonVideoBlock({ block }: { block: LessonBlock }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [started, setStarted] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [duration, setDuration] = useState<number>();
+
+  const assetId = block.config?.mediaAssetId;
+  /* A teacher working without a database uploads into the in-tab preview
+     library, so try that before the authenticated media route. */
+  const mediaUrl = assetId
+    ? (previewMediaUrl(assetId) ??
+      `/api/content/media?assetId=${encodeURIComponent(assetId)}`)
+    : undefined;
+
+  async function play() {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      await video.play();
+      setStarted(true);
+    } catch {
+      /* Autoplay policies and codec failures both surface here. Falling back
+         to the native controls leaves the learner a way through. */
+      setStarted(true);
+    }
+  }
+
+  const copy = (
+    <div className="block-copy">
+      <p className="lesson-eyebrow">Guided video</p>
+      <h2>{block.title}</h2>
+      <p>{block.content}</p>
+      {mediaUrl && !failed ? (
+        <small>
+          {duration ? `${formatDuration(duration)} · ` : ""}
+          Captions and a low-data transcript are available in the player.
+        </small>
+      ) : null}
+    </div>
+  );
+
+  if (!mediaUrl) {
+    return (
+      <article className="lesson-block video-block">
+        <div className="video-stage video-stage-empty">
+          <span aria-hidden="true">▶</span>
+          <strong>No video attached yet</strong>
+          <p>
+            Your teacher has written this activity but has not uploaded the
+            video for it. The rest of the lesson still works.
+          </p>
+        </div>
+        {copy}
+      </article>
+    );
+  }
+
+  return (
+    <article className="lesson-block video-block">
+      <div className={`video-stage${started ? " is-playing" : ""}`}>
+        <video
+          controls
+          controlsList="nodownload"
+          onError={() => setFailed(true)}
+          onLoadedMetadata={(event) => {
+            const value = event.currentTarget.duration;
+            if (Number.isFinite(value)) setDuration(value);
+          }}
+          onPause={() => setStarted(true)}
+          onPlay={() => setStarted(true)}
+          playsInline
+          preload="metadata"
+          ref={videoRef}
+          src={mediaUrl}
+        >
+          Your browser cannot play this lesson video.
+        </video>
+
+        {failed ? (
+          <div className="video-stage-message">
+            <strong>This video could not be loaded</strong>
+            <p>Check your connection, then try again.</p>
+            <button
+              onClick={() => {
+                setFailed(false);
+                videoRef.current?.load();
+              }}
+              type="button"
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
+
+        {/* A large target over the poster frame, because the native control
+            strip is a hard tap on a phone. It hands straight over to the
+            native controls once playback starts. */}
+        {!started && !failed ? (
+          <button
+            aria-label={`Play: ${block.title}`}
+            className="video-play"
+            onClick={() => void play()}
+            type="button"
+          >
+            <span aria-hidden="true">▶</span>
+          </button>
+        ) : null}
+
+        {duration && !started && !failed ? (
+          <span className="video-duration">{formatDuration(duration)}</span>
+        ) : null}
+      </div>
+      {copy}
+    </article>
+  );
+}
+
+function formatDuration(seconds: number): string {
+  const whole = Math.round(seconds);
+  const minutes = Math.floor(whole / 60);
+  return `${minutes}:${String(whole % 60).padStart(2, "0")}`;
 }
 
 function H5pActivityFrame({

@@ -6,6 +6,7 @@ import type {
   TeacherContentWorkspace,
 } from "../../../db/content-repository";
 import type { MediaKind } from "../../../domain/content/types";
+import { previewMediaUrl, rememberPreviewMedia } from "../../preview-workspace";
 import "../../admin/academic/academic.css";
 import "./content-studio.css";
 
@@ -144,12 +145,18 @@ export default function TeacherContentPage() {
             ? ("awaiting-runtime" as const)
             : ("ready" as const),
       };
+      /* Hold the actual file for this tab. Without it a preview upload is just
+         a row in a list: the teacher cannot check their video, and a lesson
+         that attaches it has nothing to play. */
+      rememberPreviewMedia(asset.id, input.file);
       setWorkspace((current) => ({
         ...current,
         mediaAssets: [asset, ...current.mediaAssets],
         totalBytes: current.totalBytes + input.file.size,
       }));
-      setNotice("Preview asset added to the private subject library.");
+      setNotice(
+        `${input.file.name} is available in this preview session. Sign in against a school database to store it permanently.`,
+      );
       setBusy(false);
       return;
     }
@@ -377,12 +384,7 @@ export default function TeacherContentPage() {
               {workspace.mediaAssets.length ? (
                 <div className="media-list">
                   {workspace.mediaAssets.map((asset) => (
-                    <article key={asset.id}>
-                      <span className={`media-kind kind-${asset.kind}`}>{kindSymbol(asset.kind)}</span>
-                      <div><strong>{asset.originalFilename}</strong><small>{humanise(asset.kind)} · {formatBytes(asset.sizeBytes)} · {formatDate(asset.createdAt)}</small></div>
-                      <em className={`asset-status ${asset.status}`}>{humanise(asset.status)}</em>
-                      <a href={`/api/content/media?assetId=${encodeURIComponent(asset.id)}`}>{asset.kind === "h5p-package" ? "Package" : "Open"}</a>
-                    </article>
+                    <MediaRow asset={asset} key={asset.id} />
                   ))}
                 </div>
               ) : <EmptyState title="No media uploaded yet" copy="Add a low-data lesson file or import an existing interactive activity above." />}
@@ -429,6 +431,61 @@ export default function TeacherContentPage() {
         ))}
       </nav>
     </div>
+  );
+}
+
+/**
+ * One row of the media library.
+ *
+ * A video row can be expanded into a player. Checking an upload used to mean
+ * following a download link out of the workspace and trusting that whatever
+ * opened is what learners will see; now the teacher watches the same stream
+ * the lesson serves, in place.
+ */
+function MediaRow({
+  asset,
+}: {
+  asset: TeacherContentWorkspace["mediaAssets"][number];
+}) {
+  const [open, setOpen] = useState(false);
+  /* Preview uploads live in the tab, everything else streams through the
+     authenticated media route. */
+  const source =
+    previewMediaUrl(asset.id) ??
+    `/api/content/media?assetId=${encodeURIComponent(asset.id)}`;
+  const playable = asset.kind === "video" || asset.kind === "audio";
+
+  return (
+    <article className={open ? "media-row-open" : undefined}>
+      <span className={`media-kind kind-${asset.kind}`}>{kindSymbol(asset.kind)}</span>
+      <div><strong>{asset.originalFilename}</strong><small>{humanise(asset.kind)} · {formatBytes(asset.sizeBytes)} · {formatDate(asset.createdAt)}</small></div>
+      <em className={`asset-status ${asset.status}`}>{humanise(asset.status)}</em>
+      {playable && asset.status === "ready" ? (
+        <button
+          aria-expanded={open}
+          className="media-preview-toggle"
+          onClick={() => setOpen((current) => !current)}
+          type="button"
+        >
+          {open ? "Hide" : "Preview"}
+        </button>
+      ) : (
+        <a href={source}>{asset.kind === "h5p-package" ? "Package" : "Open"}</a>
+      )}
+      {open ? (
+        <div className="media-preview">
+          {asset.kind === "video" ? (
+            <video controls playsInline preload="metadata" src={source}>
+              Your browser cannot play this file.
+            </video>
+          ) : (
+            <audio controls preload="metadata" src={source}>
+              Your browser cannot play this file.
+            </audio>
+          )}
+        </div>
+      ) : null}
+    </article>
   );
 }
 

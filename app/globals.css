@@ -98,11 +98,45 @@
   --muted: #5d6c69;
   --line: #dfe5dd;
   --line-strong: #c9d3ca;
-  --primary: #0d5f55;
-  --primary-dark: #07483f;
-  --primary-soft: #e4f1ec;
-  --gold: #e3aa31;
-  --sidebar: #123f3a;
+
+  /* ------------------------------------------------------------------
+     School brand
+
+     One school, one colour. Every workspace (student, teacher, guardian,
+     admin), the lesson player and the school-day surfaces read their accent
+     from this ramp, so a learner and their teacher see the same school rather
+     than two different products.
+
+     A tenant only owns --brand and --brand-deep; the rest derive from them.
+     Override those two on the shell element — see schoolBrandStyle() in
+     app/school-brand.ts — and the whole product re-skins.
+
+     The gold accent is deliberately not tenant-owned: it is the Learners Hub
+     mark, and it has to stay legible against every school colour. */
+  --brand: #0d5f55;
+  --brand-deep: #123f3a;
+  /* Pressed/hover shade. 62% keeps it a visible step down from --brand rather
+     than the near-identical tone a higher ratio produces. */
+  --brand-strong: color-mix(in srgb, var(--brand) 62%, #041f1a);
+  --brand-soft: color-mix(in srgb, var(--brand) 11%, #ffffff);
+  --brand-line: color-mix(in srgb, var(--brand) 26%, #ffffff);
+  --brand-tint: color-mix(in srgb, var(--brand) 6%, #ffffff);
+
+  /* Text on the dark --brand-deep ground. Mixing towards white rather than
+     towards the brand keeps this above 4.5:1 whatever hue a school picks. */
+  --brand-on-deep: color-mix(in srgb, var(--brand) 22%, #dfece6);
+  --brand-on-deep-quiet: color-mix(in srgb, var(--brand) 34%, #c6ddd4);
+
+  --brand-accent: #e9b84b;
+  --brand-accent-ink: #173d38;
+
+  /* Aliases. Component sheets written before the brand ramp existed keep
+     working, and re-skin with everything else. */
+  --primary: var(--brand);
+  --primary-dark: var(--brand-strong);
+  --primary-soft: var(--brand-soft);
+  --gold: var(--brand-accent);
+  --sidebar: var(--brand-deep);
 
   /* Kept as an alias so component stylesheets that still reference the old
      name pick up the corrected elevation. */

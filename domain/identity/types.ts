@@ -26,6 +26,14 @@ export type Permission =
   | "report:release"
   | "report:read";
 
+/* A school's colour. Two values only: everything else in the palette is
+   derived from these in CSS, so a school cannot end up half-branded. See
+   app/school-brand.ts and the brand block in app/globals.css. */
+export type SchoolBrand = {
+  brand: string;
+  brandDeep: string;
+};
+
 export type AccessContext = {
   actorPersonId: string;
   classGroupIds?: string[];

@@ -8,6 +8,10 @@ import type {
 } from "../../../db/learning-repository";
 import type { TeacherContentWorkspace } from "../../../db/content-repository";
 import type { LessonBlockType } from "../../../domain/learning/types";
+import {
+  publishPreviewLesson,
+  rememberPreviewDraft,
+} from "../../preview-workspace";
 import "../../admin/academic/academic.css";
 import "./teacher-subjects.css";
 
@@ -247,12 +251,37 @@ export default function TeacherSubjectsPage() {
         updatedAt: new Date().toISOString(),
         version: 0,
       };
+      /* Keep the draft's actual contents, not just its summary, so publishing
+         it hands the learner player a real lesson. */
+      rememberPreviewDraft(workspace.offeringId, {
+        availability: "available",
+        blocks: input.blocks.map((block, index) => ({
+          config: block.config,
+          content: block.content,
+          id: `${previewLesson.id}-block-${index + 1}`,
+          position: index + 1,
+          ready: true,
+          title: block.title,
+          type: block.type,
+        })),
+        estimatedMinutes: Math.max(5, input.blocks.length * 5),
+        id: previewLesson.id,
+        objectives: input.objectives,
+        progressPercent: 0,
+        standardCodes: previewLesson.standardCodes,
+        summary: input.summary,
+        title: input.title,
+        unitTitle: previewLesson.unitTitle,
+        version: 0,
+      });
       setWorkspace((current) => ({
         ...current,
         lessons: [previewLesson, ...current.lessons],
       }));
       setSelectedLessonId(previewLesson.id);
-      setNotice("Preview draft created. Authenticated drafts are saved permanently.");
+      setNotice(
+        "Draft saved in this preview session. Publish it to open it in the learner view.",
+      );
       return;
     }
 
@@ -284,6 +313,7 @@ export default function TeacherSubjectsPage() {
   async function publishSelectedLesson() {
     if (!selectedLesson || selectedLesson.status !== "draft") return;
     if (dataMode !== "protected") {
+      const released = publishPreviewLesson(selectedLesson.id);
       setWorkspace((current) => ({
         ...current,
         lessons: current.lessons.map((lesson) =>
@@ -292,7 +322,11 @@ export default function TeacherSubjectsPage() {
             : lesson,
         ),
       }));
-      setNotice("Preview lesson published locally for this session.");
+      setNotice(
+        released
+          ? `${selectedLesson.title} is now open in the learner view for this preview session.`
+          : "This lesson was authored before the page reloaded, so its activities are no longer in memory. Recreate the draft to publish it.",
+      );
       return;
     }
 
@@ -749,7 +783,33 @@ function LessonDraftForm({
           <label><span>Interactive activity (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use native knowledge check</option>{activities.filter((activity) => activity.status === "launchable").map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></label>
         )}
         {(blockType === "video" || blockType === "resource") && (
-          <label><span>Secure media (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use descriptive placeholder</option>{assets.filter((asset) => asset.kind !== "h5p-package" && asset.status === "ready").map((asset) => <option key={asset.id} value={asset.id}>{asset.originalFilename}</option>)}</select></label>
+          <label>
+            <span>{blockType === "video" ? "Video to play" : "File to download"}</span>
+            <select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}>
+              <option value="">
+                {blockType === "video"
+                  ? "No video yet — learners see a placeholder"
+                  : "No file yet — learners see a placeholder"}
+              </option>
+              {/* A video block offers videos and a resource block offers
+                  documents. Offering every asset for both was how lessons
+                  ended up with a PDF attached to a play button. */}
+              {assets
+                .filter(
+                  (asset) =>
+                    asset.status === "ready" &&
+                    (blockType === "video"
+                      ? asset.kind === "video" || asset.kind === "audio"
+                      : asset.kind !== "h5p-package" && asset.kind !== "video"),
+                )
+                .map((asset) => (
+                  <option key={asset.id} value={asset.id}>{asset.originalFilename}</option>
+                ))}
+            </select>
+            <small>
+              Uploaded in the <Link href="/teacher/content">content studio</Link>.
+            </small>
+          </label>
         )}
         <button className="add-block-button" onClick={addBlock} type="button">+ Add activity</button>
         <ol className="draft-block-list">

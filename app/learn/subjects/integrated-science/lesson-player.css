@@ -128,8 +128,8 @@
 .lesson-outline {
   background:
     radial-gradient(circle at 10% 8%, rgba(225, 185, 81, 0.12), transparent 16rem),
-    #173d38;
-  color: #eef7f3;
+    var(--brand-deep);
+  color: #f3faf7;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 68px);
@@ -148,9 +148,9 @@
 
 .outline-subject > span {
   align-items: center;
-  background: #e3bd5e;
+  background: var(--brand-accent);
   border-radius: var(--radius-md);
-  color: #173d38;
+  color: var(--brand-accent-ink);
   display: flex;
   font-family: var(--font-serif);
   font-size: var(--fs-16);
@@ -167,7 +167,7 @@
 }
 
 .outline-subject small {
-  color: #9eb7b0;
+  color: var(--brand-on-deep-quiet);
   font-size: var(--fs-13);
 }
 
@@ -178,7 +178,7 @@
 }
 
 .outline-subject p {
-  color: #a8c0b9;
+  color: var(--brand-on-deep);
   font-size: var(--fs-14);
   margin-top: 4px;
 }
@@ -197,11 +197,11 @@
 }
 
 .outline-progress > div span {
-  color: #a8c0b9;
+  color: var(--brand-on-deep);
 }
 
 .outline-progress > div strong {
-  color: #f1ca67;
+  color: var(--brand-accent);
 }
 
 .outline-progress > span {
@@ -214,7 +214,7 @@
 }
 
 .outline-progress > span i {
-  background: #e3bd5e;
+  background: var(--brand-accent);
   display: block;
   height: 100%;
 }
@@ -224,7 +224,7 @@
 }
 
 .outline-label {
-  color: #82a49a;
+  color: var(--brand-on-deep-quiet);
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--tracking-label);
@@ -242,7 +242,7 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
-  color: #bfd1cb;
+  color: var(--brand-on-deep);
   cursor: pointer;
   display: grid;
   gap: 8px;
@@ -276,8 +276,8 @@
 }
 
 .outline-lessons > button.active > span {
-  background: #e3bd5e;
-  color: #173d38;
+  background: var(--brand-accent);
+  color: var(--brand-accent-ink);
 }
 
 .outline-lessons button p,
@@ -293,7 +293,7 @@
 }
 
 .outline-lessons button small {
-  color: #91aaa3;
+  color: var(--brand-on-deep-quiet);
   font-size: var(--fs-14);
   margin-top: 4px;
 }
@@ -334,14 +334,14 @@
 }
 
 .outline-help small {
-  color: #9fb7b0;
+  color: var(--brand-on-deep-quiet);
   font-size: var(--fs-13);
   line-height: 1.35;
   margin-top: 4px;
 }
 
 .back-dashboard {
-  color: #abc0ba;
+  color: var(--brand-on-deep);
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
   margin-top: 12px;
@@ -355,11 +355,19 @@
   width: 100%;
 }
 
+/* The lesson header is a card rather than loose text with a dial floating at
+   the right edge, so the title, its standards and the learner's progress read
+   as one unit. */
 .lesson-heading {
   align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   display: grid;
-  gap: 24px;
-  grid-template-columns: 1fr 82px;
+  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--space-6) var(--space-8);
 }
 
 .lesson-eyebrow {
@@ -370,67 +378,102 @@
   text-transform: uppercase;
 }
 
+.lesson-heading-copy > p:first-child {
+  margin: 0;
+}
+
 .lesson-heading h1 {
   font-family: var(--font-serif);
   font-size: var(--fs-page);
   font-weight: var(--fw-regular);
   letter-spacing: var(--tracking-display);
   line-height: var(--lh-display);
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
 }
 
-.lesson-heading > div:first-child > p:nth-of-type(2) {
-  color: #64736f;
-  font-size: var(--fs-14);
-  line-height: 1.55;
-  margin: 12px 0 0;
-  max-width: 580px;
+.lesson-heading-copy > p:nth-of-type(2) {
+  color: var(--muted);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+  margin: var(--space-3) 0 0;
+  max-width: 54ch;
 }
 
 .lesson-standard-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 12px;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 .lesson-standard-chips span {
-  background: #e7f1ec;
-  border: 1px solid #cee1d8;
-  border-radius: 999px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-pill);
   color: var(--primary);
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-3);
+}
+
+/* The time estimate is metadata, not a curriculum standard — same shape,
+   quieter treatment, so the two do not read as one list. */
+.lesson-standard-chips .chip-quiet {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--muted);
 }
 
 .lesson-progress-ring {
-  align-items: center;
-  background:
-    radial-gradient(circle closest-side, #f4f6f1 78%, transparent 80% 100%),
-    conic-gradient(var(--primary) var(--lesson-progress), #dde4df 0);
-  border-radius: 50%;
-  display: flex;
-  height: 82px;
-  justify-content: center;
-  width: 82px;
+  display: grid;
+  flex: 0 0 auto;
+  height: 6.25rem;
+  place-items: center;
+  width: 6.25rem;
 }
 
-.lesson-progress-ring span,
-.lesson-progress-ring strong,
-.lesson-progress-ring small {
-  display: block;
-  text-align: center;
+.lesson-progress-ring > svg,
+.lesson-progress-ring > span {
+  grid-area: 1 / 1;
+}
+
+.lesson-progress-ring > svg {
+  height: 100%;
+  /* Start the arc at twelve o'clock. */
+  transform: rotate(-90deg);
+  width: 100%;
+}
+
+.lesson-progress-ring circle {
+  fill: none;
+  stroke-width: 7;
+}
+
+.lesson-progress-ring .ring-track {
+  stroke: var(--line);
+}
+
+.lesson-progress-ring .ring-value {
+  stroke: var(--primary);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 420ms ease;
+}
+
+.lesson-progress-ring > span {
+  display: grid;
+  justify-items: center;
+  line-height: var(--lh-snug);
 }
 
 .lesson-progress-ring strong {
-  font-size: var(--fs-16);
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-regular);
 }
 
 .lesson-progress-ring small {
-  color: #788680;
+  color: var(--muted);
   font-size: var(--fs-13);
-  margin-top: 4px;
 }
 
 .objective-card {
@@ -487,35 +530,44 @@
   margin-right: 8px;
 }
 
+/* The activity stepper. Each step is a full-height target with a rounded rail
+   underneath, rather than a bare label sitting on a 3px square-ended bar. */
 .block-steps {
   display: grid;
-  gap: 4px;
-  grid-template-columns: repeat(4, 1fr);
-  margin-top: 24px;
+  gap: var(--space-2);
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  margin-top: var(--space-6);
 }
 
 .block-steps button {
   align-items: center;
   background: transparent;
   border: 0;
-  color: #89958f;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
   cursor: pointer;
   display: flex;
   font-size: var(--fs-14);
-  gap: 8px;
+  font-weight: var(--fw-medium);
+  gap: var(--space-2);
   justify-content: center;
-  padding: 8px;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-2) var(--space-4);
   position: relative;
+  transition: color 160ms ease;
 }
 
 .block-steps button::after {
-  background: #d7dfd9;
+  background: var(--line);
+  border-radius: var(--radius-pill);
   bottom: 0;
   content: "";
-  height: 3px;
+  height: 4px;
   left: 0;
   position: absolute;
   right: 0;
+  transition: background 200ms ease;
 }
 
 .block-steps button span {
@@ -523,11 +575,19 @@
   background: #e5eae6;
   border-radius: 50%;
   display: flex;
-  font-size: var(--fs-14);
+  flex: 0 0 auto;
+  font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
-  height: 28px;
+  height: 1.75rem;
   justify-content: center;
-  width: 28px;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
+  width: 1.75rem;
+}
+
+.block-steps button:hover {
+  color: var(--ink);
 }
 
 .block-steps button.active {
@@ -607,98 +667,153 @@
 
 .video-block {
   display: grid;
-  gap: 24px;
+  gap: var(--space-8);
   grid-template-columns: minmax(280px, 1.3fr) 1fr;
 }
 
 .video-stage {
   align-items: center;
-  background:
-    radial-gradient(circle at 60% 30%, rgba(227, 189, 94, 0.35), transparent 12rem),
-    linear-gradient(145deg, #123e38, #267064);
+  aspect-ratio: 16 / 9;
+  background: #0a2320;
   border-radius: var(--radius-md);
   display: flex;
   justify-content: center;
-  min-height: 250px;
   overflow: hidden;
   position: relative;
 }
 
-.video-stage > button {
-  align-items: center;
-  background: #ffffff;
-  border: 0;
-  border-radius: 50%;
-  color: var(--primary);
-  display: flex;
-  font-size: var(--fs-16);
-  height: 52px;
-  justify-content: center;
-  padding-left: 4px;
-  position: relative;
-  width: 52px;
-  z-index: 2;
-}
-
 .video-stage video {
-  background: #0a2f2a;
+  display: block;
   height: 100%;
-  inset: 0;
   object-fit: contain;
-  position: absolute;
   width: 100%;
 }
 
-.video-stage > span {
-  background: rgba(0, 0, 0, 0.42);
+/* Overlay play control. Sits above the poster frame and disappears the moment
+   playback starts, handing over to the native controls. */
+.video-play {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: var(--shadow-lg);
+  color: var(--primary);
+  cursor: pointer;
+  display: flex;
+  height: 4rem;
+  inset: 0;
+  justify-content: center;
+  margin: auto;
+  /* The glyph's own bearing sits it left of centre in the circle. */
+  padding-left: 0.25rem;
+  position: absolute;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+  width: 4rem;
+  z-index: 2;
+}
+
+.video-play span {
+  font-size: var(--fs-22);
+  line-height: 1;
+}
+
+.video-play:hover,
+.video-play:focus-visible {
+  background: #ffffff;
+  outline: none;
+  transform: scale(1.06);
+}
+
+.video-duration {
+  background: rgba(0, 0, 0, 0.55);
   border-radius: var(--radius-xs);
-  bottom: 10px;
+  bottom: var(--space-3);
   color: #ffffff;
   font-size: var(--fs-13);
-  padding: 4px 8px;
+  font-variant-numeric: tabular-nums;
+  padding: var(--space-1) var(--space-2);
   position: absolute;
-  right: 10px;
+  right: var(--space-3);
+  z-index: 2;
 }
 
-.body-map {
-  inset: 0;
-  opacity: 0.7;
-  position: absolute;
+/* Two states that used to be silent failures: nothing uploaded, and a stream
+   that will not load. Both say what happened and what to do next. */
+.video-stage-empty {
+  background:
+    radial-gradient(circle at 70% 20%, rgba(233, 184, 75, 0.16), transparent 60%),
+    var(--brand-deep);
+  color: #ffffff;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-8);
+  text-align: center;
 }
 
-.body-map span {
-  border: 1px solid rgba(255, 255, 255, 0.17);
+.video-stage-empty > span {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
+  display: flex;
+  font-size: var(--fs-18);
+  height: 3rem;
+  justify-content: center;
+  padding-left: 0.2rem;
+  width: 3rem;
+}
+
+.video-stage-empty strong {
+  font-size: var(--fs-18);
+  margin-top: var(--space-2);
+}
+
+.video-stage-empty p {
+  color: var(--brand-on-deep);
+  font-size: var(--fs-14);
+  line-height: var(--lh-snug);
+  margin: 0;
+  max-width: 34ch;
+}
+
+.video-stage-message {
+  align-items: center;
+  background: rgba(10, 35, 32, 0.92);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inset: 0;
+  justify-content: center;
+  padding: var(--space-6);
   position: absolute;
+  text-align: center;
+  z-index: 3;
 }
 
-.body-map span:nth-child(1) {
-  height: 120px;
-  left: 20%;
-  top: 18%;
-  width: 120px;
+.video-stage-message strong {
+  color: #ffffff;
+  font-size: var(--fs-16);
 }
 
-.body-map span:nth-child(2) {
-  height: 170px;
-  right: -20px;
-  top: -30px;
-  width: 170px;
+.video-stage-message p {
+  color: var(--brand-on-deep);
+  font-size: var(--fs-14);
+  margin: 0;
 }
 
-.body-map span:nth-child(3) {
-  bottom: -50px;
-  height: 150px;
-  left: 42%;
-  width: 150px;
-}
-
-.body-map span:nth-child(4) {
-  background: rgba(227, 189, 94, 0.18);
-  height: 45px;
-  left: 34%;
-  top: 42%;
-  width: 45px;
+.video-stage-message button {
+  background: #ffffff;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  cursor: pointer;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  margin-top: var(--space-2);
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
 }
 
 .block-copy {
@@ -1093,12 +1208,21 @@
 
   .lesson-heading {
     align-items: start;
-    grid-template-columns: 1fr 66px;
+    gap: var(--space-4);
+    padding: var(--space-5);
   }
 
   .lesson-progress-ring {
-    height: 66px;
-    width: 66px;
+    height: 4.75rem;
+    width: 4.75rem;
+  }
+
+  .lesson-progress-ring strong {
+    font-size: var(--fs-18);
+  }
+
+  .lesson-progress-ring small {
+    display: none;
   }
 
   .objective-card ul {
@@ -1116,10 +1240,6 @@
 
   .video-block {
     grid-template-columns: 1fr;
-  }
-
-  .video-stage {
-    min-height: 210px;
   }
 
   .answer-grid {
@@ -1141,12 +1261,11 @@
 }
 
 @media (max-width: 430px) {
+  /* Progress is the one thing a learner returning mid-lesson looks for, so it
+     stacks under the title rather than being dropped. */
   .lesson-heading {
     grid-template-columns: 1fr;
-  }
-
-  .lesson-progress-ring {
-    display: none;
+    justify-items: start;
   }
 
   .lesson-controls {

@@ -1,7 +1,7 @@
 .skip-link {
   background: #fff;
   border-radius: var(--radius-sm);
-  color: #103f39;
+  color: var(--brand-deep);
   left: 16px;
   padding: 12px 16px;
   position: fixed;
@@ -13,14 +13,19 @@
   top: 16px;
 }
 
+/* Every workspace wears the school's colour. The role a person signs in as
+   changes what they can do, not which school they are looking at, so teacher,
+   student, guardian and admin all resolve to the same brand ramp. These
+   variables stay as an indirection layer only so a single shell can be
+   re-pointed for previews without touching every rule below. */
 .workspace-shell {
-  --workspace-accent: #0d665a;
-  --workspace-accent-soft: #e4f1ec;
+  --workspace-accent: var(--brand);
+  --workspace-accent-soft: var(--brand-soft);
   --workspace-canvas: #f5f6f1;
   --workspace-ink: #1a2b28;
   --workspace-line: #dfe5de;
   --workspace-muted: #566461;
-  --workspace-sidebar: #123f3a;
+  --workspace-sidebar: var(--brand-deep);
   background: var(--workspace-canvas);
   color: var(--workspace-ink);
   display: grid;
@@ -28,29 +33,11 @@
   min-height: 100vh;
 }
 
-.workspace-teacher {
-  --workspace-accent: #245d85;
-  --workspace-accent-soft: #e5eef5;
-  --workspace-sidebar: #173e58;
-}
-
-.workspace-student {
-  --workspace-accent: #5b4b9d;
-  --workspace-accent-soft: #ece9f8;
-  --workspace-sidebar: #2f2c59;
-}
-
-.workspace-guardian {
-  --workspace-accent: #986020;
-  --workspace-accent-soft: #f5eadb;
-  --workspace-sidebar: #52391f;
-}
-
 .workspace-sidebar {
   background:
     radial-gradient(circle at 10% 8%, rgba(233, 184, 75, 0.14), transparent 17rem),
     var(--workspace-sidebar);
-  color: #eff7f3;
+  color: #f3faf7;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -68,9 +55,9 @@
 
 .workspace-brand > span:first-child {
   align-items: center;
-  background: #e9b84b;
+  background: var(--brand-accent);
   border-radius: var(--radius-md);
-  color: #173d38;
+  color: var(--brand-accent-ink);
   display: inline-flex;
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
@@ -90,7 +77,7 @@
 }
 
 .workspace-brand small {
-  color: #a9c3bc;
+  color: var(--brand-on-deep);
   font-size: var(--fs-14);
   margin-top: 4px;
 }
@@ -106,7 +93,7 @@
 }
 
 .workspace-context small {
-  color: #9eb8b1;
+  color: var(--brand-on-deep);
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--tracking-label);
@@ -127,7 +114,7 @@
 .workspace-sidebar > nav a {
   align-items: center;
   border-radius: var(--radius-md);
-  color: #c5d7d1;
+  color: var(--brand-on-deep);
   display: grid;
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
@@ -156,8 +143,8 @@
 }
 
 .workspace-sidebar > nav a.is-active {
-  background: #f2c45f;
-  color: #173d38;
+  background: var(--brand-accent);
+  color: var(--brand-accent-ink);
 }
 
 .workspace-sidebar > nav a.is-active > span {
@@ -191,7 +178,7 @@
 
 .workspace-switcher a {
   border-radius: var(--radius-sm);
-  color: #c5d7d1;
+  color: var(--brand-on-deep);
   font-size: var(--fs-16);
   padding: 8px;
 }
@@ -225,7 +212,7 @@
 }
 
 .workspace-person small {
-  color: #9eb8b1;
+  color: var(--brand-on-deep);
   font-size: var(--fs-14);
   margin-top: 4px;
 }
@@ -234,7 +221,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  color: #afc4be;
+  color: var(--brand-on-deep);
   cursor: pointer;
   display: inline-flex;
   font-size: var(--fs-14);
@@ -366,7 +353,7 @@
 
 .workspace-action-row .workspace-primary-action:hover,
 .workspace-action-row .workspace-primary-action:focus-visible {
-  background: #153e39;
+  background: var(--brand-strong);
   color: #fff;
 }
 
@@ -606,7 +593,7 @@
 .teacher-next-card {
   background:
     radial-gradient(circle at 90% 10%, rgba(242, 196, 95, 0.2), transparent 20rem),
-    #173e58;
+    var(--brand-deep);
   color: #fff;
 }
 
@@ -621,7 +608,7 @@
 }
 
 .teacher-next-card p:not(.workspace-eyebrow) {
-  color: #b9cedb;
+  color: var(--brand-on-deep);
   font-size: var(--fs-16);
   margin: 8px 0 0;
 }
@@ -636,7 +623,7 @@
 .teacher-next-card a {
   background: #fff;
   border-radius: var(--radius-md);
-  color: #173e58;
+  color: var(--brand-deep);
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
   min-height: 44px;
@@ -680,12 +667,12 @@
 .student-continue-card {
   background:
     radial-gradient(circle at 90% 20%, rgba(242, 196, 95, 0.2), transparent 20rem),
-    #2f2c59;
+    var(--brand-deep);
   color: #fff;
 }
 
 .student-continue-card p:not(.workspace-eyebrow) {
-  color: #c7c3df;
+  color: var(--brand-on-deep);
   font-size: var(--fs-16);
   margin: 8px 0 24px;
 }
@@ -693,7 +680,7 @@
 .student-continue-card a {
   background: #fff;
   border-radius: var(--radius-md);
-  color: #2f2c59;
+  color: var(--brand-deep);
   display: inline-flex;
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
@@ -720,7 +707,7 @@
 }
 
 .student-continue-progress span {
-  color: #c7c3df;
+  color: var(--brand-on-deep);
   font-size: var(--fs-14);
   margin-top: 4px;
 }
@@ -863,9 +850,9 @@
 
   .workspace-mobile-brand {
     align-items: center;
-    background: #e9b84b;
+    background: var(--brand-accent);
     border-radius: var(--radius-md);
-    color: #173d38;
+    color: var(--brand-accent-ink);
     display: inline-flex;
     font-size: var(--fs-14);
     font-weight: var(--fw-semibold);

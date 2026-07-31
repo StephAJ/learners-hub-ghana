@@ -1,6 +1,6 @@
 :root {
-  --grade-green: #0d775a;
-  --grade-green-dark: #0a4e3d;
+  --grade-green: var(--brand);
+  --grade-green-dark: var(--brand-strong);
   --grade-ink: #16211c;
   --grade-muted: #6a746f;
   --grade-line: #e1e6e3;

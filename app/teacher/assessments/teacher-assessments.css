@@ -2,9 +2,9 @@
   --assessment-ink: #16202a;
   --assessment-muted: #66707b;
   --assessment-line: #e3e7e5;
-  --assessment-green: #0d7d5d;
-  --assessment-green-dark: #075e46;
-  --assessment-mint: #e8f6f0;
+  --assessment-green: var(--brand);
+  --assessment-green-dark: var(--brand-strong);
+  --assessment-mint: var(--brand-soft);
   --assessment-warm: #f6f4ed;
 }
 

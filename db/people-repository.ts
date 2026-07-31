@@ -3,6 +3,7 @@ import { AuthorizationError, canPerform } from "../domain/identity/authorization
 import type {
   AccessContext,
   DirectoryPerson,
+  SchoolBrand,
   SchoolRole,
 } from "../domain/identity/types";
 import { ensurePlatformReady } from "../server/platform-ready";
@@ -13,6 +14,10 @@ const GREENFIELD_TENANT_ID = "tenant-greenfield";
 export type AuthenticatedSchoolUser = {
   access: AccessContext;
   availableRoles: SchoolRole[];
+  /* The school's colour, applied to whichever workspace this person opens.
+     Undefined until schools carry their own colours in the tenant record; the
+     shell falls back to the Learners Hub default. */
+  brand?: SchoolBrand;
   email: string;
   name: string;
   primaryRole: SchoolRole;

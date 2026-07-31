@@ -1,11 +1,27 @@
-.public-site {
+/* The unauthenticated surfaces are five sibling page roots, not one tree, so the
+   palette has to be declared on all of them. Declaring it only on .public-site
+   meant every var(--public-*) inside the admissions, application, applicant and
+   sign-in pages resolved to an invalid value and silently dropped the property.
+   That is why the admissions "Start an application" button rendered as white
+   text on a transparent background at 1.13:1. */
+.public-site,
+.admissions-public-page,
+.application-page,
+.applicant-workspace,
+.authentication-page {
   --public-bg: #f4f1e8;
   --public-card: #fffdf8;
-  --public-forest: #123f3a;
-  --public-green: #0d665a;
-  --public-gold: #e9b84b;
+  /* The marketing site is the same school's front door, so its accents come
+     from the shared brand ramp rather than a fourth, slightly-different green.
+     The warm paper background stays local to these pages. */
+  --public-forest: var(--brand-deep);
+  --public-green: var(--brand);
+  --public-gold: var(--brand-accent);
   --public-ink: #172b28;
   --public-muted: #4f5f5b;
+}
+
+.public-site {
   background:
     radial-gradient(circle at 90% 4%, rgba(233, 184, 75, 0.2), transparent 24rem),
     var(--public-bg);
@@ -181,7 +197,7 @@
 
 .public-primary-action:hover,
 .public-primary-action:focus-visible {
-  background: #094e46;
+  background: var(--brand-strong);
   outline: none;
   transform: translateY(-1px);
 }
@@ -314,7 +330,7 @@
 .board-feature b {
   background: #e5f4ee;
   border-radius: 999px;
-  color: #126250;
+  color: var(--brand);
   font-size: var(--fs-14);
   padding: 8px 12px;
 }
@@ -685,8 +701,8 @@
 .applicant-workspace {
   background:
     radial-gradient(circle at 92% 4%, rgba(233, 184, 75, 0.18), transparent 23rem),
-    #f4f1e8;
-  color: #172b28;
+    var(--public-bg);
+  color: var(--public-ink);
   min-height: 100vh;
 }
 
@@ -705,7 +721,7 @@
 .admissions-public-header > a:last-child,
 .application-header > a:last-child,
 .applicant-topbar > div a {
-  color: #0d665a;
+  color: var(--brand);
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
 }
@@ -713,7 +729,7 @@
 .applicant-topbar > div button {
   background: transparent;
   border: 0;
-  color: #0d665a;
+  color: var(--brand);
   cursor: pointer;
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
@@ -723,7 +739,8 @@
 .authentication-page {
   background:
     radial-gradient(circle at 12% 8%, rgba(233, 184, 75, 0.2), transparent 25rem),
-    #f4f1e8;
+    var(--public-bg);
+  color: var(--public-ink);
   min-height: 100vh;
 }
 
@@ -738,7 +755,7 @@
 }
 
 .authentication-page > header > a:last-child {
-  color: #0d665a;
+  color: var(--brand);
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
 }
@@ -758,7 +775,7 @@
 }
 
 .authentication-page h1 {
-  color: #123f3a;
+  color: var(--brand-deep);
   font-family: var(--font-serif);
   font-size: var(--fs-hero);
   letter-spacing: var(--tracking-display);
@@ -784,7 +801,7 @@
 }
 
 .authentication-form header h2 {
-  color: #123f3a;
+  color: var(--brand-deep);
   font-family: var(--font-serif);
   font-size: var(--fs-34);
   letter-spacing: var(--tracking-display);
@@ -817,7 +834,7 @@
 }
 
 .authentication-form input:focus {
-  border-color: #0d665a;
+  border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(13, 102, 90, 0.12);
   outline: 0;
 }
@@ -843,7 +860,7 @@
 .authentication-switch {
   background: transparent;
   border: 0;
-  color: #0d665a;
+  color: var(--brand);
   cursor: pointer;
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
@@ -905,7 +922,7 @@
 }
 
 .admissions-public-hero aside {
-  background: #123f3a;
+  background: var(--brand-deep);
   border-radius: var(--radius-2xl);
   color: #fff;
   display: flex;
@@ -997,7 +1014,7 @@
   align-items: center;
   border: 1px solid #9bb1a6;
   border-radius: 50%;
-  color: #0d665a;
+  color: var(--brand);
   display: inline-flex;
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
@@ -1042,7 +1059,7 @@
 
 .application-form > header {
   align-items: flex-start;
-  background: #123f3a;
+  background: var(--brand-deep);
   color: #fff;
   display: flex;
   gap: 20px;
@@ -1072,13 +1089,13 @@
 
 .application-status.status-submitted {
   background: #dff1e8;
-  color: #0d665a;
+  color: var(--brand);
 }
 
 .application-notice {
   background: #edf6f1;
   border-bottom: 1px solid #d5e7dd;
-  color: #155a4d;
+  color: var(--brand);
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
   margin: 0;
@@ -1104,7 +1121,7 @@
   align-items: center;
   background: #e4f1ec;
   border-radius: 50%;
-  color: #0d665a;
+  color: var(--brand);
   display: inline-flex;
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
@@ -1167,7 +1184,7 @@
 .application-form input:focus,
 .application-form select:focus,
 .application-form textarea:focus {
-  border-color: #0d665a;
+  border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(13, 102, 90, 0.14);
   outline: none;
 }
@@ -1220,8 +1237,8 @@
 }
 
 .application-form button.application-submit {
-  background: #0d665a;
-  border-color: #0d665a;
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
 }
 
@@ -1247,7 +1264,7 @@
 
 .applicant-status-card {
   align-items: center;
-  background: #123f3a;
+  background: var(--brand-deep);
   border-radius: var(--radius-xl);
   color: #fff;
   display: flex;
@@ -1285,7 +1302,7 @@
 .applicant-status-card > a {
   background: #fff;
   border-radius: var(--radius-md);
-  color: #123f3a;
+  color: var(--brand-deep);
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
   min-height: 46px;

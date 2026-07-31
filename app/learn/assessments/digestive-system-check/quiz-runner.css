@@ -1,6 +1,6 @@
 :root {
-  --quiz-green: #0b7a5a;
-  --quiz-green-dark: #07533f;
+  --quiz-green: var(--brand);
+  --quiz-green-dark: var(--brand-strong);
   --quiz-ink: #18201d;
   --quiz-muted: #68736e;
   --quiz-line: #e2e7e4;
