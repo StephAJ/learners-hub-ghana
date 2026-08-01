@@ -12,6 +12,13 @@ export type LessonBlock = {
     activityId?: string;
     mediaAssetId?: string;
     provider?: "h5p";
+    /* A video block sources its footage one of two ways: mediaAssetId streams a
+       file the school uploaded, and videoUrl points at something already
+       published elsewhere. Schools without the bandwidth or rights to host
+       their own footage still need to set a lesson around a good video, so both
+       are first-class. When both are set the uploaded asset wins, because it is
+       the copy the school controls. */
+    videoUrl?: string;
   };
   content: string;
   id: string;
@@ -20,6 +27,14 @@ export type LessonBlock = {
   title: string;
   type: LessonBlockType;
 };
+
+/* Where a lesson video comes from. Only providers listed here are ever framed;
+   anything else is treated as a direct media file, and an unrecognised host is
+   refused rather than embedded. */
+export type LessonVideoSource =
+  | { kind: "asset"; url: string }
+  | { kind: "file"; url: string }
+  | { kind: "youtube"; embedUrl: string; watchUrl: string };
 
 export type LessonBlockInput = Omit<LessonBlock, "position">;
 

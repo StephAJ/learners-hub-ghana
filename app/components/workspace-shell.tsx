@@ -35,7 +35,7 @@ const navigation: Record<WorkspaceKind | "applicant", NavigationItem[]> = {
   ],
   student: [
     { href: "/student", label: "Today" },
-    { href: "/learn/subjects/integrated-science", label: "Subjects" },
+    { href: "/learn/subjects", label: "My subjects" },
     { href: "/learn/school-day", label: "School day" },
     {
       href: "/learn/assessments/digestive-system-check",

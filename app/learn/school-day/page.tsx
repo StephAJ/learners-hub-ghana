@@ -138,7 +138,7 @@ export default function LearnerSchoolDayPage() {
           <a className="is-active" href="#today">
             School day
           </a>
-          <Link href="/learn/subjects/integrated-science">Subjects</Link>
+          <Link href="/learn/subjects">Subjects</Link>
         </nav>
         <div className="school-day-profile">
           <div>

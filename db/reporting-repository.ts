@@ -1,5 +1,6 @@
 import { ensureAssessmentFoundation } from "./assessment-repository";
-import { getD1Database } from "./index";
+import { getSchoolDatabase } from "./index";
+import type { SchoolDatabase, SchoolStatement } from "./school-database";
 import { SCIENCE_OFFERING_ID } from "./learning-repository";
 import {
   adjustGradeEntry,
@@ -133,7 +134,7 @@ export async function listTeacherGradebookWorkspace(
       "You are not assigned to this subject offering.",
     );
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const [categories, items, scale, period, submission, reports] =
     await Promise.all([
       loadCategories(database, access.tenantId),
@@ -175,7 +176,7 @@ export async function savePersistentGradeEntry(
   input: SaveGradeEntryInput,
 ): Promise<TeacherGradebookWorkspace> {
   await ensureReportingFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const row = await database
     .prepare(
       `SELECT
@@ -293,7 +294,7 @@ export async function submitPersistentGradebook(
 ): Promise<TeacherGradebookWorkspace> {
   await ensureReportingFoundation();
   const workspace = await listTeacherGradebookWorkspace(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const entries = await loadAllEntries(database, access.tenantId);
   submitGradebook(entries, new Date().toISOString());
   const reportUpdateStatements = workspace.learners.map((learner) => {
@@ -390,7 +391,7 @@ export async function approvePersistentReport(
     );
   }
   await ensureReportingFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const current = await loadReportCard(database, access.tenantId, reportId);
   const approved = approveReport(access, current, new Date().toISOString());
   await database.batch([
@@ -436,7 +437,7 @@ export async function releasePersistentReport(
     );
   }
   await ensureReportingFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const current = await loadReportCard(database, access.tenantId, reportId);
   const released = releaseReport(access, current, new Date().toISOString());
   const source = await loadReportVersion(
@@ -528,7 +529,7 @@ export async function getGuardianReportWorkspace(
   requestedLearnerId?: string,
 ): Promise<GuardianReportWorkspace> {
   await ensureReportingFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const linkedChildren = await resolveAccessibleChildren(database, access);
   const defaultLearnerId =
     access.role === "guardian"
@@ -578,7 +579,7 @@ export async function getGuardianReportWorkspace(
 
 export async function ensureReportingFoundation() {
   await ensureAssessmentFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   await database.batch([
     ...seedLearners(database),
     ...seedPeriodsAndPolicy(database),
@@ -588,7 +589,7 @@ export async function ensureReportingFoundation() {
   ]);
 }
 
-function seedLearners(database: D1Database) {
+function seedLearners(database: SchoolDatabase) {
   return [
     seedLearner(
       database,
@@ -610,7 +611,7 @@ function seedLearners(database: D1Database) {
 }
 
 function seedLearner(
-  database: D1Database,
+  database: SchoolDatabase,
   id: string,
   firstName: string,
   lastName: string,
@@ -625,7 +626,7 @@ function seedLearner(
     .bind(id, TENANT_ID, firstName, lastName, email);
 }
 
-function seedLearnerMembership(database: D1Database, personId: string) {
+function seedLearnerMembership(database: SchoolDatabase, personId: string) {
   return database
     .prepare(
       `INSERT OR IGNORE INTO tenant_memberships
@@ -635,8 +636,8 @@ function seedLearnerMembership(database: D1Database, personId: string) {
     .bind(`membership-${personId}`, TENANT_ID, personId);
 }
 
-function seedPeriodsAndPolicy(database: D1Database) {
-  const statements: D1PreparedStatement[] = [
+function seedPeriodsAndPolicy(database: SchoolDatabase) {
+  const statements: SchoolStatement[] = [
     database
       .prepare(
         `INSERT OR IGNORE INTO grading_periods
@@ -697,8 +698,8 @@ function seedPeriodsAndPolicy(database: D1Database) {
   return statements;
 }
 
-function seedGradebook(database: D1Database) {
-  const statements: D1PreparedStatement[] = [
+function seedGradebook(database: SchoolDatabase) {
+  const statements: SchoolStatement[] = [
     seedGradeItem(
       database,
       "grade-item-digestion-quiz",
@@ -768,7 +769,7 @@ function seedGradebook(database: D1Database) {
 }
 
 function seedGradeItem(
-  database: D1Database,
+  database: SchoolDatabase,
   id: string,
   categoryId: string,
   title: string,
@@ -796,7 +797,7 @@ function seedGradeItem(
     );
 }
 
-function seedCurrentReports(database: D1Database) {
+function seedCurrentReports(database: SchoolDatabase) {
   const learners = [
     {
       average: 782,
@@ -820,7 +821,7 @@ function seedCurrentReports(database: D1Database) {
       comment: "Kojo is improving steadily. Completion of the model project is required.",
     },
   ];
-  const statements: D1PreparedStatement[] = [];
+  const statements: SchoolStatement[] = [];
   learners.forEach((learner) => {
     const reportId = `report-${learner.id}-term1`;
     const versionId = `${reportId}:v0`;
@@ -861,7 +862,7 @@ function seedCurrentReports(database: D1Database) {
   return statements;
 }
 
-function seedReleasedReport(database: D1Database) {
+function seedReleasedReport(database: SchoolDatabase) {
   const reportId = "report-person-kwame-term2-2025";
   const versionId = `${reportId}:v1`;
   return [
@@ -897,7 +898,7 @@ function seedReleasedReport(database: D1Database) {
 }
 
 function seedReportSubjects(
-  database: D1Database,
+  database: SchoolDatabase,
   versionId: string,
   scienceScore: number,
   learnerName: string,
@@ -936,7 +937,7 @@ function seedReportSubjects(
 }
 
 function seedReleasedReportSubjects(
-  database: D1Database,
+  database: SchoolDatabase,
   versionId: string,
 ) {
   const subjects: Array<[string, string, number, string]> = [
@@ -981,7 +982,7 @@ function seedGrade(score: number) {
   return { grade: "F", remark: "Needs support" };
 }
 
-async function loadCategories(database: D1Database, tenantId: string) {
+async function loadCategories(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT id, name, weight_percent
@@ -998,7 +999,7 @@ async function loadCategories(database: D1Database, tenantId: string) {
   }));
 }
 
-async function loadItems(database: D1Database, tenantId: string) {
+async function loadItems(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT i.id, i.category_id, i.title, i.maximum_marks, c.name AS category_name
@@ -1025,7 +1026,7 @@ async function loadItems(database: D1Database, tenantId: string) {
   }));
 }
 
-async function loadScale(database: D1Database, tenantId: string) {
+async function loadScale(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT grade, remark, minimum_tenths, maximum_tenths
@@ -1048,7 +1049,7 @@ async function loadScale(database: D1Database, tenantId: string) {
   }));
 }
 
-async function loadPeriod(database: D1Database, tenantId: string) {
+async function loadPeriod(database: SchoolDatabase, tenantId: string) {
   const period = await database
     .prepare(
       `SELECT id, academic_year_id, name, policy_version
@@ -1067,7 +1068,7 @@ async function loadPeriod(database: D1Database, tenantId: string) {
   return period;
 }
 
-async function loadSubmission(database: D1Database, tenantId: string) {
+async function loadSubmission(database: SchoolDatabase, tenantId: string) {
   const submission = await database
     .prepare(
       `SELECT status
@@ -1086,7 +1087,7 @@ async function loadSubmission(database: D1Database, tenantId: string) {
 }
 
 async function loadGradebookLearners(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   categories: GradeCategory[],
   items: Array<GradeItem & { categoryName: string }>,
@@ -1173,7 +1174,7 @@ async function loadGradebookLearners(
   return result;
 }
 
-async function loadAllEntries(database: D1Database, tenantId: string) {
+async function loadAllEntries(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT
@@ -1206,7 +1207,7 @@ async function loadAllEntries(database: D1Database, tenantId: string) {
   }));
 }
 
-async function loadReportQueue(database: D1Database, tenantId: string) {
+async function loadReportQueue(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT
@@ -1243,7 +1244,7 @@ async function loadReportQueue(database: D1Database, tenantId: string) {
 }
 
 async function loadReportCard(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   reportId: string,
 ): Promise<ReportCard> {
@@ -1275,7 +1276,7 @@ async function loadReportCard(
 }
 
 async function loadReportVersion(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   reportId: string,
   version: number,
@@ -1294,7 +1295,7 @@ async function loadReportVersion(
 }
 
 async function loadReportSubjects(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   reportVersionId: string,
 ) {
@@ -1311,7 +1312,7 @@ async function loadReportSubjects(
 }
 
 async function resolveAccessibleChildren(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
 ) {
   if (access.role === "guardian") {
@@ -1350,7 +1351,7 @@ async function resolveAccessibleChildren(
 }
 
 async function loadReleasedReports(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   learnerId: string,
 ) {
@@ -1453,7 +1454,7 @@ async function withTeacherAssignments(access: AccessContext) {
   if (access.role === "school-admin" || access.role === "academic-admin") {
     return access;
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const result = await database
     .prepare(
       `SELECT offering_id
@@ -1477,7 +1478,7 @@ function requireGradebookPermission(access: AccessContext) {
 }
 
 function auditStatement(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   action: string,
   entityType: string,

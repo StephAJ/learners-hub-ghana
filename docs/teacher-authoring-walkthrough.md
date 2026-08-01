@@ -47,7 +47,8 @@ library. It is one library per subject offering, shared by every lesson in it.
 2. Choose the file. Accepted: `.mp4`, `.webm`, `.mov`, up to 25 MB.
 3. Upload.
 
-The file goes to R2 under an opaque object key — the original filename is kept
+The file is stored under an opaque object key — on the VPS that is a directory
+on a mounted volume, on Cloudflare it is R2. The original filename is kept
 only as display metadata, so a predictable name cannot be used to guess at
 another school's files. Nothing is served from a public bucket URL: learners
 stream through `/api/content/media?assetId=…`, which checks the session, the

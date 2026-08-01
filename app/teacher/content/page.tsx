@@ -6,6 +6,8 @@ import type {
   TeacherContentWorkspace,
 } from "../../../db/content-repository";
 import type { MediaKind } from "../../../domain/content/types";
+import { demoContentWorkspace } from "../../demo-data";
+import { demoSubjectBySlug } from "../../../domain/demo/greenfield";
 import { previewMediaUrl, rememberPreviewMedia } from "../../preview-workspace";
 import "../../admin/academic/academic.css";
 import "./content-studio.css";
@@ -18,70 +20,10 @@ const navigation = [
   { href: "/teacher/gradebook", label: "Gradebook", symbol: "↗" },
 ];
 
-const previewWorkspace: TeacherContentWorkspace = {
-  activities: [
-    {
-      contentType: "Interactive Video",
-      fallbackText:
-        "A guided transcript and three-question digestion checkpoint.",
-      id: "preview-h5p-digestion",
-      launchOrigin: "https://documentation.h5p.com",
-      launchUrl:
-        "https://documentation.h5p.com/content/1291910063569938878/embed",
-      offeringId: "offering-science-jhs2",
-      provider: "h5p",
-      status: "launchable",
-      title: "Digestive system interactive video",
-    },
-    {
-      contentType: "Course Presentation",
-      fallbackText:
-        "Teacher notes and a printable respiratory-system sequence.",
-      id: "preview-h5p-breathing",
-      offeringId: "offering-science-jhs2",
-      packageAssetId: "preview-h5p-package",
-      provider: "h5p",
-      status: "awaiting-runtime",
-      title: "Breathing and gas exchange",
-    },
-  ],
-  className: "JHS 2 Gold",
-  mediaAssets: [
-    {
-      contentType: "application/pdf",
-      createdAt: "2026-07-24T08:30:00Z",
-      id: "preview-study-sheet",
-      kind: "document",
-      offeringId: "offering-science-jhs2",
-      originalFilename: "digestive-system-study-sheet.pdf",
-      sizeBytes: 430_080,
-      status: "ready",
-    },
-    {
-      contentType: "video/mp4",
-      createdAt: "2026-07-24T08:10:00Z",
-      id: "preview-gas-exchange",
-      kind: "video",
-      offeringId: "offering-science-jhs2",
-      originalFilename: "gas-exchange-low-data.mp4",
-      sizeBytes: 5_347_328,
-      status: "ready",
-    },
-    {
-      contentType: "application/zip",
-      createdAt: "2026-07-24T07:55:00Z",
-      id: "preview-h5p-package",
-      kind: "h5p-package",
-      offeringId: "offering-science-jhs2",
-      originalFilename: "breathing-and-gas-exchange.h5p",
-      sizeBytes: 2_170_880,
-      status: "awaiting-runtime",
-    },
-  ],
-  offeringId: "offering-science-jhs2",
-  subjectName: "Integrated Science",
-  totalBytes: 7_948_288,
-};
+/* The same subject and the same library the lesson author attaches from. */
+const previewWorkspace: TeacherContentWorkspace = demoContentWorkspace(
+  demoSubjectBySlug("integrated-science")!,
+);
 
 export default function TeacherContentPage() {
   const [workspace, setWorkspace] = useState(previewWorkspace);

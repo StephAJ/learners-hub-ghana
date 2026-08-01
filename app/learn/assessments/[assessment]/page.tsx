@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { notFound, useParams } from "next/navigation";
 import {
   useEffect,
   useMemo,
@@ -12,84 +13,25 @@ import type {
   LearnerQuestion,
 } from "../../../../db/assessment-repository";
 import type { QuestionResponse } from "../../../../domain/assessment/types";
+import { demoLearnerAssessmentBySlug } from "../../../demo-data";
 import "./quiz-runner.css";
 
-const previewAssessment: LearnerAssessment = {
-  attempt: null,
-  id: "assessment-digestion-check",
-  instructions:
-    "Answer every question. You can flag an item and return to it before submitting.",
-  passMarkPercent: 60,
-  purpose: "formative",
-  questions: [
-    {
-      id: "question-absorption-site",
-      marks: 1,
-      options: [
-        { id: "mouth", label: "Mouth" },
-        { id: "stomach", label: "Stomach" },
-        { id: "small-intestine", label: "Small intestine" },
-        { id: "large-intestine", label: "Large intestine" },
-      ],
-      position: 1,
-      prompt: "Where does most nutrient absorption take place?",
-      questionVersion: 1,
-      type: "single-choice",
-    },
-    {
-      id: "question-bile-true-false",
-      marks: 1,
-      options: [],
-      position: 2,
-      prompt: "Bile helps the body digest fats.",
-      questionVersion: 1,
-      type: "true-false",
-    },
-    {
-      id: "question-organ-action-match",
-      marks: 2,
-      options: [
-        { id: "left:mouth", label: "Mouth" },
-        { id: "left:stomach", label: "Stomach" },
-        { id: "right:chewing", label: "Chewing" },
-        { id: "right:churning", label: "Churning" },
-      ],
-      position: 3,
-      prompt: "Match each digestive organ to its main action.",
-      questionVersion: 1,
-      type: "matching",
-    },
-    {
-      id: "question-digestion-order",
-      marks: 2,
-      options: [
-        { id: "stomach", label: "Stomach" },
-        { id: "mouth", label: "Mouth" },
-        { id: "oesophagus", label: "Oesophagus" },
-      ],
-      position: 4,
-      prompt: "Arrange the organs in the order food travels through them.",
-      questionVersion: 1,
-      type: "ordering",
-    },
-    {
-      id: "question-villi-explanation",
-      marks: 3,
-      options: [],
-      position: 5,
-      prompt:
-        "Explain two ways the small intestine is adapted for nutrient absorption.",
-      questionVersion: 1,
-      type: "essay",
-    },
-  ],
-  result: null,
-  timeLimitMinutes: 12,
-  title: "Digestive system knowledge check",
-  version: 1,
-};
+export default function AssessmentRunnerPage() {
+  const params = useParams<{ assessment: string }>();
+  const slug = typeof params.assessment === "string" ? params.assessment : "";
+  /* Every question type the marker supports comes from the shared demo
+     dataset, so the quiz a learner sits is the quiz the teacher's markbook
+     expects. */
+  const previewAssessment = demoLearnerAssessmentBySlug(slug);
+  if (!previewAssessment) notFound();
+  return <AssessmentRunner key={slug} previewAssessment={previewAssessment} />;
+}
 
-export default function DigestiveSystemCheckPage() {
+function AssessmentRunner({
+  previewAssessment,
+}: {
+  previewAssessment: LearnerAssessment;
+}) {
   const [assessment, setAssessment] = useState(previewAssessment);
   const [activeIndex, setActiveIndex] = useState(0);
   const [responses, setResponses] = useState<
@@ -109,13 +51,15 @@ export default function DigestiveSystemCheckPage() {
     Record<string, ReturnType<typeof setTimeout>>
   >({});
 
+  const assessmentId = previewAssessment.id;
+
   useEffect(() => {
     let active = true;
     const timers = saveTimers.current;
     async function loadAssessment() {
       try {
         const response = await fetch(
-          "/api/learn/assessments?assessmentId=assessment-digestion-check",
+          `/api/learn/assessments?assessmentId=${encodeURIComponent(assessmentId)}`,
         );
         if (!response.ok) throw new Error("Assessment unavailable.");
         const payload = (await response.json()) as {
@@ -134,7 +78,7 @@ export default function DigestiveSystemCheckPage() {
       active = false;
       Object.values(timers).forEach(clearTimeout);
     };
-  }, []);
+  }, [assessmentId]);
 
   useEffect(() => {
     const deadline = assessment.attempt?.deadlineAt;

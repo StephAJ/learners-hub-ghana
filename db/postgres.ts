@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { learningSchema } from "./learning-schema";
 
 const globalDatabase = globalThis as typeof globalThis & {
   learnersHubPostgresPool?: Pool;
@@ -16,7 +17,11 @@ export function getPostgresPool(): Pool {
 }
 
 export async function migrateLearnersHubSchema(): Promise<void> {
-  await getPostgresPool().query(applicationSchema);
+  const database = getPostgresPool();
+  await database.query(applicationSchema);
+  /* The learning tables reference tenants and people, so they go second.
+     Generated from db/schema.ts — see scripts/generate-learning-schema.ts. */
+  await database.query(learningSchema);
 }
 
 const applicationSchema = `

@@ -1,17 +1,30 @@
 import Link from "next/link";
 import { WorkspaceShell } from "../components/workspace-shell";
+import { demoSubjectCards } from "../demo-data";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
 import { firstName, schoolDateLabel, schoolGreeting } from "../school-time";
 
-const subjects = [
-  { name: "Integrated Science", progress: "82%", teacher: "Ms. Asante" },
-  { name: "Mathematics", progress: "76%", teacher: "Mr. Mensah" },
-  { name: "English Language", progress: "64%", teacher: "Mrs. Owusu" },
-  { name: "Social Studies", progress: "58%", teacher: "Mr. Addo" },
-];
-
 export default async function StudentHomePage() {
   const user = await requireWorkspaceUser("student", "/student");
+
+  /* One source of truth with the subject index and the lesson player, so the
+     percentage on this card is the percentage the learner sees when they open
+     the lesson. The old hardcoded list disagreed with both. */
+  const subjects = demoSubjectCards();
+  const overallProgress = Math.round(
+    subjects.reduce((total, subject) => total + subject.progressPercent, 0) /
+      Math.max(1, subjects.length),
+  );
+  /* Pick up wherever the learner left off: the least-finished subject that is
+     actually started, falling back to the first unstarted one. */
+  const resume =
+    subjects
+      .filter(
+        (subject) =>
+          subject.nextLessonTitle && subject.progressPercent > 0,
+      )
+      .sort((a, b) => a.progressPercent - b.progressPercent)[0] ??
+    subjects.find((subject) => subject.nextLessonTitle);
 
   return (
     <WorkspaceShell
@@ -22,18 +35,27 @@ export default async function StudentHomePage() {
       user={user}
       workspace="student"
     >
-      <section className="student-continue-card">
-        <div>
-          <p className="workspace-eyebrow">Continue learning · 82% complete</p>
-          <h2>The human digestive system</h2>
-          <p>Integrated Science · Ms. Asante · Lesson 6 of 8</p>
-          <Link href="/learn/subjects/integrated-science">Continue lesson</Link>
-        </div>
-        <div className="student-continue-progress" aria-label="82 percent complete">
-          <strong>82%</strong>
-          <span>Lesson 6 of 8</span>
-        </div>
-      </section>
+      {resume ? (
+        <section className="student-continue-card">
+          <div>
+            <p className="workspace-eyebrow">
+              Continue learning · {resume.progressPercent}% complete
+            </p>
+            <h2>{resume.nextLessonTitle}</h2>
+            <p>
+              {resume.subjectName} · {resume.teacherName}
+            </p>
+            <Link href={`/learn/subjects/${resume.slug}`}>Continue lesson</Link>
+          </div>
+          <div
+            className="student-continue-progress"
+            aria-label={`${resume.progressPercent} percent complete`}
+          >
+            <strong>{resume.progressPercent}%</strong>
+            <span>{resume.subjectName}</span>
+          </div>
+        </section>
+      ) : null}
 
       <section className="workspace-metric-grid" aria-label="Learning summary">
         <article>
@@ -47,9 +69,9 @@ export default async function StudentHomePage() {
           <Link href="/learn/school-day">Next due tomorrow</Link>
         </article>
         <article>
-          <small>Overall average</small>
-          <strong>82%</strong>
-          <span>Across 4 subjects</span>
+          <small>Course progress</small>
+          <strong>{overallProgress}%</strong>
+          <span>Across {subjects.length} subjects</span>
         </article>
         <article>
           <small>New feedback</small>
@@ -65,18 +87,18 @@ export default async function StudentHomePage() {
               <p className="workspace-eyebrow">My subjects</p>
               <h2>Learning progress</h2>
             </div>
-            <Link href="/learn/subjects/integrated-science">Open subjects</Link>
+            <Link href="/learn/subjects">Open subjects</Link>
           </header>
           <div className="student-subject-list">
             {subjects.map((subject) => (
-              <article key={subject.name}>
-                <span>{subject.name.slice(0, 2).toUpperCase()}</span>
+              <Link href={`/learn/subjects/${subject.slug}`} key={subject.slug}>
+                <span>{subject.code}</span>
                 <div>
-                  <strong>{subject.name}</strong>
-                  <small>{subject.teacher}</small>
+                  <strong>{subject.subjectName}</strong>
+                  <small>{subject.teacherName}</small>
                 </div>
-                <b>{subject.progress}</b>
-              </article>
+                <b>{subject.progressPercent}%</b>
+              </Link>
             ))}
           </div>
         </section>

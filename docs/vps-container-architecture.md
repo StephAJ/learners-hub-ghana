@@ -3,6 +3,11 @@
 Status: Accepted design
 Date: 25 July 2026
 
+> Superseded in part: Cloudflare is no longer a deployment target, and
+> Redis has been removed. Every school record is in PostgreSQL and
+> uploaded media is on a mounted volume — see
+> `docs/d1-to-postgres-port.md`.
+
 ## Purpose
 
 Learners Hub will move from a Cloudflare Sites-specific runtime to a portable

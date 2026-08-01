@@ -8,6 +8,10 @@ services:
     environment:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${LEARNERS_HUB_ORIGIN:?Set LEARNERS_HUB_ORIGIN}
+      # Staging demo cast. Both default to off, so a deployment that does not
+      # set them creates no shared-password accounts.
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-false}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
       H5P_RUNTIME_BASE_URL: ${H5P_PUBLIC_ORIGIN:?Set H5P_PUBLIC_ORIGIN}
       H5P_RUNTIME_SHARED_SECRET: ${H5P_RUNTIME_SHARED_SECRET:?Set H5P_RUNTIME_SHARED_SECRET}
       HOSTNAME: 0.0.0.0
@@ -43,6 +47,10 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp:size=64m,mode=1777
+    # Lesson media. The root filesystem is read-only, so uploads need a mounted
+    # volume; MEDIA_STORAGE_DIR in the Dockerfile points here.
+    volumes:
+      - media-data:/data/media
 
   postgres:
     environment:
@@ -94,29 +102,7 @@ services:
     volumes:
       - h5p-data:/data
 
-  redis:
-    command:
-      - redis-server
-      - --appendonly
-      - "no"
-      - --maxmemory
-      - 128mb
-      - --maxmemory-policy
-      - allkeys-lru
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-    image: redis:7.4-alpine
-    mem_limit: 192m
-    read_only: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    tmpfs:
-      - /data:size=32m,mode=0700
-
 volumes:
   h5p-data:
+  media-data:
   postgres-data:

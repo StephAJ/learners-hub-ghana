@@ -8,6 +8,8 @@ import type {
 } from "../../../db/learning-repository";
 import type { TeacherContentWorkspace } from "../../../db/content-repository";
 import type { LessonBlockType } from "../../../domain/learning/types";
+import { demoContentWorkspace, demoTeacherLessonWorkspace } from "../../demo-data";
+import { demoSubjectBySlug } from "../../../domain/demo/greenfield";
 import {
   publishPreviewLesson,
   rememberPreviewDraft,
@@ -25,130 +27,13 @@ const navigation = [
   { href: "#classes", label: "Class groups", symbol: "◎" },
 ];
 
-const previewWorkspace: TeacherLessonWorkspace = {
-  className: "JHS 2 Gold",
-  code: "IS",
-  coveragePercent: 50,
-  offeringId: "offering-science-jhs2",
-  standards: [
-    {
-      code: "JHS2.IS.HBS.1",
-      description:
-        "Describe the structures and functions of major human body systems.",
-      id: "standard-human-systems-1",
-      position: 1,
-      strand: "Systems",
-      subStrand: "Human body systems",
-    },
-    {
-      code: "JHS2.IS.HBS.2",
-      description: "Explain how body systems work together to sustain life.",
-      id: "standard-human-systems-2",
-      position: 2,
-      strand: "Systems",
-      subStrand: "Human body systems",
-    },
-    {
-      code: "JHS2.IS.NUT.1",
-      description:
-        "Classify common foods and apply the principles of a balanced diet.",
-      id: "standard-nutrition-1",
-      position: 3,
-      strand: "Diversity of matter",
-      subStrand: "Food and nutrition",
-    },
-  ],
-  subjectName: "Integrated Science",
-  units: [
-    { id: "unit-human-systems", lessonCount: 1, title: "Human body systems" },
-    { id: "unit-food-nutrition", lessonCount: 1, title: "Food and nutrition" },
-  ],
-  lessons: [
-    {
-      blockCount: 4,
-      id: "lesson-digestive-system",
-      objectiveCount: 2,
-      releaseMode: "immediate",
-      standardCodes: ["JHS2.IS.HBS.1", "JHS2.IS.HBS.2"],
-      status: "published",
-      title: "The human digestive system",
-      unitId: "unit-human-systems",
-      unitTitle: "Human body systems",
-      updatedAt: "2026-07-21T09:00:00Z",
-      version: 1,
-    },
-    {
-      blockCount: 3,
-      id: "lesson-respiratory-system",
-      objectiveCount: 2,
-      prerequisiteTitle: "The human digestive system",
-      releaseMode: "prerequisite",
-      standardCodes: ["JHS2.IS.HBS.2"],
-      status: "published",
-      title: "How breathing powers the body",
-      unitId: "unit-human-systems",
-      unitTitle: "Human body systems",
-      updatedAt: "2026-07-23T11:00:00Z",
-      version: 1,
-    },
-    {
-      blockCount: 1,
-      id: "lesson-balanced-diet",
-      objectiveCount: 1,
-      releaseMode: "immediate",
-      standardCodes: ["JHS2.IS.NUT.1"],
-      status: "draft",
-      title: "Building a balanced Ghanaian meal",
-      unitId: "unit-food-nutrition",
-      unitTitle: "Food and nutrition",
-      updatedAt: "2026-07-22T14:30:00Z",
-      version: 0,
-    },
-  ],
-};
-
-const previewContentWorkspace: TeacherContentWorkspace = {
-  activities: [
-    {
-      contentType: "Interactive Video",
-      fallbackText: "Guided interactive with a text alternative.",
-      id: "preview-h5p-digestion",
-      launchOrigin: "https://documentation.h5p.com",
-      launchUrl:
-        "https://documentation.h5p.com/content/1291910063569938878/embed",
-      offeringId: "offering-science-jhs2",
-      provider: "h5p",
-      status: "launchable",
-      title: "Interactive demonstration",
-    },
-  ],
-  className: "JHS 2 Gold",
-  mediaAssets: [
-    {
-      contentType: "application/pdf",
-      createdAt: "2026-07-24T08:30:00Z",
-      id: "preview-study-sheet",
-      kind: "document",
-      offeringId: "offering-science-jhs2",
-      originalFilename: "digestive-system-study-sheet.pdf",
-      sizeBytes: 430_080,
-      status: "ready",
-    },
-    {
-      contentType: "video/mp4",
-      createdAt: "2026-07-24T08:10:00Z",
-      id: "preview-gas-exchange",
-      kind: "video",
-      offeringId: "offering-science-jhs2",
-      originalFilename: "gas-exchange-low-data.mp4",
-      sizeBytes: 5_347_328,
-      status: "ready",
-    },
-  ],
-  offeringId: "offering-science-jhs2",
-  subjectName: "Integrated Science",
-  totalBytes: 5_777_408,
-};
+/* Grace Mensah's Integrated Science, straight from the shared demo dataset,
+   so the lesson library a teacher sees is exactly what the learner opens. */
+const demoSubject = demoSubjectBySlug("integrated-science")!;
+const previewWorkspace: TeacherLessonWorkspace =
+  demoTeacherLessonWorkspace(demoSubject);
+const previewContentWorkspace: TeacherContentWorkspace =
+  demoContentWorkspace(demoSubject);
 
 export default function TeacherSubjectsPage() {
   const [workspace, setWorkspace] = useState(previewWorkspace);

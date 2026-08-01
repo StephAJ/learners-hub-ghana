@@ -17,7 +17,16 @@ import type {
   LessonProgress,
   LessonReleaseRule,
 } from "../domain/learning/types";
-import { getD1Database } from "./index";
+import {
+  DEMO_ACADEMIC_YEAR_ID,
+  DEMO_CLASS_GROUP_ID,
+  DEMO_CLASS_NAME,
+  demoSubjects,
+  type DemoSubject,
+} from "../domain/demo/greenfield";
+import { getSchoolDatabase } from "./index";
+import type { SchoolDatabase, SchoolStatement } from "./school-database";
+import { ensurePeopleSeed } from "./people-repository";
 
 const TENANT_ID = "tenant-greenfield";
 export const SCIENCE_OFFERING_ID = "offering-science-jhs2";
@@ -95,7 +104,7 @@ export async function listTeacherLessonWorkspace(
   requireLessonPermission(access);
   await ensureLearningFoundation();
   const offering = await findAccessibleOffering(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const unitsResult = await database
     .prepare(
       `SELECT
@@ -243,7 +252,7 @@ export async function createPersistentLessonDraft(
       "You are not assigned to this subject offering.",
     );
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   await requireOfferingUnit(
     database,
     access.tenantId,
@@ -409,7 +418,7 @@ export async function publishPersistentLesson(
 ): Promise<LessonSummary> {
   await ensureLearningFoundation();
   const scopedAccess = await withTeacherAssignments(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const draft = await loadLesson(database, access.tenantId, lessonId);
   const published = publishLesson(
     scopedAccess,
@@ -508,7 +517,7 @@ export async function duplicatePersistentLesson(
 ): Promise<LessonSummary> {
   await ensureLearningFoundation();
   const scopedAccess = await withTeacherAssignments(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const source = await loadLesson(database, access.tenantId, lessonId);
   if (!canTeachOffering(scopedAccess, source.offeringId)) {
     throw new AuthorizationError(
@@ -559,7 +568,7 @@ export async function getLearnerSubject(
     throw new AuthorizationError("An active school membership is required.");
   }
   await ensureLearningFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const offering = await database
     .prepare(
       `SELECT
@@ -720,7 +729,7 @@ export async function saveLessonProgress(
   if (access.membershipStatus !== "active") {
     throw new AuthorizationError("An active school membership is required.");
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const publishedVersion = await database
     .prepare(
       `SELECT v.id
@@ -845,9 +854,39 @@ export async function saveLessonProgress(
   return progress;
 }
 
+/**
+ * Creates the school's subjects, curriculum and lessons if they are not there.
+ *
+ * Driven by the shared demo dataset rather than a hand-written copy of it, so
+ * the content a learner reads from the database is the same content the
+ * preview fallbacks show when the database is unreachable. The two used to be
+ * separate transcriptions of Integrated Science and had already drifted.
+ */
 export async function ensureLearningFoundation() {
-  const database = await getD1Database();
-  await database.batch([
+  /* Everything seeded below carries a foreign key to a tenant or a person.
+     PostgreSQL enforces those at insert time, so the school and its staff have
+     to exist first — under D1 this happened to work through ordering luck, and
+     would have failed on a fresh database the moment a learning route was the
+     first one hit. Every other foundation chains through this one. */
+  await ensurePeopleSeed();
+  const database = await getSchoolDatabase();
+
+  const statements = demoSubjects.flatMap((subject) =>
+    seedSubjectStatements(database, subject),
+  );
+
+  /* One transaction. A partially seeded subject — units without their lessons,
+     lessons without their blocks — would render as a broken course rather than
+     an absent one. */
+  await database.batch(statements);
+}
+
+function seedSubjectStatements(
+  database: SchoolDatabase,
+  subject: DemoSubject,
+): SchoolStatement[] {
+  const subjectId = `subject-${subject.slug}`;
+  const statements: SchoolStatement[] = [
     database
       .prepare(
         `INSERT OR IGNORE INTO subjects
@@ -855,11 +894,11 @@ export async function ensureLearningFoundation() {
         VALUES (?, ?, ?, ?, ?)`,
       )
       .bind(
-        "subject-integrated-science",
+        subjectId,
         TENANT_ID,
-        "IS",
-        "Integrated Science",
-        "Explore living systems, matter, energy, and the environment.",
+        subject.code,
+        subject.subjectName,
+        subject.units.map((unit) => unit.title).join(" · "),
       ),
     database
       .prepare(
@@ -868,54 +907,13 @@ export async function ensureLearningFoundation() {
         VALUES (?, ?, ?, ?, ?, ?, 'compulsory', 'active')`,
       )
       .bind(
-        SCIENCE_OFFERING_ID,
+        subject.offeringId,
         TENANT_ID,
-        "subject-integrated-science",
-        "class-jhs2-gold",
-        "JHS 2 Gold",
-        "year-2026-27",
+        subjectId,
+        DEMO_CLASS_GROUP_ID,
+        DEMO_CLASS_NAME,
+        DEMO_ACADEMIC_YEAR_ID,
       ),
-    seedUnit(
-      database,
-      "unit-human-systems",
-      "Human body systems",
-      "How body systems work together to sustain life.",
-      1,
-    ),
-    seedUnit(
-      database,
-      "unit-food-nutrition",
-      "Food and nutrition",
-      "Nutrients, balanced diets, and healthy choices.",
-      2,
-    ),
-    seedStandard(
-      database,
-      "standard-human-systems-1",
-      "JHS2.IS.HBS.1",
-      "Systems",
-      "Human body systems",
-      "Describe the structures and functions of major human body systems.",
-      1,
-    ),
-    seedStandard(
-      database,
-      "standard-human-systems-2",
-      "JHS2.IS.HBS.2",
-      "Systems",
-      "Human body systems",
-      "Explain how body systems work together to sustain life.",
-      2,
-    ),
-    seedStandard(
-      database,
-      "standard-nutrition-1",
-      "JHS2.IS.NUT.1",
-      "Diversity of matter",
-      "Food and nutrition",
-      "Classify common foods and apply the principles of a balanced diet.",
-      3,
-    ),
     database
       .prepare(
         `INSERT OR IGNORE INTO teacher_assignments
@@ -923,223 +921,120 @@ export async function ensureLearningFoundation() {
         VALUES (?, ?, ?, ?, 'active')`,
       )
       .bind(
-        "assignment-grace-science",
+        `assignment-${subject.slug}`,
         TENANT_ID,
-        SCIENCE_OFFERING_ID,
-        "person-grace",
+        subject.offeringId,
+        subject.teacherPersonId,
       ),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO lessons
-          (id, tenant_id, offering_id, unit_id, author_person_id, status, current_version)
-        VALUES (?, ?, ?, ?, ?, 'published', 1)`,
-      )
-      .bind(
-        "lesson-digestive-system",
-        TENANT_ID,
-        SCIENCE_OFFERING_ID,
-        "unit-human-systems",
-        "person-grace",
+  ];
+
+  subject.units.forEach((unit, index) => {
+    statements.push(
+      seedUnit(database, subject.offeringId, unit.id, unit.title, index + 1),
+    );
+  });
+
+  for (const standard of subject.standards) {
+    statements.push(seedStandard(database, subject.offeringId, standard));
+  }
+
+  const standardIdByCode = new Map(
+    subject.standards.map((standard) => [standard.code, standard.id]),
+  );
+
+  for (const lesson of subject.lessons) {
+    const versionId = `${lesson.id}:v${lesson.version}`;
+    statements.push(
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO lessons
+            (id, tenant_id, offering_id, unit_id, author_person_id, status, current_version)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          lesson.id,
+          TENANT_ID,
+          subject.offeringId,
+          lesson.unitId,
+          subject.teacherPersonId,
+          lesson.status,
+          lesson.version,
+        ),
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO lesson_versions
+            (id, tenant_id, lesson_id, version, title, summary, objectives, status, published_at, created_by_person_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          versionId,
+          TENANT_ID,
+          lesson.id,
+          lesson.version,
+          lesson.title,
+          lesson.summary,
+          JSON.stringify(lesson.objectives),
+          lesson.status,
+          lesson.publishedAt ?? null,
+          subject.teacherPersonId,
+        ),
+    );
+
+    for (const block of lesson.blocks) {
+      statements.push(
+        seedBlock(
+          database,
+          block.id,
+          versionId,
+          block.type,
+          block.position,
+          block.title,
+          block.content,
+          block.config,
+        ),
+      );
+    }
+
+    for (const code of lesson.standardCodes) {
+      const standardId = standardIdByCode.get(code);
+      if (!standardId) continue;
+      statements.push(
+        seedStandardLink(
+          database,
+          `link-${lesson.id}-${standardId}`,
+          lesson.id,
+          standardId,
+        ),
+      );
+    }
+
+    /* A locked lesson names its prerequisite in the hint the learner reads, so
+       the release rule is derived from that rather than stated twice. */
+    const prerequisite = lesson.releaseHint
+      ? subject.lessons.find(
+          (candidate) =>
+            candidate.id !== lesson.id &&
+            lesson.releaseHint?.includes(candidate.title),
+        )
+      : undefined;
+    statements.push(
+      seedReleaseRule(
+        database,
+        `release-${lesson.id}`,
+        lesson.id,
+        prerequisite?.id,
       ),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO lesson_versions
-          (id, tenant_id, lesson_id, version, title, summary, objectives, status, published_at, created_by_person_id)
-        VALUES (?, ?, ?, 1, ?, ?, ?, 'published', ?, ?)`,
-      )
-      .bind(
-        "lesson-digestive-system:v1",
-        TENANT_ID,
-        "lesson-digestive-system",
-        "The human digestive system",
-        "Follow food through the body and discover how nutrients reach your cells.",
-        JSON.stringify([
-          "Identify the main organs of the digestive system.",
-          "Explain how food is broken down and absorbed.",
-        ]),
-        "2026-07-21T09:00:00Z",
-        "person-grace",
-      ),
-    seedBlock(
-      database,
-      "block-digestion-intro",
-      "lesson-digestive-system:v1",
-      "text",
-      1,
-      "Your body’s food-processing journey",
-      "Digestion turns the food you eat into small nutrients that can pass into the blood and support growth, repair, and energy.",
-    ),
-    seedBlock(
-      database,
-      "block-digestion-video",
-      "lesson-digestive-system:v1",
-      "video",
-      2,
-      "Watch: from mouth to small intestine",
-      "A four-minute guided animation tracing swallowing, stomach churning, and nutrient absorption.",
-    ),
-    seedBlock(
-      database,
-      "block-digestion-check",
-      "lesson-digestive-system:v1",
-      "interactive",
-      3,
-      "Check your understanding",
-      "Where does most nutrient absorption take place?",
-    ),
-    seedBlock(
-      database,
-      "block-digestion-resource",
-      "lesson-digestive-system:v1",
-      "resource",
-      4,
-      "Digestive system study sheet",
-      "Download the low-data revision sheet and labelled-organ guide.",
-    ),
-    seedStandardLink(
-      database,
-      "link-digestion-standard-1",
-      "lesson-digestive-system",
-      "standard-human-systems-1",
-    ),
-    seedStandardLink(
-      database,
-      "link-digestion-standard-2",
-      "lesson-digestive-system",
-      "standard-human-systems-2",
-    ),
-    seedReleaseRule(
-      database,
-      "release-digestive-system",
-      "lesson-digestive-system",
-    ),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO lessons
-          (id, tenant_id, offering_id, unit_id, author_person_id, status, current_version)
-        VALUES (?, ?, ?, ?, ?, 'published', 1)`,
-      )
-      .bind(
-        "lesson-respiratory-system",
-        TENANT_ID,
-        SCIENCE_OFFERING_ID,
-        "unit-human-systems",
-        "person-grace",
-      ),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO lesson_versions
-          (id, tenant_id, lesson_id, version, title, summary, objectives, status, published_at, created_by_person_id)
-        VALUES (?, ?, ?, 1, ?, ?, ?, 'published', ?, ?)`,
-      )
-      .bind(
-        "lesson-respiratory-system:v1",
-        TENANT_ID,
-        "lesson-respiratory-system",
-        "How breathing powers the body",
-        "Trace oxygen from the air into the blood and connect breathing to energy.",
-        JSON.stringify([
-          "Identify the main structures of the respiratory system.",
-          "Explain how oxygen reaches body cells.",
-        ]),
-        "2026-07-23T11:00:00Z",
-        "person-grace",
-      ),
-    seedBlock(
-      database,
-      "block-respiration-intro",
-      "lesson-respiratory-system:v1",
-      "text",
-      1,
-      "The journey of a breath",
-      "Air travels through the nose and windpipe into branching tubes that end in tiny air sacs called alveoli.",
-    ),
-    seedBlock(
-      database,
-      "block-respiration-video",
-      "lesson-respiratory-system:v1",
-      "video",
-      2,
-      "Watch gas exchange",
-      "A short low-data animation shows oxygen entering the blood and carbon dioxide leaving it.",
-    ),
-    seedBlock(
-      database,
-      "block-respiration-practice",
-      "lesson-respiratory-system:v1",
-      "practice",
-      3,
-      "Label the breathing pathway",
-      "Arrange the nose, windpipe, bronchi, lungs, and alveoli in the order air reaches them.",
-    ),
-    seedStandardLink(
-      database,
-      "link-respiration-standard-2",
-      "lesson-respiratory-system",
-      "standard-human-systems-2",
-    ),
-    seedReleaseRule(
-      database,
-      "release-respiratory-system",
-      "lesson-respiratory-system",
-      "lesson-digestive-system",
-    ),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO lessons
-          (id, tenant_id, offering_id, unit_id, author_person_id, status, current_version)
-        VALUES (?, ?, ?, ?, ?, 'draft', 0)`,
-      )
-      .bind(
-        "lesson-balanced-diet",
-        TENANT_ID,
-        SCIENCE_OFFERING_ID,
-        "unit-food-nutrition",
-        "person-grace",
-      ),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO lesson_versions
-          (id, tenant_id, lesson_id, version, title, summary, objectives, status, created_by_person_id)
-        VALUES (?, ?, ?, 0, ?, ?, ?, 'draft', ?)`,
-      )
-      .bind(
-        "lesson-balanced-diet:v0",
-        TENANT_ID,
-        "lesson-balanced-diet",
-        "Building a balanced Ghanaian meal",
-        "Use familiar foods to plan a balanced plate.",
-        JSON.stringify(["Group common Ghanaian foods by their main nutrients."]),
-        "person-grace",
-      ),
-    seedBlock(
-      database,
-      "block-balanced-diet-intro",
-      "lesson-balanced-diet:v0",
-      "text",
-      1,
-      "What makes a meal balanced?",
-      "A balanced meal combines energy-giving, body-building, and protective foods in suitable amounts.",
-    ),
-    seedStandardLink(
-      database,
-      "link-balanced-standard-1",
-      "lesson-balanced-diet",
-      "standard-nutrition-1",
-    ),
-    seedReleaseRule(
-      database,
-      "release-balanced-diet",
-      "lesson-balanced-diet",
-    ),
-  ]);
+    );
+  }
+
+  return statements;
 }
 
 function seedUnit(
-  database: D1Database,
+  database: SchoolDatabase,
+  offeringId: string,
   id: string,
   title: string,
-  description: string,
   position: number,
 ) {
   return database
@@ -1148,11 +1043,11 @@ function seedUnit(
         (id, tenant_id, offering_id, title, description, term, position)
       VALUES (?, ?, ?, ?, ?, 'Term 1', ?)`,
     )
-    .bind(id, TENANT_ID, SCIENCE_OFFERING_ID, title, description, position);
+    .bind(id, TENANT_ID, offeringId, title, title, position);
 }
 
 function seedBlock(
-  database: D1Database,
+  database: SchoolDatabase,
   id: string,
   versionId: string,
   type: LessonBlockType,
@@ -1175,18 +1070,14 @@ function seedBlock(
       position,
       title,
       content,
-      JSON.stringify(config),
+      JSON.stringify(config ?? {}),
     );
 }
 
 function seedStandard(
-  database: D1Database,
-  id: string,
-  code: string,
-  strand: string,
-  subStrand: string,
-  description: string,
-  position: number,
+  database: SchoolDatabase,
+  offeringId: string,
+  standard: CurriculumStandard,
 ) {
   return database
     .prepare(
@@ -1195,19 +1086,19 @@ function seedStandard(
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
-      id,
+      standard.id,
       TENANT_ID,
-      SCIENCE_OFFERING_ID,
-      code,
-      strand,
-      subStrand,
-      description,
-      position,
+      offeringId,
+      standard.code,
+      standard.strand,
+      standard.subStrand,
+      standard.description,
+      standard.position,
     );
 }
 
 function seedStandardLink(
-  database: D1Database,
+  database: SchoolDatabase,
   id: string,
   lessonId: string,
   standardId: string,
@@ -1222,7 +1113,7 @@ function seedStandardLink(
 }
 
 function seedReleaseRule(
-  database: D1Database,
+  database: SchoolDatabase,
   id: string,
   lessonId: string,
   prerequisiteLessonId?: string,
@@ -1236,8 +1127,9 @@ function seedReleaseRule(
     .bind(id, TENANT_ID, lessonId, prerequisiteLessonId ?? null);
 }
 
+
 async function findAccessibleOffering(access: AccessContext) {
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const administrator =
     access.role === "school-admin" || access.role === "academic-admin";
   const query = administrator
@@ -1285,7 +1177,7 @@ async function withTeacherAssignments(
   if (access.role === "school-admin" || access.role === "academic-admin") {
     return access;
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const result = await database
     .prepare(
       `SELECT offering_id
@@ -1301,7 +1193,7 @@ async function withTeacherAssignments(
 }
 
 async function loadLesson(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   lessonId: string,
 ): Promise<Lesson> {
@@ -1360,7 +1252,7 @@ async function loadLesson(
 }
 
 async function loadVersionBlocks(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   versionId: string,
 ): Promise<LessonBlock[]> {
@@ -1399,7 +1291,7 @@ function parseBlockConfiguration(value: string): LessonBlock["config"] {
   }
 }
 
-async function findUnitTitle(database: D1Database, unitId: string) {
+async function findUnitTitle(database: SchoolDatabase, unitId: string) {
   const row = await database
     .prepare("SELECT title FROM curriculum_units WHERE id = ? LIMIT 1")
     .bind(unitId)
@@ -1472,7 +1364,7 @@ function buildLessonPlanningMap(
 }
 
 async function findStandardCodes(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   lessonId: string,
 ) {
@@ -1490,7 +1382,7 @@ async function findStandardCodes(
 }
 
 async function findStandardIds(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   lessonId: string,
 ) {
@@ -1506,7 +1398,7 @@ async function findStandardIds(
 }
 
 async function findReleaseRule(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   lessonId: string,
 ): Promise<LessonReleaseRule | undefined> {
@@ -1532,7 +1424,7 @@ async function findReleaseRule(
   };
 }
 
-async function findLessonTitle(database: D1Database, lessonId: string) {
+async function findLessonTitle(database: SchoolDatabase, lessonId: string) {
   const row = await database
     .prepare(
       `SELECT v.title
@@ -1548,7 +1440,7 @@ async function findLessonTitle(database: D1Database, lessonId: string) {
 }
 
 async function countVersionBlocks(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   versionId: string,
 ) {
@@ -1586,7 +1478,7 @@ function lessonReleaseHint(
 }
 
 function auditStatement(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   action: string,
   lessonId: string,
@@ -1656,7 +1548,7 @@ function isLessonBlockType(value: string): value is LessonBlockType {
 }
 
 async function requireOfferingUnit(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   offeringId: string,
   unitId: string,
@@ -1678,7 +1570,7 @@ async function requireOfferingUnit(
 }
 
 async function requireOfferingStandards(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   offeringId: string,
   standardIds: string[],
@@ -1701,7 +1593,7 @@ async function requireOfferingStandards(
 }
 
 async function requirePrerequisiteLesson(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   offeringId: string,
   prerequisiteLessonId?: string,
@@ -1724,7 +1616,7 @@ async function requirePrerequisiteLesson(
 }
 
 async function requireBlockAttachments(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   offeringId: string,
   blocks: CreateDraftInput["blocks"],

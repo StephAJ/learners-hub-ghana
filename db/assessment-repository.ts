@@ -29,7 +29,8 @@ import {
   ensureLearningFoundation,
   SCIENCE_OFFERING_ID,
 } from "./learning-repository";
-import { getD1Database } from "./index";
+import { getSchoolDatabase } from "./index";
+import type { SchoolDatabase, SchoolStatement } from "./school-database";
 
 const TENANT_ID = "tenant-greenfield";
 export const DIGESTION_ASSESSMENT_ID = "assessment-digestion-check";
@@ -141,7 +142,7 @@ export async function listTeacherAssessmentWorkspace(
       "No active assessment subject is assigned to your account.",
     );
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const [bank, assessments, reviewQueue] = await Promise.all([
     loadQuestionBank(database, access.tenantId),
     loadAssessmentSummaries(database, access.tenantId),
@@ -172,7 +173,7 @@ export async function createBankQuestion(
       "You are not assigned to this subject offering.",
     );
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const questionId = crypto.randomUUID();
   const questionVersionId = `${questionId}:v1`;
   const options = toQuestionOptions(input.options);
@@ -246,7 +247,7 @@ export async function createPersistentAssessmentDraft(
       "You are not assigned to this subject offering.",
     );
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const uniqueQuestionIds = [...new Set(input.questionIds)];
   const placeholders = uniqueQuestionIds.map(() => "?").join(", ");
   const questionRows = await database
@@ -390,7 +391,7 @@ export async function publishPersistentAssessment(
 ): Promise<AssessmentSummary> {
   await ensureAssessmentFoundation();
   const scopedAccess = await withTeacherAssignments(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const draft = await loadAssessment(
     database,
     access.tenantId,
@@ -481,7 +482,7 @@ export async function getLearnerAssessment(
 ): Promise<LearnerAssessment> {
   requireActiveMembership(access);
   await ensureAssessmentFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const assessment = await loadAssessment(
     database,
     access.tenantId,
@@ -509,7 +510,7 @@ export async function startPersistentAttempt(
 ): Promise<LearnerAssessment> {
   requireActiveMembership(access);
   await ensureAssessmentFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const assessment = await loadAssessment(
     database,
     access.tenantId,
@@ -573,7 +574,7 @@ export async function savePersistentResponse(
   flagged: boolean,
 ) {
   requireActiveMembership(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const context = await requireWritableAttempt(
     database,
     access,
@@ -608,7 +609,7 @@ export async function submitPersistentAttempt(
   attemptId: string,
 ): Promise<LearnerAssessment> {
   requireActiveMembership(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const attemptRow = await requireOwnedAttempt(database, access, attemptId);
   const assessment = await loadAssessment(
     database,
@@ -717,7 +718,7 @@ export async function markPersistentResponse(
   feedback: string,
 ): Promise<ReviewAttempt[]> {
   await ensureAssessmentFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const row = await database
     .prepare(
       `SELECT
@@ -820,7 +821,7 @@ export async function releasePersistentResult(
   attemptId: string,
 ): Promise<ReviewAttempt[]> {
   await ensureAssessmentFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const attempt = await database
     .prepare(
       `SELECT aa.status, a.offering_id
@@ -866,7 +867,7 @@ export async function releasePersistentResult(
 
 export async function ensureAssessmentFoundation() {
   await ensureLearningFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const questions = seedQuestions(database);
   const publishedQuizQuestions = questions.snapshots.filter((question) =>
     [
@@ -884,7 +885,7 @@ export async function ensureAssessmentFoundation() {
   ]);
 }
 
-function seedQuestions(database: D1Database) {
+function seedQuestions(database: SchoolDatabase) {
   const definitions: SeedQuestion[] = [
     {
       answerKey: { value: "small-intestine" },
@@ -1030,7 +1031,7 @@ function seedQuestions(database: D1Database) {
       type: "composite",
     },
   ];
-  const statements: D1PreparedStatement[] = [];
+  const statements: SchoolStatement[] = [];
   for (const question of definitions) {
     statements.push(
       database
@@ -1081,7 +1082,7 @@ function seedQuestions(database: D1Database) {
 }
 
 function seedAssessments(
-  database: D1Database,
+  database: SchoolDatabase,
   questions: AssessmentQuestionSnapshot[],
 ) {
   return [
@@ -1157,7 +1158,7 @@ function seedAssessments(
 }
 
 function seedReviewAttempt(
-  database: D1Database,
+  database: SchoolDatabase,
   questions: AssessmentQuestionSnapshot[],
 ) {
   const attemptId = "attempt-kwame-digestion";
@@ -1212,7 +1213,7 @@ function seedReviewAttempt(
   ];
 }
 
-async function loadQuestionBank(database: D1Database, tenantId: string) {
+async function loadQuestionBank(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT
@@ -1259,7 +1260,7 @@ async function loadQuestionBank(database: D1Database, tenantId: string) {
 }
 
 async function loadAssessmentSummaries(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
 ) {
   const result = await database
@@ -1317,7 +1318,7 @@ async function loadAssessmentSummaries(
   }));
 }
 
-async function loadReviewQueue(database: D1Database, tenantId: string) {
+async function loadReviewQueue(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT
@@ -1387,7 +1388,7 @@ async function loadReviewQueue(database: D1Database, tenantId: string) {
 }
 
 async function loadAssessment(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   assessmentId: string,
 ): Promise<Assessment> {
@@ -1469,7 +1470,7 @@ async function loadAssessment(
 }
 
 async function findLearnerAttempt(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   assessmentId: string,
   version: number,
@@ -1491,7 +1492,7 @@ async function findLearnerAttempt(
 }
 
 async function loadAttemptResponseValues(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   attemptId: string,
 ) {
@@ -1558,7 +1559,7 @@ function toLearnerAssessment(
 }
 
 async function requireWritableAttempt(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   attemptId: string,
   questionId: string,
@@ -1602,7 +1603,7 @@ async function requireWritableAttempt(
 }
 
 async function requireOwnedAttempt(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   attemptId: string,
 ) {
@@ -1620,7 +1621,7 @@ async function requireOwnedAttempt(
 }
 
 function responseMarkStatement(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   attemptId: string,
   question: AssessmentQuestionSnapshot,
@@ -1654,7 +1655,7 @@ async function withTeacherAssignments(access: AccessContext) {
   if (access.role === "school-admin" || access.role === "academic-admin") {
     return access;
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const result = await database
     .prepare(
       `SELECT offering_id
@@ -1805,7 +1806,7 @@ function totalMarks(questions: AssessmentQuestionSnapshot[]) {
 }
 
 function auditStatement(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   action: string,
   entityType: string,

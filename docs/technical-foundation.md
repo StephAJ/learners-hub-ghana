@@ -3,6 +3,11 @@
 Status: Accepted direction; implementation has started  
 Date: 23 July 2026
 
+> Superseded in part: Cloudflare is no longer a deployment target, and
+> Redis has been removed. Every school record is in PostgreSQL and
+> uploaded media is on a mounted volume — see
+> `docs/d1-to-postgres-port.md`.
+
 ## Architecture decision
 
 Learners Hub will use a TypeScript-first modular architecture with separate

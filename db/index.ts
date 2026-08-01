@@ -1,31 +1,39 @@
-import { drizzle } from "drizzle-orm/d1";
-import * as schema from "./schema";
+import { createFilesystemMediaStore, type MediaStore } from "./media-storage";
+import { getPostgresPool } from "./postgres";
+import { createSchoolDatabase, type SchoolDatabase } from "./school-database";
 
-export async function getDb() {
-  const { env } = await import("cloudflare:workers");
-  if (!env.DB) {
+/* ==========================================================================
+   Backing services
+
+   Learners Hub runs on a Node server with PostgreSQL and a mounted volume.
+   Both handles were once Cloudflare bindings — D1 and R2 — and the interfaces
+   still have the shape those APIs gave them, because the five learning
+   repositories are written against it. The bindings themselves are gone.
+   ========================================================================== */
+
+let database: SchoolDatabase | undefined;
+
+/** The school database. Shared by every repository. */
+export async function getSchoolDatabase(): Promise<SchoolDatabase> {
+  if (!process.env.DATABASE_URL) {
     throw new Error(
-      "Cloudflare D1 binding `DB` is unavailable. Set the `d1` field in .openai/hosting.json to `DB` or let your control plane inject the real binding values before using the database."
+      "DATABASE_URL is not set, so there is no database to read from.",
     );
   }
-
-  return drizzle(env.DB, { schema });
+  database ??= createSchoolDatabase(getPostgresPool());
+  return database;
 }
 
-export async function getD1Database(): Promise<D1Database> {
-  const { env } = await import("cloudflare:workers");
-  if (!env.DB) {
-    throw new Error("Cloudflare D1 binding `DB` is unavailable.");
+let mediaStore: MediaStore | undefined;
+
+/** Where uploaded lesson media lives. */
+export async function getMediaStore(): Promise<MediaStore> {
+  const directory = process.env.MEDIA_STORAGE_DIR;
+  if (!directory) {
+    throw new Error(
+      "MEDIA_STORAGE_DIR is not set, so uploaded media has nowhere to live.",
+    );
   }
-
-  return env.DB;
-}
-
-export async function getMediaBucket(): Promise<R2Bucket> {
-  const { env } = await import("cloudflare:workers");
-  if (!env.MEDIA) {
-    throw new Error("Cloudflare R2 binding `MEDIA` is unavailable.");
-  }
-
-  return env.MEDIA;
+  mediaStore ??= createFilesystemMediaStore(directory);
+  return mediaStore;
 }

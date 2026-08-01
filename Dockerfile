@@ -18,11 +18,12 @@ COPY --from=dependencies /app/services/h5p-runtime/node_modules ./services/h5p-r
 COPY . .
 RUN BETTER_AUTH_SECRET=build-validation-only-not-a-runtime-secret \
     BETTER_AUTH_URL=http://localhost:3000 \
-    npm run build:node
+    npm run build
 
 FROM node:22-bookworm-slim AS runtime
 
 ENV HOSTNAME=0.0.0.0 \
+    MEDIA_STORAGE_DIR=/data/media \
     NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production \
     PORT=3000
@@ -37,7 +38,16 @@ COPY --from=builder --chown=learnershub:learnershub /app/.next/standalone ./
 COPY --from=builder --chown=learnershub:learnershub /app/.next/static ./.next/static
 RUN rm -rf ./node_modules/sharp ./node_modules/@img
 
+# Lesson media lives here, on a mounted volume. The directory is created in the
+# image so that Docker seeds a fresh named volume with this ownership —
+# otherwise the volume is created root-owned and the unprivileged user the
+# container runs as cannot write uploads into it.
+RUN mkdir -p /data/media \
+    && chown -R learnershub:learnershub /data
+
 USER learnershub
+
+VOLUME ["/data/media"]
 
 EXPOSE 3000
 

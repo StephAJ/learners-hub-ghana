@@ -1,0 +1,142 @@
+/* The learner's subject index. One card per subject, each carrying the two
+   things a learner opens this page to find: how far through they are, and what
+   to do next. */
+
+.subject-card-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.subject-card {
+  background: var(--card);
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: var(--space-3) var(--space-4);
+  grid-template-columns: auto minmax(0, 1fr);
+  height: 100%;
+  padding: var(--space-5);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.subject-card:hover,
+.subject-card:focus-visible {
+  border-color: var(--workspace-accent);
+  box-shadow: var(--shadow-md);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.subject-card-code {
+  align-items: center;
+  background: var(--workspace-accent-soft);
+  border-radius: var(--radius-md);
+  color: var(--workspace-accent);
+  display: inline-flex;
+  font-family: var(--font-serif);
+  font-size: var(--fs-18);
+  height: 3rem;
+  justify-content: center;
+  width: 3rem;
+}
+
+.subject-card-identity {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.subject-card-identity strong {
+  font-size: var(--fs-18);
+  font-weight: var(--fw-semibold);
+}
+
+.subject-card-identity small {
+  color: var(--workspace-muted);
+  font-size: var(--fs-14);
+  margin-top: var(--space-1);
+}
+
+/* The remaining rows span the full card width, under the code badge. */
+.subject-card-progress,
+.subject-card-next,
+.subject-card-meta {
+  grid-column: 1 / -1;
+}
+
+.subject-card-progress-head {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+}
+
+.subject-card-progress-head small {
+  color: var(--workspace-muted);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.subject-card-progress-head b {
+  font-family: var(--font-serif);
+  font-size: var(--fs-18);
+  font-weight: var(--fw-regular);
+}
+
+.subject-card-track {
+  background: var(--workspace-line);
+  border-radius: var(--radius-pill);
+  display: block;
+  height: 6px;
+  margin-top: var(--space-2);
+  overflow: hidden;
+}
+
+.subject-card-track i {
+  background: var(--workspace-accent);
+  display: block;
+  height: 100%;
+  transition: width 420ms ease;
+}
+
+.subject-card-next {
+  border-top: 1px solid var(--workspace-line);
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-3);
+}
+
+.subject-card-next small {
+  color: var(--workspace-muted);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.subject-card-next span {
+  font-size: var(--fs-16);
+  line-height: var(--lh-snug);
+  margin-top: var(--space-1);
+}
+
+.subject-card-meta {
+  color: var(--workspace-muted);
+  font-size: var(--fs-14);
+}
+
+@media (max-width: 580px) {
+  .subject-card-grid {
+    grid-template-columns: 1fr;
+  }
+}

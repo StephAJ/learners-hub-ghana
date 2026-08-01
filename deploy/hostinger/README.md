@@ -1,8 +1,8 @@
 # Hostinger VPS deployment
 
-This deployment runs Learners Hub, PostgreSQL, Redis, and the H5P runtime
-behind the VPS's existing CyberPanel/OpenLiteSpeed proxy. Containers never bind
-public ports 80 or 443.
+This deployment runs Learners Hub, PostgreSQL, and the H5P runtime behind the
+VPS's existing CyberPanel/OpenLiteSpeed proxy. Containers never bind public
+ports 80 or 443.
 
 ## Hostnames
 
@@ -53,7 +53,6 @@ The default loopback bindings are:
 - H5P: `127.0.0.1:18080`
 
 CyberPanel/OpenLiteSpeed proxies the public hostnames to those addresses.
-Redis has no host port.
 
 ## Commands
 
@@ -111,12 +110,13 @@ systemctl reload nginx
 
 ## Staging boundary
 
-VPS email/password authentication, school membership resolution, and
-admissions records use PostgreSQL. The remaining school repositories and
-private media still have Cloudflare-specific adapters and are outside this
-admissions test slice. Do not enter real learner data until private-file
-storage, backups, recovery testing, password-reset delivery, staff MFA, and the
-remaining PostgreSQL adapters are complete.
+Every school record now uses PostgreSQL, and uploaded media uses the
+`media-data` volume. Cloudflare is no longer a deployment target.
+
+Do not enter real learner data until backups, recovery testing, password-reset
+delivery, and staff MFA are complete. Note that a `pg_dump` covers only the
+database: the `media-data` and `h5p-data` volumes hold uploaded files and
+imported H5P packages and must be backed up separately.
 
 ## Staging test journey
 

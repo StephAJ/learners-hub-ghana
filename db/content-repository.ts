@@ -15,7 +15,8 @@ import type {
   MediaAsset,
   MediaKind,
 } from "../domain/content/types";
-import { getD1Database, getMediaBucket } from "./index";
+import { getSchoolDatabase, getMediaStore } from "./index";
+import type { SchoolDatabase } from "./school-database";
 import { ensureLearningFoundation } from "./learning-repository";
 import {
   createLearnerH5pLaunch,
@@ -73,7 +74,7 @@ export async function uploadTeacherMedia(
     offering.offering_id,
     `${assetId}.${validated.extension}`,
   ].join("/");
-  const bucket = await getMediaBucket();
+  const bucket = await getMediaStore();
 
   await bucket.put(objectKey, input.file.stream(), {
     customMetadata: {
@@ -84,7 +85,7 @@ export async function uploadTeacherMedia(
     httpMetadata: { contentType },
   });
 
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   try {
     await database.batch([
       database
@@ -136,7 +137,7 @@ export async function createH5pActivity(
   await ensureLearningFoundation();
   const offering = await requireAccessibleOffering(access, input.offeringId);
   validateH5pInput(input);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const launch = input.launchUrl
     ? validateH5pEmbedUrl(input.launchUrl)
     : undefined;
@@ -208,7 +209,7 @@ export async function activateH5pActivity(
     access,
     activity.offering_id,
   );
-  const bucket = await getMediaBucket();
+  const bucket = await getMediaStore();
   const object = await bucket.get(activity.object_key);
   if (!object) {
     throw new ContentPolicyError("The H5P package file is unavailable.");
@@ -219,7 +220,7 @@ export async function activateH5pActivity(
     filename: activity.original_filename,
     tenantId: access.tenantId,
   });
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   await database.batch([
     database
       .prepare(
@@ -264,7 +265,7 @@ export async function getMediaResponse(
 ): Promise<Response> {
   const asset = await findMediaAsset(access.tenantId, assetId);
   await requireOfferingContentAccess(access, asset.offering_id);
-  const bucket = await getMediaBucket();
+  const bucket = await getMediaStore();
   const range = parseByteRange(
     request.headers.get("range"),
     Number(asset.size_bytes),
@@ -371,7 +372,7 @@ export async function recordInteractiveResult(
     validated.lessonVersion,
     validated.activityId,
   );
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const resultId = crypto.randomUUID();
   await database
     .prepare(
@@ -407,7 +408,7 @@ async function loadTeacherContentWorkspace(
   tenantId: string,
   offering: OfferingRow,
 ): Promise<TeacherContentWorkspace> {
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const mediaResult = await database
     .prepare(
       `SELECT id, offering_id, kind, original_filename, content_type,
@@ -502,7 +503,7 @@ function toMediaAsset(row: {
 }
 
 async function findAccessibleOffering(access: AccessContext) {
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   if (isAdministrator(access)) {
     const offering = await database
       .prepare(
@@ -556,7 +557,7 @@ async function requireOfferingContentAccess(
     throw new AuthorizationError("An active school membership is required.");
   }
   if (isAdministrator(access)) return;
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   if (access.role === "teacher") {
     const assignment = await database
       .prepare(
@@ -592,7 +593,7 @@ async function requireOfferingContentAccess(
 }
 
 async function findOffering(tenantId: string, offeringId: string) {
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const offering = await database
     .prepare(
       `SELECT o.id AS offering_id, o.class_name, s.name AS subject_name
@@ -608,7 +609,7 @@ async function findOffering(tenantId: string, offeringId: string) {
 }
 
 async function findMediaAsset(tenantId: string, assetId: string) {
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const asset = await database
     .prepare(
       `SELECT id, offering_id, kind, original_filename, content_type,
@@ -634,7 +635,7 @@ async function findMediaAsset(tenantId: string, assetId: string) {
 }
 
 async function findLaunchableActivity(tenantId: string, activityId: string) {
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const activity = await database
     .prepare(
       `SELECT id, offering_id, title, content_type, launch_url,
@@ -666,7 +667,7 @@ async function findAwaitingRuntimeActivity(
   tenantId: string,
   activityId: string,
 ) {
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const activity = await database
     .prepare(
       `SELECT a.id, a.offering_id, a.package_asset_id,
@@ -697,7 +698,7 @@ async function findAwaitingRuntimeActivity(
 }
 
 async function requireH5pPackage(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   offeringId: string,
   assetId: string,
@@ -725,7 +726,7 @@ async function requireLessonActivityLink(
   lessonVersion: number,
   activityId: string,
 ) {
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const lesson = await database
     .prepare(
       `SELECT v.id AS version_id
@@ -834,7 +835,7 @@ function isAdministrator(access: AccessContext) {
 }
 
 function auditStatement(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   action: string,
   entityType: string,

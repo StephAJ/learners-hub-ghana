@@ -682,11 +682,18 @@
   position: relative;
 }
 
-.video-stage video {
+.video-stage video,
+.video-stage iframe {
+  border: 0;
   display: block;
   height: 100%;
   object-fit: contain;
   width: 100%;
+}
+
+.block-copy a {
+  color: var(--primary);
+  text-decoration: underline;
 }
 
 /* Overlay play control. Sits above the poster frame and disappears the moment

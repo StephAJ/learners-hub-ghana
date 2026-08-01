@@ -1,5 +1,6 @@
 import type { AuthenticatedUser } from "../app/auth";
 import { AuthorizationError, canPerform } from "../domain/identity/authorization";
+import { demoPeople } from "../domain/demo/greenfield";
 import type {
   AccessContext,
   DirectoryPerson,
@@ -223,7 +224,9 @@ export async function inviteDirectoryPerson(
 
 let peopleSeed: Promise<void> | undefined;
 
-function ensurePeopleSeed(): Promise<void> {
+/* Exported so the learning foundations can depend on it: their seed rows
+   carry foreign keys to tenants and people, which PostgreSQL enforces. */
+export function ensurePeopleSeed(): Promise<void> {
   peopleSeed ??= seedPeople().catch((error) => {
     peopleSeed = undefined;
     throw error;
@@ -235,41 +238,53 @@ async function seedPeople(): Promise<void> {
   await ensurePlatformReady();
   const database = getPostgresPool();
 
-  const people = [
-    ["person-mary", "staff", "Mary", "Asante", "mary.asante@greenfield.edu.gh", "+233 24 401 2278"],
-    ["person-joseph", "staff", "Joseph", "Kumi", "joseph.kumi@greenfield.edu.gh", "+233 20 785 4301"],
-    ["person-grace", "staff", "Grace", "Mensah", "grace.mensah@greenfield.edu.gh", "+233 27 330 1842"],
-    ["person-emmanuel", "staff", "Emmanuel", "Ofori", "emmanuel.ofori@greenfield.edu.gh", "+233 55 681 0913"],
-    ["person-kwame", "learner", "Kwame", "Agyeman", "kwame.agyeman@student.greenfield.edu.gh", null],
-    ["person-efua", "guardian", "Efua", "Agyeman", "efua.agyeman@example.com", "+233 24 665 8031"],
-  ] as const;
+  /* bootstrapAdministrator() creates the school, but only when
+     INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD are configured. Every row
+     below references the tenant, so a deployment without those variables would
+     otherwise fail its very first insert. */
+  await database.query(
+    `INSERT INTO tenants (id, name, slug)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO NOTHING`,
+    [GREENFIELD_TENANT_ID, "Greenfield Academy", "greenfield-academy"],
+  );
 
-  for (const [id, kind, firstName, lastName, email, phone] of people) {
+  /* The cast comes from the shared demo dataset so the staff who own subjects
+     there are the same staff who exist here. When these were two lists they
+     disagreed: Mathematics and English had teachers in the UI who had no
+     person record at all. */
+  for (const person of demoPeople) {
     await database.query(
       `INSERT INTO people
         (id, tenant_id, kind, first_name, last_name, email, phone, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
        ON CONFLICT (id) DO NOTHING`,
-      [id, GREENFIELD_TENANT_ID, kind, firstName, lastName, email, phone],
+      [
+        person.id,
+        GREENFIELD_TENANT_ID,
+        person.kind,
+        person.firstName,
+        person.lastName,
+        person.email,
+        person.phone ?? null,
+      ],
     );
   }
 
-  const memberships = [
-    ["membership-mary", "person-mary", "academic-admin", "tenant", null],
-    ["membership-joseph", "person-joseph", "admissions-officer", "tenant", null],
-    ["membership-grace", "person-grace", "teacher", "subject", "Integrated Science"],
-    ["membership-emmanuel", "person-emmanuel", "class-teacher", "class", "JHS 2 Gold"],
-    ["membership-kwame", "person-kwame", "learner", "class", "JHS 2 Gold"],
-    ["membership-efua", "person-efua", "guardian", "learner", "Kwame Agyeman"],
-  ] as const;
-
-  for (const [id, personId, role, scopeType, scopeId] of memberships) {
+  for (const person of demoPeople) {
     await database.query(
       `INSERT INTO tenant_memberships
         (id, tenant_id, person_id, role, status, scope_type, scope_id, accepted_at)
        VALUES ($1, $2, $3, $4, 'active', $5, $6, CURRENT_TIMESTAMP)
        ON CONFLICT (id) DO NOTHING`,
-      [id, GREENFIELD_TENANT_ID, personId, role, scopeType, scopeId],
+      [
+        `membership-${person.id.replace(/^person-/, "")}`,
+        GREENFIELD_TENANT_ID,
+        person.id,
+        person.role,
+        person.scopeType,
+        person.scopeId ?? null,
+      ],
     );
   }
 

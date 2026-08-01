@@ -1,129 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { notFound, useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LearnerSubject } from "../../../../db/learning-repository";
+import { demoLearnerSubject } from "../../../demo-data";
+import { demoSubjectBySlug } from "../../../../domain/demo/greenfield";
 import type { LessonBlock } from "../../../../domain/learning/types";
+import { resolveLessonVideo } from "../../../../domain/learning/video";
 import { previewLessonsFor, previewMediaUrl } from "../../../preview-workspace";
 import "./lesson-player.css";
 
-const fallbackSubject: LearnerSubject = {
-  className: "JHS 2 Gold",
-  code: "IS",
-  offeringId: "offering-science-jhs2",
-  subjectName: "Integrated Science",
-  teacherName: "Grace Mensah",
-  lessons: [
-    {
-      availability: "available",
-      id: "lesson-digestive-system",
-      estimatedMinutes: 20,
-      title: "The human digestive system",
-      summary:
-        "Follow food through the body and discover how nutrients reach your cells.",
-      unitTitle: "Human body systems",
-      version: 1,
-      progressPercent: 25,
-      standardCodes: ["JHS2.IS.HBS.1", "JHS2.IS.HBS.2"],
-      objectives: [
-        "Identify the main organs of the digestive system.",
-        "Explain how food is broken down and absorbed.",
-      ],
-      blocks: [
-        {
-          id: "block-digestion-intro",
-          type: "text",
-          position: 1,
-          title: "Your body’s food-processing journey",
-          content:
-            "Digestion turns the food you eat into small nutrients that can pass into the blood and support growth, repair, and energy.",
-          ready: true,
-        },
-        {
-          id: "block-digestion-video",
-          type: "video",
-          position: 2,
-          title: "Watch: from mouth to small intestine",
-          content:
-            "A four-minute guided animation tracing swallowing, stomach churning, and nutrient absorption.",
-          ready: true,
-        },
-        {
-          id: "block-digestion-check",
-          type: "interactive",
-          position: 3,
-          title: "Check your understanding",
-          content: "Where does most nutrient absorption take place?",
-          ready: true,
-        },
-        {
-          id: "block-digestion-resource",
-          type: "resource",
-          position: 4,
-          title: "Digestive system study sheet",
-          content:
-            "Download the low-data revision sheet and labelled-organ guide.",
-          ready: true,
-        },
-      ],
-    },
-    {
-      availability: "locked",
-      blocks: [
-        {
-          id: "block-respiration-intro",
-          type: "text",
-          position: 1,
-          title: "The journey of a breath",
-          content:
-            "Air travels through the nose and windpipe into branching tubes that end in tiny air sacs called alveoli.",
-          ready: true,
-        },
-        {
-          id: "block-respiration-video",
-          type: "video",
-          position: 2,
-          title: "Watch gas exchange",
-          content:
-            "A short low-data animation shows oxygen entering the blood and carbon dioxide leaving it.",
-          ready: true,
-        },
-        {
-          id: "block-respiration-practice",
-          type: "practice",
-          position: 3,
-          title: "Label the breathing pathway",
-          content:
-            "Arrange the nose, windpipe, bronchi, lungs, and alveoli in the order air reaches them.",
-          ready: true,
-        },
-      ],
-      estimatedMinutes: 15,
-      id: "lesson-respiratory-system",
-      objectives: [
-        "Identify the main structures of the respiratory system.",
-        "Explain how oxygen reaches body cells.",
-      ],
-      progressPercent: 0,
-      releaseHint: "Complete “The human digestive system” first",
-      standardCodes: ["JHS2.IS.HBS.2"],
-      summary:
-        "Trace oxygen from the air into the blood and connect breathing to energy.",
-      title: "How breathing powers the body",
-      unitTitle: "Human body systems",
-      version: 1,
-    },
-  ],
-};
+export default function SubjectLessonPlayerPage() {
+  const params = useParams<{ subject: string }>();
+  const slug = typeof params.subject === "string" ? params.subject : "";
+  const demoSubject = demoSubjectBySlug(slug);
+  if (!demoSubject) notFound();
+  return <LessonPlayer key={slug} fallback={demoLearnerSubject(demoSubject)} />;
+}
 
-export default function IntegratedSciencePage() {
-  const [subject, setSubject] = useState(fallbackSubject);
+function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
+  const [subject, setSubject] = useState(fallback);
   const [selectedLessonId, setSelectedLessonId] = useState(
-    fallbackSubject.lessons[0].id,
+    fallback.lessons[0]?.id ?? "",
   );
   const [activeBlockIndex, setActiveBlockIndex] = useState(0);
   const [progress, setProgress] = useState(
-    fallbackSubject.lessons[0].progressPercent,
+    fallback.lessons[0]?.progressPercent ?? 0,
   );
   const [answer, setAnswer] = useState("");
   const [answerChecked, setAnswerChecked] = useState(false);
@@ -132,12 +35,14 @@ export default function IntegratedSciencePage() {
   );
   const [notice, setNotice] = useState("");
 
+  const offeringId = fallback.offeringId;
+
   useEffect(() => {
     let active = true;
     async function loadSubject() {
       try {
         const response = await fetch(
-          "/api/learn/subjects?offeringId=offering-science-jhs2",
+          `/api/learn/subjects?offeringId=${encodeURIComponent(offeringId)}`,
         );
         if (!response.ok) throw new Error("Subject data unavailable.");
         const payload = (await response.json()) as { subject: LearnerSubject };
@@ -154,7 +59,7 @@ export default function IntegratedSciencePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [offeringId]);
 
   /* Lessons a teacher published from the authoring screens while the school
      API was unreachable. Without them the preview path is a dead end: the
@@ -212,7 +117,7 @@ export default function IntegratedSciencePage() {
     setNotice("Lesson complete. Your progress has been recorded.");
     if (dataMode === "protected") {
       const response = await fetch(
-        "/api/learn/subjects?offeringId=offering-science-jhs2",
+        `/api/learn/subjects?offeringId=${encodeURIComponent(offeringId)}`,
       );
       if (response.ok) {
         const payload = (await response.json()) as { subject: LearnerSubject };
@@ -255,7 +160,7 @@ export default function IntegratedSciencePage() {
           <strong>Learners Hub</strong>
         </Link>
         <nav aria-label="Breadcrumb">
-          <Link href="/student">My subjects</Link><span aria-hidden="true">/</span>
+          <Link href="/learn/subjects">My subjects</Link><span aria-hidden="true">/</span>
           <strong>{subject.subjectName}</strong>
         </nav>
         <div>
@@ -302,7 +207,7 @@ export default function IntegratedSciencePage() {
           <span aria-hidden="true">?</span>
           <p><strong>Need help?</strong><small>Ask {subject.teacherName.split(" ")[0]} about this lesson.</small></p>
         </div>
-        <Link className="back-dashboard" href="/student">← Back to dashboard</Link>
+        <Link className="back-dashboard" href="/learn/subjects">← All subjects</Link>
       </aside>
 
       <main className="lesson-main">
@@ -497,13 +402,13 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
   const [failed, setFailed] = useState(false);
   const [duration, setDuration] = useState<number>();
 
-  const assetId = block.config?.mediaAssetId;
   /* A teacher working without a database uploads into the in-tab preview
-     library, so try that before the authenticated media route. */
-  const mediaUrl = assetId
-    ? (previewMediaUrl(assetId) ??
-      `/api/content/media?assetId=${encodeURIComponent(assetId)}`)
-    : undefined;
+     library, so that is tried before the authenticated media route. */
+  const source = resolveLessonVideo(block.config, (assetId) =>
+    previewMediaUrl(assetId) ??
+    `/api/content/media?assetId=${encodeURIComponent(assetId)}`,
+  );
+  const mediaUrl = source?.kind === "youtube" ? undefined : source?.url;
 
   async function play() {
     const video = videoRef.current;
@@ -531,6 +436,37 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
       ) : null}
     </div>
   );
+
+  /* A hosted video is framed rather than played through <video>. The frame is
+     sandboxed and the source comes from the allowlist in domain/learning/video,
+     so a lesson can never point the iframe at an arbitrary host. */
+  if (source?.kind === "youtube") {
+    return (
+      <article className="lesson-block video-block">
+        <div className="video-stage">
+          <iframe
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            src={source.embedUrl}
+            title={block.title}
+          />
+        </div>
+        <div className="block-copy">
+          <p className="lesson-eyebrow">Guided video</p>
+          <h2>{block.title}</h2>
+          <p>{block.content}</p>
+          <small>
+            <a href={source.watchUrl} rel="noreferrer noopener" target="_blank">
+              Open on YouTube
+            </a>{" "}
+            if the video will not load on your connection.
+          </small>
+        </div>
+      </article>
+    );
+  }
 
   if (!mediaUrl) {
     return (

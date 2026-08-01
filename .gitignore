@@ -48,3 +48,6 @@ next-env.d.ts
 /services/h5p-runtime/data/
 /services/h5p-runtime/h5p/
 /services/h5p-runtime/node_modules/
+
+# local lesson media (MEDIA_STORAGE_DIR)
+/.media

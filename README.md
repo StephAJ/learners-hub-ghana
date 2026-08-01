@@ -84,17 +84,23 @@ Docker Compose deployment behind the VPS reverse proxy.
 
 ## Current technology
 
-- Next.js 16 and React 19
+- Next.js 16 and React 19, built as a standalone Node server
 - TypeScript in strict mode
-- Tailwind CSS 4 plus product-specific CSS
-- vinext/Vite for Cloudflare-compatible builds
-- Node's native test runner for rendered-output checks
-- Cloudflare D1 for persistent structured school records
-- Cloudflare R2 for private lesson media and H5P packages
+- Hand-written CSS built on the design tokens in `app/globals.css`
+- Better Auth for identities and sessions; school roles come from the school's
+  own membership records
+- PostgreSQL 17 for every persistent record
+- Uploaded lesson media on a mounted volume
 - Isolated Lumi H5P Node.js runtime for self-hosted interactive content
+- Vitest for domain and adapter tests
 - Docker Compose behind the existing CyberPanel/OpenLiteSpeed reverse proxy
 - Server-enforced role and relationship permissions
 - PWA manifest and responsive mobile navigation
+
+Cloudflare is no longer a deployment target. The five learning repositories
+still use an interface shaped like Cloudflare's D1 API, because that is what
+they were written against; `docs/d1-to-postgres-port.md` explains how it now
+reaches PostgreSQL.
 
 The approved product scope is in
 [`docs/product-scope.md`](docs/product-scope.md). The architecture and mobile

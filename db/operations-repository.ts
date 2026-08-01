@@ -25,7 +25,8 @@ import type {
   TimetableEntryStatus,
 } from "../domain/operations/types";
 import { ensureReportingFoundation } from "./reporting-repository";
-import { getD1Database } from "./index";
+import { getSchoolDatabase } from "./index";
+import type { SchoolDatabase, SchoolStatement } from "./school-database";
 import { SCIENCE_OFFERING_ID } from "./learning-repository";
 
 const TENANT_ID = "tenant-greenfield";
@@ -189,7 +190,7 @@ export async function getTeacherOperationsWorkspace(
       "You are not assigned to this subject offering.",
     );
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const [assignments, attendance, periods, timetable] = await Promise.all([
     loadTeacherAssignments(database, access.tenantId),
     loadAttendanceWorkspace(database, access.tenantId),
@@ -239,7 +240,7 @@ export async function createPersistentAssignment(
     },
     criteria,
   );
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const assignmentId = crypto.randomUUID();
   const versionId = `${assignmentId}:v1`;
   const criterionIds = input.criteria.map(() => crypto.randomUUID());
@@ -321,7 +322,7 @@ export async function savePersistentAttendance(
   requirePermission(access, "attendance:manage");
   await ensureOperationsFoundation();
   await requireDailyAttendanceScope(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const row = await database
     .prepare(
       `SELECT r.id, r.learner_person_id, r.code, r.note, s.id AS session_id,
@@ -439,7 +440,7 @@ export async function submitPersistentAttendance(access: AccessContext) {
   requirePermission(access, "attendance:manage");
   await ensureOperationsFoundation();
   await requireDailyAttendanceScope(access);
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const attendance = await loadAttendanceWorkspace(
     database,
     access.tenantId,
@@ -489,7 +490,7 @@ export async function releasePersistentRubric(
 ) {
   requirePermission(access, "assignment:manage");
   await ensureOperationsFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const submission = await loadSubmissionForMarking(
     database,
     access.tenantId,
@@ -578,7 +579,7 @@ export async function changePersistentTimetableEntry(
 ) {
   requirePermission(access, "timetable:manage");
   await ensureOperationsFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const row = await database
     .prepare(
       `SELECT e.id, e.class_group_id, e.teacher_person_id, e.room, e.weekday,
@@ -654,7 +655,7 @@ export async function getLearnerSchoolDay(
       "You are not authorised to view this learner's school day.",
     );
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   return buildLearnerSchoolDay(database, access.tenantId, learnerId);
 }
 
@@ -673,7 +674,7 @@ export async function submitPersistentLearnerAssignment(
     );
   }
   await ensureOperationsFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const submission = await database
     .prepare(
       `SELECT s.id, s.status, v.due_at
@@ -729,7 +730,7 @@ export async function getGuardianSchoolDay(
   requestedLearnerId?: string,
 ): Promise<GuardianSchoolDayWorkspace> {
   await ensureOperationsFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const linkedChildren = await loadAccessibleChildren(database, access);
   const defaultLearnerId =
     access.role === "guardian"
@@ -770,7 +771,7 @@ export async function getGuardianSchoolDay(
 
 export async function ensureOperationsFoundation() {
   await ensureReportingFoundation();
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   await database.batch([
     ...seedTimetablePeriods(database),
     ...seedTimetableEntries(database),
@@ -779,8 +780,8 @@ export async function ensureOperationsFoundation() {
   ]);
 }
 
-function seedAssignments(database: D1Database) {
-  const statements: D1PreparedStatement[] = [
+function seedAssignments(database: SchoolDatabase) {
+  const statements: SchoolStatement[] = [
     database
       .prepare(
         `INSERT OR IGNORE INTO assignments
@@ -878,7 +879,7 @@ function seedAssignments(database: D1Database) {
 }
 
 function seedCriterionWithLevels(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   versionId: string,
   criterionId: string,
@@ -931,7 +932,7 @@ function seedCriterionWithLevels(
   ];
 }
 
-function seedTimetablePeriods(database: D1Database) {
+function seedTimetablePeriods(database: SchoolDatabase) {
   const periods = [
     ["period-1", "Period 1", 1, "08:00", "09:00", "lesson"],
     ["period-2", "Period 2", 2, "09:10", "10:10", "lesson"],
@@ -950,7 +951,7 @@ function seedTimetablePeriods(database: D1Database) {
   );
 }
 
-function seedTimetableEntries(database: D1Database) {
+function seedTimetableEntries(database: SchoolDatabase) {
   const lessons = [
     ["Integrated Science", "Science Lab", "person-grace", SCIENCE_OFFERING_ID],
     ["English Language", "Block A · Room 4", "person-mary", null],
@@ -958,7 +959,7 @@ function seedTimetableEntries(database: D1Database) {
     ["Social Studies", "Block B · Room 2", "person-emmanuel", null],
   ] as const;
   const periodIds = ["period-1", "period-2", "period-3", "period-4"];
-  const statements: D1PreparedStatement[] = [];
+  const statements: SchoolStatement[] = [];
   for (let weekday = 1; weekday <= 5; weekday += 1) {
     lessons.forEach((lesson, index) => {
       const rotated = lessons[(index + weekday - 1) % lessons.length];
@@ -987,8 +988,8 @@ function seedTimetableEntries(database: D1Database) {
   return statements;
 }
 
-function seedAttendance(database: D1Database) {
-  const statements: D1PreparedStatement[] = [];
+function seedAttendance(database: SchoolDatabase) {
+  const statements: SchoolStatement[] = [];
   const sessions = [
     {
       date: "2026-07-21",
@@ -1075,7 +1076,7 @@ function seedAttendance(database: D1Database) {
 }
 
 async function loadTeacherAssignments(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
 ) {
   const result = await database
@@ -1120,7 +1121,7 @@ async function loadTeacherAssignments(
 }
 
 async function loadMarkingQueue(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
 ) {
   const result = await database
@@ -1168,7 +1169,7 @@ async function loadMarkingQueue(
 }
 
 async function loadRubricCriteria(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   versionId: string,
 ) {
@@ -1195,7 +1196,7 @@ async function loadRubricCriteria(
 }
 
 async function loadAttendanceWorkspace(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
 ) {
   const session = await database
@@ -1251,7 +1252,7 @@ async function loadAttendanceWorkspace(
   };
 }
 
-async function loadPeriods(database: D1Database, tenantId: string) {
+async function loadPeriods(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT id, name, position, starts_at, ends_at, kind
@@ -1276,7 +1277,7 @@ async function loadPeriods(database: D1Database, tenantId: string) {
   }));
 }
 
-async function loadTimetable(database: D1Database, tenantId: string) {
+async function loadTimetable(database: SchoolDatabase, tenantId: string) {
   const result = await database
     .prepare(
       `SELECT e.id, e.period_id, e.weekday, e.subject_name, e.room, e.status,
@@ -1316,7 +1317,7 @@ async function loadTimetable(database: D1Database, tenantId: string) {
 }
 
 async function buildLearnerSchoolDay(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   learnerId: string,
 ): Promise<LearnerSchoolDayWorkspace> {
@@ -1369,7 +1370,7 @@ async function buildLearnerSchoolDay(
 }
 
 async function loadLearnerAssignments(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   learnerId: string,
 ) {
@@ -1409,7 +1410,7 @@ async function loadLearnerAssignments(
 }
 
 async function loadLearnerAttendance(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   learnerId: string,
 ) {
@@ -1437,7 +1438,7 @@ async function loadLearnerAttendance(
 }
 
 async function loadAccessibleChildren(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
 ) {
   if (access.role === "guardian") {
@@ -1476,7 +1477,7 @@ async function loadAccessibleChildren(
 }
 
 async function loadGuardianAlerts(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   learnerId: string,
   guardianPersonId?: string,
@@ -1512,7 +1513,7 @@ async function loadGuardianAlerts(
 }
 
 async function loadSubmissionForMarking(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
   submissionId: string,
 ) {
@@ -1542,11 +1543,11 @@ async function loadSubmissionForMarking(
 }
 
 async function buildGuardianAlertStatements(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   attendance: AttendanceWorkspace,
 ) {
-  const alertStatements: D1PreparedStatement[] = [];
+  const alertStatements: SchoolStatement[] = [];
   for (const row of attendance.rows) {
     if (!shouldCreateGuardianAlert("submitted", row)) continue;
     const guardians = await database
@@ -1582,7 +1583,7 @@ async function buildGuardianAlertStatements(
 }
 
 async function loadClassLearnerIds(
-  database: D1Database,
+  database: SchoolDatabase,
   tenantId: string,
 ) {
   const result = await database
@@ -1604,7 +1605,7 @@ async function withTeacherAssignments(access: AccessContext) {
   if (access.role === "school-admin" || access.role === "academic-admin") {
     return access;
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const result = await database
     .prepare(
       `SELECT offering_id FROM teacher_assignments
@@ -1644,7 +1645,7 @@ async function requireDailyAttendanceScope(access: AccessContext) {
       "Daily class attendance is restricted to class teachers and school leadership.",
     );
   }
-  const database = await getD1Database();
+  const database = await getSchoolDatabase();
   const membership = await database
     .prepare(
       `SELECT person_id
@@ -1680,7 +1681,7 @@ function requirePermission(
 }
 
 function auditStatement(
-  database: D1Database,
+  database: SchoolDatabase,
   access: AccessContext,
   action: string,
   entityType: string,

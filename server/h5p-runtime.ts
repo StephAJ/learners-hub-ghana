@@ -64,53 +64,22 @@ export async function createLearnerH5pLaunch(input: {
 }
 
 export async function getH5pRuntimeConfig(
-  nodeEnvironment: {
+  environment: {
     H5P_RUNTIME_BASE_URL?: string;
     H5P_RUNTIME_SHARED_SECRET?: string;
   } = {
     H5P_RUNTIME_BASE_URL: process.env.H5P_RUNTIME_BASE_URL,
     H5P_RUNTIME_SHARED_SECRET: process.env.H5P_RUNTIME_SHARED_SECRET,
   },
-  loadCloudflareEnvironment: () => Promise<{
-    H5P_RUNTIME_BASE_URL?: string;
-    H5P_RUNTIME_SHARED_SECRET?: string;
-  }> = async () => {
-    const { env } = await import("cloudflare:workers");
-    return env;
-  },
 ) {
-  const nodeConfig = {
-    baseUrl: nodeEnvironment.H5P_RUNTIME_BASE_URL,
-    sharedSecret: nodeEnvironment.H5P_RUNTIME_SHARED_SECRET,
-  };
-  const config =
-    nodeConfig.baseUrl && nodeConfig.sharedSecret
-      ? nodeConfig
-      : await loadCloudflareConfig(loadCloudflareEnvironment);
-  const { baseUrl, sharedSecret } = config;
+  const baseUrl = environment.H5P_RUNTIME_BASE_URL;
+  const sharedSecret = environment.H5P_RUNTIME_SHARED_SECRET;
   if (!baseUrl || !sharedSecret) {
     throw new ContentPolicyError(
       "The self-hosted H5P runtime is not connected yet.",
     );
   }
   return validateH5pRuntimeConfig({ baseUrl, sharedSecret });
-}
-
-async function loadCloudflareConfig(
-  loadEnvironment: () => Promise<{
-    H5P_RUNTIME_BASE_URL?: string;
-    H5P_RUNTIME_SHARED_SECRET?: string;
-  }>,
-) {
-  try {
-    const environment = await loadEnvironment();
-    return {
-      baseUrl: environment.H5P_RUNTIME_BASE_URL,
-      sharedSecret: environment.H5P_RUNTIME_SHARED_SECRET,
-    };
-  } catch {
-    return { baseUrl: undefined, sharedSecret: undefined };
-  }
 }
 
 function buildImportHeaders(

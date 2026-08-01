@@ -1,6 +1,7 @@
 import { getMigrations } from "better-auth/db/migration";
 import { migrateLearnersHubSchema, getPostgresPool } from "../db/postgres";
 import { auth } from "./auth-config";
+import { seedDemoAccounts } from "./demo-seed";
 
 const GREENFIELD_TENANT_ID = "tenant-greenfield";
 
@@ -19,6 +20,7 @@ async function preparePlatform(): Promise<void> {
   await migrations.runMigrations();
   await migrateLearnersHubSchema();
   await bootstrapAdministrator();
+  await seedDemoAccounts(getPostgresPool());
 }
 
 async function bootstrapAdministrator(): Promise<void> {
