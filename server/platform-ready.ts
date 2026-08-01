@@ -93,7 +93,7 @@ async function bootstrapAdministrator(): Promise<void> {
       `INSERT INTO tenant_memberships
         (id, tenant_id, person_id, role, status, scope_type, accepted_at)
        VALUES ($1, $2, $3, 'school-admin', 'active', 'tenant', CURRENT_TIMESTAMP)
-       ON CONFLICT (id) DO NOTHING`,
+       ON CONFLICT (tenant_id, person_id, role) DO NOTHING`,
       [membershipId, GREENFIELD_TENANT_ID, personId],
     );
     await client.query(
