@@ -51,7 +51,7 @@ async function bootstrapAdministrator(): Promise<void> {
     throw new Error("The initial administrator account could not be created.");
   }
 
-  const personId = await stableId("person", email);
+  let personId = await stableId("person", email);
   const identityId = await stableId("identity", userId);
   const membershipId = await stableId("membership", email);
   const auditId = await stableId("audit", email);
@@ -67,13 +67,21 @@ async function bootstrapAdministrator(): Promise<void> {
        ON CONFLICT (id) DO NOTHING`,
       [GREENFIELD_TENANT_ID, "Greenfield Academy", "greenfield-academy"],
     );
-    await client.query(
-      `INSERT INTO people
-        (id, tenant_id, kind, first_name, last_name, email, status)
-       VALUES ($1, $2, 'staff', $3, $4, $5, 'active')
-       ON CONFLICT (id) DO NOTHING`,
-      [personId, GREENFIELD_TENANT_ID, firstName, lastName, email],
+    const existingPerson = await client.query<{ id: string }>(
+      `SELECT id FROM people WHERE tenant_id = $1 AND lower(email) = $2 LIMIT 1`,
+      [GREENFIELD_TENANT_ID, email],
     );
+    if (existingPerson.rowCount === 0) {
+      await client.query(
+        `INSERT INTO people
+          (id, tenant_id, kind, first_name, last_name, email, status)
+         VALUES ($1, $2, 'staff', $3, $4, $5, 'active')
+         ON CONFLICT (id) DO NOTHING`,
+        [personId, GREENFIELD_TENANT_ID, firstName, lastName, email],
+      );
+    } else {
+      personId = existingPerson.rows[0].id;
+    }
     await client.query(
       `INSERT INTO identity_accounts
         (id, person_id, provider, provider_subject, email)
