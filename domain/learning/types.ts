@@ -12,6 +12,11 @@ export type LessonBlock = {
     activityId?: string;
     mediaAssetId?: string;
     provider?: "h5p";
+    /* An optional aside a teacher can attach to a reading block — the
+       "did you know" panel. Both fields are the author's; the player renders
+       nothing when they are absent, rather than inventing a fact. */
+    noteTitle?: string;
+    noteBody?: string;
     /* A video block sources its footage one of two ways: mediaAssetId streams a
        file the school uploaded, and videoUrl points at something already
        published elsewhere. Schools without the bandwidth or rights to host

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { LearnerSchoolDayWorkspace } from "../../../db/operations-repository";
+import { TimetableWeek } from "./timetable-week";
 import "../../school-day.css";
 
 const previewWorkspace: LearnerSchoolDayWorkspace = {
@@ -201,55 +202,10 @@ export function SchoolDayView() {
 
         <div className="school-day-grid">
           <section className="school-day-panel">
-            <div className="school-day-heading">
-              <div>
-                <p>Friday schedule</p>
-                <h2>Today&apos;s timetable</h2>
-              </div>
-              <span className={`school-day-live ${mode}`}>
-                <i />
-                {mode === "protected" ? "Live school record" : "Preview"}
-              </span>
-            </div>
-            <div className="learner-timeline">
-              {workspace.periods.map((periodItem) => {
-                const entry = workspace.timetable.find(
-                  (item) => item.periodId === periodItem.id,
-                );
-                return (
-                  <article
-                    className={
-                      periodItem.kind === "break" ? "is-break" : ""
-                    }
-                    key={periodItem.id}
-                  >
-                    <time>{periodItem.startsAt}</time>
-                    <span>
-                      <i />
-                    </span>
-                    <div>
-                      <strong>
-                        {periodItem.kind === "break"
-                          ? "Break"
-                          : entry?.subjectName ?? "Study period"}
-                      </strong>
-                      <small>
-                        {periodItem.kind === "break"
-                          ? `${periodItem.startsAt}–${periodItem.endsAt}`
-                          : `${entry?.room ?? "Classroom"} · ${
-                              entry?.substituteTeacherName ??
-                              entry?.teacherName ??
-                              "School team"
-                            }`}
-                      </small>
-                    </div>
-                    {entry?.status !== "scheduled" ? (
-                      <em>{entry?.status}</em>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
+            <TimetableWeek
+              entries={workspace.timetable}
+              periods={workspace.periods}
+            />
           </section>
 
           <section className="school-day-panel">

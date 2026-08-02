@@ -174,6 +174,15 @@ export function DownloadIcon(props: IconProps) {
 
 /* -- Controls and status ------------------------------------------------- */
 
+export function ArrowLeftIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19 12H5" />
+      <path d="m11 6-6 6 6 6" />
+    </Icon>
+  );
+}
+
 export function ChevronLeftIcon(props: IconProps) {
   return (
     <Icon {...props}>

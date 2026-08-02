@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProgressDonut } from "../components/progress-donut";
 import { WorkspaceShell } from "../components/workspace-shell";
 import { demoSubjectCards } from "../demo-data";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
@@ -47,13 +48,10 @@ export default async function StudentHomePage() {
             </p>
             <Link href={`/learn/subjects/${resume.slug}`}>Continue lesson</Link>
           </div>
-          <div
-            className="student-continue-progress"
-            aria-label={`${resume.progressPercent} percent complete`}
-          >
-            <strong>{resume.progressPercent}%</strong>
-            <span>{resume.subjectName}</span>
-          </div>
+          {/* A real donut, not a tinted disc. The subject is already named in
+              the copy beside it, so the middle of the ring holds only the
+              figure the ring is showing. */}
+          <ProgressDonut percent={resume.progressPercent} />
         </section>
       ) : null}
 

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Poppins } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import "./public-site.css";
@@ -12,6 +12,17 @@ const inter = Inter({
   display: "swap",
   subsets: ["latin"],
   variable: "--font-inter",
+});
+
+/* Poppins carries the reading copy — lesson text, summaries, descriptions. Its
+   wide apertures and near-geometric round forms hold up well at the sizes a
+   learner reads paragraphs at on a phone. Interface text stays on Inter, which
+   is tighter and better suited to labels, numbers and dense controls. */
+const poppins = Poppins({
+  display: "swap",
+  subsets: ["latin"],
+  variable: "--font-poppins",
+  weight: ["400", "500", "600"],
 });
 
 const description =
@@ -67,7 +78,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html className={inter.variable} lang="en">
+    <html className={`${inter.variable} ${poppins.variable}`} lang="en">
       <body>{children}</body>
     </html>
   );

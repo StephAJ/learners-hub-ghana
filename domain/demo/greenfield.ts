@@ -234,6 +234,19 @@ export const demoPeople: DemoPerson[] = [
   },
 ];
 
+/**
+ * The year group a class belongs to, without the stream.
+ *
+ * "JHS 2 Gold" is a specific class; "JHS 2" is the year every JHS 2 class
+ * shares. A subject card wants the year — which learners the material is
+ * pitched at — not which room they sit in. Handles "JHS 2 Gold", "Class 6
+ * Blue" and a bare "Basic 4" alike.
+ */
+export function demoYearGroup(className: string): string {
+  const match = /^([A-Za-z]+\s*\d+)/.exec(className.trim());
+  return match ? match[1].replace(/\s+/, " ") : className;
+}
+
 /** JHS 2 Gold's register, in the order a teacher would read it. */
 export const demoLearners: DemoPerson[] = demoPeople
   .filter((person) => person.role === "learner")
@@ -310,6 +323,11 @@ const integratedScience: DemoSubject = {
           "text",
           "Your body's food-processing journey",
           "Digestion turns the food you eat into nutrients small enough to pass into the blood, where they support growth, repair, and energy. The journey from a mouthful of banku to absorbed nutrients takes about a day, and every organ along the way has one job to do.",
+          {
+            noteBody:
+              "Chewing well increases the surface area of food, so enzymes can begin their work more effectively.",
+            noteTitle: "Science in daily life",
+          },
         ),
         block(
           "block-digestion-video",
@@ -328,15 +346,23 @@ const integratedScience: DemoSubject = {
           { activityId: "activity-digestion-labels", provider: "h5p" },
         ),
         block(
-          "block-digestion-check",
+          "block-digestion-hotspots",
           4,
+          "interactive",
+          "Find the organ",
+          "Point to each organ named below on the body outline.",
+          { activityId: "activity-organ-hotspots", provider: "h5p" },
+        ),
+        block(
+          "block-digestion-check",
+          5,
           "interactive",
           "Check your understanding",
           "Where does most nutrient absorption take place?",
         ),
         block(
           "block-digestion-resource",
-          5,
+          6,
           "resource",
           "Digestive system study sheet",
           "A one-page revision sheet with a labelled diagram, printable for revision at home.",
@@ -379,8 +405,24 @@ const integratedScience: DemoSubject = {
           { videoUrl: "https://www.youtube.com/watch?v=v_j-LD2YEqg" },
         ),
         block(
-          "block-respiration-practice",
+          "block-respiration-interactive",
           3,
+          "interactive",
+          "Watch and answer: gas exchange",
+          "An interactive video that pauses to ask what is happening at each stage.",
+          { activityId: "activity-breathing-video", provider: "h5p" },
+        ),
+        block(
+          "block-respiration-cards",
+          4,
+          "interactive",
+          "Revise the key terms",
+          "Flip through the terms for both systems until you can recall each one.",
+          { activityId: "activity-body-systems-cards", provider: "h5p" },
+        ),
+        block(
+          "block-respiration-practice",
+          5,
           "practice",
           "Label the breathing pathway",
           "Put the nose, windpipe, bronchi, bronchioles, and alveoli in the order air reaches them, then explain in one sentence why the alveoli are so thin.",
@@ -1339,11 +1381,18 @@ export type DemoActivity = {
   contentType: string;
   fallbackText: string;
   id: string;
+  /* Where the activity is played. Public H5P examples stand in until the
+     school's own runtime holds imported packages. */
+  launchUrl?: string;
   offeringId: string;
   packageAssetId?: string;
   status: "draft" | "launchable" | "awaiting-runtime";
   title: string;
 };
+
+export function demoActivityById(id: string): DemoActivity | undefined {
+  return demoActivities.find((activity) => activity.id === id);
+}
 
 export const demoActivities: DemoActivity[] = [
   {
@@ -1351,30 +1400,63 @@ export const demoActivities: DemoActivity[] = [
     fallbackText:
       "A labelled diagram of the digestive system, with each organ named and its job described in one line.",
     id: "activity-digestion-labels",
+    launchUrl: "https://h5p.org/h5p/embed/711",
     offeringId: "offering-science-jhs2",
     packageAssetId: "asset-digestion-labels-package",
     status: "launchable",
     title: "Label the digestive organs",
   },
   {
-    contentType: "Drag and Drop",
+    contentType: "Image Hotspot",
     fallbackText:
-      "A table listing twelve common market foods against the nutrient group each mainly supplies.",
-    id: "activity-nutrient-sort",
+      "A body outline with the stomach, liver and small intestine marked, and a sentence on each.",
+    id: "activity-organ-hotspots",
+    launchUrl: "https://h5p.org/h5p/embed/6723",
     offeringId: "offering-science-jhs2",
-    packageAssetId: "asset-nutrient-sort-package",
-    status: "awaiting-runtime",
-    title: "Sort the market basket",
+    status: "launchable",
+    title: "Find the organ",
   },
   {
     contentType: "Interactive Video",
     fallbackText:
-      "A worked list of denominator pairs and the lowest common multiple of each.",
+      "A transcript of the gas-exchange animation with the three checkpoint questions written out.",
+    id: "activity-breathing-video",
+    launchUrl: "https://h5p.org/h5p/embed/6721",
+    offeringId: "offering-science-jhs2",
+    status: "launchable",
+    title: "Gas exchange, with checkpoints",
+  },
+  {
+    contentType: "Dialog Cards",
+    fallbackText:
+      "Twelve term-and-definition pairs covering the digestive and respiratory systems.",
+    id: "activity-body-systems-cards",
+    launchUrl: "https://h5p.org/h5p/embed/6730",
+    offeringId: "offering-science-jhs2",
+    status: "launchable",
+    title: "Body systems revision cards",
+  },
+  {
+    contentType: "Memory Game",
+    fallbackText:
+      "A matching list pairing each nutrient group with a food that supplies it.",
+    id: "activity-nutrient-sort",
+    launchUrl: "https://h5p.org/h5p/embed/6718",
+    offeringId: "offering-science-jhs2",
+    packageAssetId: "asset-nutrient-sort-package",
+    status: "launchable",
+    title: "Match the nutrient groups",
+  },
+  {
+    contentType: "Arithmetic Quiz",
+    fallbackText:
+      "Twenty timed fraction problems, with the working shown for each answer.",
     id: "activity-fraction-builder",
+    launchUrl: "https://h5p.org/h5p/embed/6725",
     offeringId: "offering-maths-jhs2",
     packageAssetId: "asset-fraction-builder-package",
     status: "launchable",
-    title: "Build the common denominator",
+    title: "Fraction drill",
   },
   {
     contentType: "Course Presentation",
@@ -1388,6 +1470,7 @@ export const demoActivities: DemoActivity[] = [
     title: "Find the main idea",
   },
 ];
+
 
 /* -------------------------------------------------------------------------
    Admissions

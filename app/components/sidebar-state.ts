@@ -42,3 +42,27 @@ export function setSidebarCollapsed(collapsed: boolean): void {
   }
   for (const listener of listeners) listener();
 }
+
+/* --------------------------------------------------------------------------
+   Focus mode
+
+   The lesson player wants the room, so it collapses the sidebar on the way in
+   and restores it on the way out. "Restores" has to mean *what the learner had*
+   — if they had already collapsed it themselves, leaving a lesson should not
+   spring it open. So the auto-collapse records whether it was the one that
+   changed anything, and only undoes its own work.
+   -------------------------------------------------------------------------- */
+
+const FOCUS_FLAG = "learnersHubFocusCollapsed";
+
+export function beginFocusMode(): void {
+  if (getSidebarCollapsed()) return;
+  document.documentElement.dataset[FOCUS_FLAG] = "true";
+  setSidebarCollapsed(true);
+}
+
+export function endFocusMode(): void {
+  if (document.documentElement.dataset[FOCUS_FLAG] !== "true") return;
+  delete document.documentElement.dataset[FOCUS_FLAG];
+  setSidebarCollapsed(false);
+}

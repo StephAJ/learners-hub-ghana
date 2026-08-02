@@ -939,3 +939,147 @@
   }
 }
 
+
+/* --------------------------------------------------------------------------
+   Assessment, redesigned
+
+   The intro, runner and result screens used to each render their own page
+   frame — a brand mark, a title, an avatar — inside a workspace that was
+   already showing all three. They are now plain sections in the content
+   column, so the page has one header and one left edge.
+   -------------------------------------------------------------------------- */
+
+.quiz-intro {
+  display: grid;
+  gap: var(--space-8);
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  align-items: start;
+}
+
+.quiz-intro-instructions {
+  color: var(--quiz-ink);
+  font-size: var(--fs-18);
+  line-height: var(--lh-body);
+  margin: 0;
+  max-width: 60ch;
+}
+
+.quiz-intro-facts {
+  border-block: 1px solid var(--quiz-line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: var(--space-6) 0 0;
+  padding: var(--space-5) 0;
+}
+
+.quiz-intro-facts dt {
+  color: var(--quiz-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.quiz-intro-facts dd {
+  font-family: var(--font-serif);
+  font-size: var(--fs-28);
+  margin: var(--space-1) 0 0;
+}
+
+.quiz-readiness {
+  margin-top: var(--space-6);
+}
+
+.quiz-readiness h2 {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  margin: 0 0 var(--space-3);
+}
+
+.quiz-readiness ul {
+  color: var(--quiz-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.quiz-intro-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+.start-quiz-button {
+  align-items: center;
+  background: var(--quiz-green);
+  border: 0;
+  border-radius: var(--radius-md);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  min-height: 3rem;
+  padding: 0 var(--space-6);
+  transition: background 160ms ease;
+}
+
+.start-quiz-button:hover {
+  background: var(--quiz-green-dark);
+}
+
+.quiz-intro-actions small {
+  color: var(--quiz-muted);
+  font-size: var(--fs-13);
+}
+
+.quiz-intro-aside {
+  background: var(--card);
+  border: 1px solid var(--quiz-line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.quiz-intro-aside h2 {
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  margin: 0 0 var(--space-3);
+  text-transform: uppercase;
+}
+
+.quiz-intro-aside ul {
+  color: var(--quiz-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--fs-14);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quiz-result {
+  display: grid;
+  justify-items: center;
+  padding-block: var(--space-10);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .quiz-intro {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  .quiz-intro-facts {
+    gap: var(--space-5);
+  }
+}

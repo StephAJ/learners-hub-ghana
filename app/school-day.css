@@ -812,3 +812,102 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --------------------------------------------------------------------------
+   The week's timetable
+   -------------------------------------------------------------------------- */
+
+.timetable-week-head {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.timetable-week-nav {
+  display: flex;
+  gap: 2px;
+}
+
+.timetable-week-nav button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--day-line);
+  border-radius: var(--radius-sm);
+  color: var(--day-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  justify-content: center;
+  min-height: 2rem;
+  min-width: 2rem;
+  padding: 0 var(--space-2);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.timetable-week-nav button:hover:not(:disabled) {
+  border-color: var(--day-green);
+  color: var(--day-green);
+}
+
+.timetable-week-nav button.is-active {
+  background: var(--day-green);
+  border-color: var(--day-green);
+  color: #fff;
+}
+
+.timetable-week-nav button:disabled {
+  color: var(--line-strong);
+  cursor: not-allowed;
+}
+
+/* The period happening right now. The rail marker fills and the row lifts, so
+   a learner glancing at the page finds where they are without reading times. */
+.learner-timeline article.is-now {
+  background: var(--brand-soft);
+  border-radius: var(--radius-md);
+  margin-inline: calc(var(--space-3) * -1);
+  padding-inline: var(--space-3);
+}
+
+.learner-timeline article.is-now strong {
+  color: var(--day-green);
+}
+
+.learner-timeline article.is-now > span::before {
+  background: var(--day-green);
+  border-radius: 50%;
+  content: "";
+  height: 9px;
+  left: 5px;
+  position: absolute;
+  top: calc(50% - 4px);
+  width: 9px;
+  z-index: 1;
+}
+
+/* Already finished today: still readable, but it stops competing. */
+.learner-timeline article.is-past time,
+.learner-timeline article.is-past strong,
+.learner-timeline article.is-past small {
+  opacity: 0.55;
+}
+
+.timetable-now {
+  background: var(--day-green);
+  border-radius: var(--radius-pill);
+  color: #fff;
+  font-size: var(--fs-12);
+  font-style: normal;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  padding: var(--space-1) var(--space-2);
+  text-transform: uppercase;
+}

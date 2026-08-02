@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LearnerSubject } from "../../../../db/learning-repository";
 import type { LessonBlock } from "../../../../domain/learning/types";
 import { resolveLessonVideo } from "../../../../domain/learning/video";
 import {
+  ArrowLeftIcon,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -15,6 +17,8 @@ import {
   ReadIcon,
   SparkIcon,
 } from "../../../components/icons";
+import { beginFocusMode, endFocusMode } from "../../../components/sidebar-state";
+import { demoActivityById } from "../../../../domain/demo/greenfield";
 import { previewLessonsFor, previewMediaUrl } from "../../../preview-workspace";
 
 export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
@@ -37,6 +41,14 @@ export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
   >("overview");
 
   const offeringId = fallback.offeringId;
+
+  /* A lesson is the one screen that wants the whole window, so the sidebar
+     folds to its rail on the way in and unfolds on the way out — unless the
+     learner had already collapsed it, in which case it is left alone. */
+  useEffect(() => {
+    beginFocusMode();
+    return () => endFocusMode();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -258,6 +270,10 @@ export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
       <div className="course-stage">
         <header className="course-stage-head">
           <div className="course-stage-title">
+            <Link className="course-back" href="/learn/subjects">
+              <ArrowLeftIcon size={16} />
+              All subjects
+            </Link>
             <p className="lesson-eyebrow">
               {selectedLesson.unitTitle} · Lesson {lessonPosition} of{" "}
               {lessons.length}
@@ -485,7 +501,22 @@ function LessonBlockView({
       <p className="lesson-eyebrow">Read and explore</p>
       <h2>{block.title}</h2>
       <p>{block.content}</p>
-      <div className="science-note"><span aria-hidden="true">★</span><p><strong>Science in daily life</strong>Chewing well increases the surface area of food, helping enzymes begin their work more effectively.</p></div>
+      {/* Previously a hardcoded note about chewing food, which rendered on
+          every reading block in every subject — including a Social Studies
+          lesson about the arms of government. */}
+      {block.config?.noteBody ? (
+        <div className="science-note">
+          <span aria-hidden="true">
+            <SparkIcon size={16} />
+          </span>
+          <p>
+            {block.config.noteTitle ? (
+              <strong>{block.config.noteTitle}</strong>
+            ) : null}
+            {block.config.noteBody}
+          </p>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -668,17 +699,42 @@ function H5pActivityFrame({
   lessonVersion: number;
   title: string;
 }) {
-  const [launch, setLaunch] = useState<{
+  const [signedLaunch, setSignedLaunch] = useState<{
     fallbackText: string;
     launchOrigin: string;
     launchUrl: string;
     title: string;
   }>();
-  const [status, setStatus] = useState(
-    dataMode === "protected"
+  const [signedStatus, setSignedStatus] = useState<string>();
+
+  /* Outside a protected session the school's runtime cannot mint a signed
+     launch, but the activity itself is published and playable. Falling back to
+     its own link means the interactive block demonstrates something rather
+     than refusing to render — which is all "preview unavailable outside a
+     signed-in lesson" ever amounted to. Results are not recorded on this path,
+     and the status line says so.
+
+     Derived rather than stored: it depends only on props, so an effect would
+     render once with nothing and then correct itself. */
+  const previewLaunch = useMemo(() => {
+    const activity = demoActivityById(activityId);
+    if (!activity?.launchUrl) return undefined;
+    return {
+      fallbackText: activity.fallbackText,
+      launchOrigin: new URL(activity.launchUrl).origin,
+      launchUrl: activity.launchUrl,
+      title: activity.title,
+    };
+  }, [activityId]);
+
+  const launch = signedLaunch ?? (dataMode === "protected" ? undefined : previewLaunch);
+  const status =
+    signedStatus ??
+    (dataMode === "protected"
       ? "Loading interactive activity…"
-      : "Interactive preview unavailable outside a signed-in lesson.",
-  );
+      : previewLaunch
+        ? "Preview activity — your score is not recorded here."
+        : "This activity has not been published yet.");
 
   useEffect(() => {
     if (dataMode !== "protected") return;
@@ -705,13 +761,13 @@ function H5pActivityFrame({
           );
         }
         if (active) {
-          setLaunch(payload.activity);
-          setStatus("Interactive activity ready.");
+          setSignedLaunch(payload.activity);
+          setSignedStatus("Interactive activity ready.");
         }
       })
       .catch((error: unknown) => {
         if (active) {
-          setStatus(
+          setSignedStatus(
             error instanceof Error
               ? error.message
               : "Interactive activity unavailable.",
@@ -740,7 +796,7 @@ function H5pActivityFrame({
         normalized,
       );
       if (normalized.completion) {
-        setStatus("Interactive activity completion recorded.");
+        setSignedStatus("Interactive activity completion recorded.");
       }
     }
     window.addEventListener("message", receiveResult);
@@ -758,7 +814,7 @@ function H5pActivityFrame({
         <iframe
           allow="autoplay; fullscreen"
           onLoad={() => {
-            setStatus("Interactive activity loaded.");
+            setSignedStatus("Interactive activity loaded.");
             void saveInteractiveResult(
               activityId,
               lessonId,

@@ -448,6 +448,8 @@ function LessonDraftForm({
   const [blockTitle, setBlockTitle] = useState("");
   const [blockContent, setBlockContent] = useState("");
   const [attachmentId, setAttachmentId] = useState("");
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteBody, setNoteBody] = useState("");
   const [blocks, setBlocks] = useState<
     Array<{
       config?: CreateLessonFormInput["blocks"][number]["config"];
@@ -469,7 +471,12 @@ function LessonDraftForm({
             : (blockType === "video" || blockType === "resource") &&
                 attachmentId
               ? { mediaAssetId: attachmentId }
-              : undefined,
+              : blockType === "text" && noteBody.trim()
+                ? {
+                    noteBody: noteBody.trim(),
+                    noteTitle: noteTitle.trim() || undefined,
+                  }
+                : undefined,
         content: blockContent.trim(),
         id: crypto.randomUUID(),
         title: blockTitle.trim(),
@@ -478,6 +485,8 @@ function LessonDraftForm({
     ]);
     setBlockTitle("");
     setBlockContent("");
+    setNoteTitle("");
+    setNoteBody("");
     setAttachmentId("");
   }
 
@@ -581,6 +590,12 @@ function LessonDraftForm({
         </fieldset>
         <label><span>Block title</span><input required={blocks.length === 0} value={blockTitle} onChange={(event) => setBlockTitle(event.target.value)} placeholder="A clear section heading" /></label>
         <label><span>Block content</span><textarea required={blocks.length === 0} value={blockContent} onChange={(event) => setBlockContent(event.target.value)} placeholder="Write content or describe the activity…" /></label>
+        {blockType === "text" && (
+          <>
+            <label><span>Highlight title (optional)</span><input onChange={(event) => setNoteTitle(event.target.value)} placeholder="e.g. Science in daily life" value={noteTitle} /></label>
+            <label><span>Highlight note (optional)</span><textarea onChange={(event) => setNoteBody(event.target.value)} placeholder="A short aside that sits beside the reading — a real-world connection, a warning, a memory aid." value={noteBody} /><small>Leave blank and no panel is shown.</small></label>
+          </>
+        )}
         {blockType === "interactive" && (
           <label><span>Interactive activity (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use native knowledge check</option>{activities.filter((activity) => activity.status === "launchable").map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></label>
         )}

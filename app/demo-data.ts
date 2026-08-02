@@ -19,6 +19,7 @@ import {
   demoSubjectByOffering,
   demoSubjectProgress,
   demoSubjects,
+  demoYearGroup,
   type DemoAssessment,
   type DemoSubject,
 } from "../domain/demo/greenfield";
@@ -46,6 +47,8 @@ export type DemoSubjectCard = {
   slug: string;
   subjectName: string;
   teacherName: string;
+  /** The year the subject is pitched at, without the stream. */
+  yearGroup: string;
 };
 
 export function demoSubjectCards(): DemoSubjectCard[] {
@@ -69,6 +72,7 @@ export function demoSubjectCards(): DemoSubjectCard[] {
       slug: subject.slug,
       subjectName: subject.subjectName,
       teacherName: demoPersonName(subject.teacherPersonId),
+      yearGroup: demoYearGroup(DEMO_CLASS_NAME),
     };
   });
 }

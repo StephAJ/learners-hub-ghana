@@ -71,9 +71,12 @@
 }
 
 .course-outline-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   list-style: none;
   margin: 0;
-  padding: var(--space-2);
+  padding: var(--space-3) var(--space-2);
 }
 
 .course-outline-lesson {
@@ -148,12 +151,31 @@
   margin-top: var(--space-1);
 }
 
+.course-outline-activities button {
+  line-height: var(--lh-snug);
+}
+
 .course-outline-activities {
   display: flex;
   flex-direction: column;
+  gap: 1px;
   list-style: none;
-  margin: 0 0 var(--space-2);
+  /* Indented to sit under the lesson title rather than its status disc, and
+     separated from it so the topic reads as a heading for the list. */
+  margin: var(--space-2) 0 var(--space-3);
   padding: 0 var(--space-2) 0 calc(var(--space-3) + 1.375rem + var(--space-3));
+  position: relative;
+}
+
+/* A hairline running down the indent ties the activities to their lesson. */
+.course-outline-activities::before {
+  background: var(--line);
+  bottom: var(--space-1);
+  content: "";
+  left: calc(var(--space-3) + 0.6875rem);
+  position: absolute;
+  top: var(--space-1);
+  width: 1px;
 }
 
 .course-outline-activities button {
@@ -231,6 +253,23 @@
   display: flex;
   gap: var(--space-4);
   justify-content: space-between;
+}
+
+.course-back {
+  align-items: center;
+  color: var(--workspace-muted);
+  display: inline-flex;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  transition: color 160ms ease;
+}
+
+.course-back:hover,
+.course-back:focus-visible {
+  color: var(--workspace-accent);
+  outline: none;
 }
 
 .course-stage-title h2 {

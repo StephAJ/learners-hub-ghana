@@ -32,10 +32,12 @@ export default async function LearnerSubjectsPage() {
               data-progress={subject.progressPercent}
               href={`/learn/subjects/${subject.slug}`}
             >
-              {/* The generated cover carries the subject code in the artwork
-                  itself, so the card does not repeat it as a separate badge. */}
               <span className="subject-card-cover">
-                <SubjectCoverArt code={subject.code} seed={subject.slug} />
+                <SubjectCoverArt seed={subject.slug} />
+                {/* Which year the material is pitched at. The stream ("Gold")
+                    is deliberately dropped: it says which room a learner sits
+                    in, not what the subject is for. */}
+                <span className="subject-card-year">{subject.yearGroup}</span>
               </span>
 
               <span className="subject-card-body">

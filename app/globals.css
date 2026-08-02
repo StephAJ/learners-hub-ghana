@@ -92,6 +92,13 @@
   --font-sans:
     var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Reading copy: lesson text, summaries, descriptions. Separate from the
+     interface face because paragraphs and control labels want different
+     things — see the note in app/layout.tsx. */
+  --font-body:
+    var(--font-poppins), var(--font-inter), ui-sans-serif, system-ui,
+    sans-serif;
+
   /* Kept for display headings only. The serif is what stops the product
      reading like every other dashboard, and it is never set below 18px. */
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", serif;
@@ -204,7 +211,13 @@ h4 {
   text-wrap: balance;
 }
 
-p {
+/* Paragraphs and the long-form copy inside lessons read in Poppins; the
+   surrounding interface stays on Inter. */
+p,
+li,
+dd,
+blockquote {
+  font-family: var(--font-body);
   text-wrap: pretty;
 }
 

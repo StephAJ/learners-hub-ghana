@@ -2,6 +2,7 @@
 
 import confetti from "canvas-confetti";
 import Link from "next/link";
+import { ChevronRightIcon } from "../../../components/icons";
 import {
   useEffect,
   useMemo,
@@ -257,58 +258,51 @@ export function AssessmentRunner({
 
   if (!assessment.attempt) {
     return (
-      <main className="quiz-intro-shell">
-        <header className="quiz-student-header">
-          <Link href="/student">Learners Hub</Link>
-          <span>Integrated Science · JHS 2 Gold</span>
-          <span className="quiz-student-avatar">KA</span>
-        </header>
-        <section className="quiz-intro-card">
-          <div className="quiz-intro-visual">
-            <span>IS</span>
+      <div className="quiz-intro">
+        {/* The workspace topbar already names the assessment, its subject and
+            its shape, so this screen carries only what the topbar cannot: the
+            instructions, the rules, and the button that starts the clock. */}
+        <section className="quiz-intro-main">
+          <p className="quiz-intro-instructions">{assessment.instructions}</p>
+
+          <dl className="quiz-intro-facts">
             <div>
-              <i />
-              <i />
-              <i />
+              <dt>Questions</dt>
+              <dd>{assessment.questions.length}</dd>
             </div>
+            <div>
+              <dt>Total marks</dt>
+              <dd>{totalMarks}</dd>
+            </div>
+            <div>
+              <dt>Time limit</dt>
+              <dd>{assessment.timeLimitMinutes} min</dd>
+            </div>
+            <div>
+              <dt>Pass mark</dt>
+              <dd>{assessment.passMarkPercent}%</dd>
+            </div>
+          </dl>
+
+          <div className="quiz-readiness">
+            <h2>Before you begin</h2>
+            <ul>
+              <li>Your timer starts when you select Start assessment.</li>
+              <li>Answers save as you work, including on a weak connection.</li>
+              <li>You can flag a question and return before submitting.</li>
+            </ul>
           </div>
-          <div className="quiz-intro-copy">
-            <span className="formative-label">Formative knowledge check</span>
-            <h1>{assessment.title}</h1>
-            <p>{assessment.instructions}</p>
-            <div className="quiz-intro-facts">
-              <article>
-                <strong>{assessment.questions.length}</strong>
-                <span>questions</span>
-              </article>
-              <article>
-                <strong>{totalMarks}</strong>
-                <span>total marks</span>
-              </article>
-              <article>
-                <strong>{assessment.timeLimitMinutes}</strong>
-                <span>minutes</span>
-              </article>
-              <article>
-                <strong>{assessment.passMarkPercent}%</strong>
-                <span>pass mark</span>
-              </article>
-            </div>
-            <div className="quiz-readiness">
-              <span>Before you begin</span>
-              <ul>
-                <li>Your timer starts when you select Start assessment.</li>
-                <li>Answers save as you work, including on a weak connection.</li>
-                <li>You can flag a question and return before submitting.</li>
-              </ul>
-            </div>
-            {notice ? <p className="quiz-error">{notice}</p> : null}
+
+          {notice ? <p className="quiz-error">{notice}</p> : null}
+
+          <div className="quiz-intro-actions">
             <button
               className="start-quiz-button"
               onClick={() => void startAttempt()}
               type="button"
             >
-              Start assessment <span>→</span>
+              Start assessment
+              <ChevronRightIcon size={16} />
             </button>
             <small>
               {dataMode === "protected"
@@ -319,13 +313,30 @@ export function AssessmentRunner({
             </small>
           </div>
         </section>
-      </main>
+
+        <aside className="quiz-intro-aside">
+          <h2>What this covers</h2>
+          <ul>
+            {[
+              ...new Set(
+                assessment.questions.map((question) =>
+                  questionTypeLabel(question.type),
+                ),
+              ),
+            ].map(
+              (label) => (
+                <li key={label}>{label}</li>
+              ),
+            )}
+          </ul>
+        </aside>
+      </div>
     );
   }
 
   if (assessment.attempt.status !== "in-progress") {
     return (
-      <main className="quiz-result-shell">
+      <div className="quiz-result">
         <section className={`quiz-result-card${hasPassed ? " is-passed" : ""}`}>
           <div className="result-check">{hasPassed ? "🎉" : "✓"}</div>
           <span>Attempt submitted</span>
@@ -360,7 +371,7 @@ export function AssessmentRunner({
             Return to Integrated Science
           </Link>
         </section>
-      </main>
+      </div>
     );
   }
 
@@ -368,8 +379,10 @@ export function AssessmentRunner({
     <>
       <header className="quiz-runner-header">
         <div>
-          <span>Integrated Science</span>
-          <strong>{assessment.title}</strong>
+          <span>Question {activeIndex + 1} of {assessment.questions.length}</span>
+          <strong>
+            {answeredCount} answered · {flagged.size} flagged
+          </strong>
         </div>
         <div className={`quiz-timer ${remainingSeconds < 120 ? "urgent" : ""}`}>
           <small>Time remaining</small>

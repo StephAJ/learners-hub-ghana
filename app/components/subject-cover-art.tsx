@@ -1,9 +1,13 @@
 /**
- * Every subject's cover art is generated on the fly from its code and slug —
- * no image field exists on the subject record, and until schools can upload
- * their own artwork, a deterministic gradient mark stands in for one. Same
- * subject, same seed, same art on every render, so it reads as a real cover
- * rather than something that reshuffles on refresh.
+ * Every subject's cover art is generated on the fly from its slug — no image
+ * field exists on the subject record, and until schools can upload their own
+ * artwork, a deterministic gradient stands in for one. Same subject, same
+ * seed, same art on every render, so it reads as a real cover rather than
+ * something that reshuffles on refresh.
+ *
+ * The artwork carries no lettering. The subject name sits directly beneath it
+ * on the card, so a code drawn into the image only repeated it in a place a
+ * screen reader could not reach.
  */
 const PALETTES: readonly [string, string][] = [
   ["#0d6d53", "#123f3a"],
@@ -26,11 +30,9 @@ function hashString(value: string): number {
 
 export function SubjectCoverArt({
   className,
-  code,
   seed,
 }: {
   className?: string;
-  code: string;
   seed: string;
 }) {
   const hash = hashString(seed);
@@ -62,17 +64,6 @@ export function SubjectCoverArt({
         fillOpacity="0.06"
         r="60"
       />
-      <text
-        fill="#fff"
-        fillOpacity="0.9"
-        fontSize="58"
-        fontWeight="700"
-        style={{ fontFamily: "var(--font-serif)" }}
-        x="22"
-        y="122"
-      >
-        {code}
-      </text>
     </svg>
   );
 }

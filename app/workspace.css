@@ -29,6 +29,10 @@
   --sidebar-height: 100vh;
   --sidebar-width: 15.5rem;
   --topbar-height: 6.75rem;
+  /* One gutter for the topbar and the content column, so the page has a
+     single left edge instead of the two it had. */
+  --page-gutter: clamp(var(--space-6), 4vw, 3.5rem);
+  --page-max: 87.5rem;
   background: var(--workspace-canvas);
   color: var(--workspace-ink);
   display: grid;
@@ -359,7 +363,17 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
 }
 
 .workspace-main {
+  --page-inline: max(
+    var(--page-gutter),
+    calc((100% - var(--page-max)) / 2)
+  );
   min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .workspace-main {
+    --page-gutter: var(--space-4);
+  }
 }
 
 .workspace-topbar {
@@ -371,7 +385,7 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
   gap: var(--space-5);
   grid-template-columns: 1fr auto auto;
   min-height: var(--topbar-height);
-  padding: var(--space-5) clamp(var(--space-6), 4vw, 3.5rem);
+  padding: var(--space-5) var(--page-inline);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -430,9 +444,7 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
 }
 
 .workspace-content {
-  margin-inline: auto;
-  max-width: 1420px;
-  padding: var(--space-6) clamp(var(--space-6), 4vw, 3.5rem) var(--space-16);
+  padding: var(--space-6) var(--page-inline) var(--space-16);
 }
 
 /* For pages that manage their own full-width layout inside the shell — the
@@ -821,28 +833,48 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
   padding: 12px 16px;
 }
 
-.student-continue-progress {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.09);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  height: 132px;
-  justify-content: center;
-  min-width: 132px;
+/* Progress donut. Sized by font-size so a call site scales it in one place. */
+.progress-donut {
+  display: grid;
+  flex: 0 0 auto;
+  font-size: 8.25rem;
+  height: 1em;
+  place-items: center;
+  width: 1em;
 }
 
-.student-continue-progress strong {
+.progress-donut > svg,
+.progress-donut > strong {
+  grid-area: 1 / 1;
+}
+
+.progress-donut > svg {
+  height: 100%;
+  /* Start the arc at twelve o'clock. */
+  transform: rotate(-90deg);
+  width: 100%;
+}
+
+.progress-donut circle {
+  fill: none;
+  stroke-width: 8;
+}
+
+.progress-donut .donut-track {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.progress-donut .donut-value {
+  stroke: var(--brand-accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 420ms ease;
+}
+
+.progress-donut > strong {
   font-family: var(--font-serif);
-  font-size: var(--fs-34);
+  font-size: 0.24em;
   font-weight: var(--fw-regular);
-}
-
-.student-continue-progress span {
-  color: var(--brand-on-deep);
-  font-size: var(--fs-14);
-  margin-top: 4px;
+  letter-spacing: var(--tracking-display);
 }
 
 .student-subject-list {
@@ -992,7 +1024,7 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
     gap: 12px;
     grid-template-columns: auto 1fr;
     min-height: 92px;
-    padding: 16px 20px;
+    padding: var(--space-4) var(--page-inline);
   }
 
   .workspace-mobile-brand {
@@ -1013,7 +1045,7 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
   }
 
   .workspace-content {
-    padding: 20px 16px 44px;
+    padding: var(--space-5) var(--page-inline) var(--space-12);
   }
 
   .workspace-dashboard-grid {
@@ -1051,6 +1083,12 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
 }
 
 @media (max-width: 580px) {
+  .progress-donut {
+    align-self: center;
+    /* 132px is most of a phone's width once the card has stacked. */
+    font-size: 6.5rem;
+  }
+
   .workspace-topbar h1 {
     font-size: var(--fs-22);
   }
@@ -1099,11 +1137,51 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
     justify-content: flex-start;
   }
 
-  .student-continue-progress {
-    align-self: center;
-  }
+    /* Progress donut. Sized by font-size so a call site scales it in one place. */
+.progress-donut {
+  display: grid;
+  flex: 0 0 auto;
+  font-size: 8.25rem;
+  height: 1em;
+  place-items: center;
+  width: 1em;
+}
 
-  .student-subject-list {
+.progress-donut > svg,
+.progress-donut > strong {
+  grid-area: 1 / 1;
+}
+
+.progress-donut > svg {
+  height: 100%;
+  /* Start the arc at twelve o'clock. */
+  transform: rotate(-90deg);
+  width: 100%;
+}
+
+.progress-donut circle {
+  fill: none;
+  stroke-width: 8;
+}
+
+.progress-donut .donut-track {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.progress-donut .donut-value {
+  stroke: var(--brand-accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 420ms ease;
+}
+
+.progress-donut > strong {
+  font-family: var(--font-serif);
+  font-size: 0.24em;
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-display);
+}
+
+.student-subject-list {
     grid-template-columns: 1fr;
   }
 

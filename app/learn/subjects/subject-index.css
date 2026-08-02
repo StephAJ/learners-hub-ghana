@@ -44,6 +44,22 @@
   width: 100%;
 }
 
+/* The year group, over the artwork's bottom-right corner. Backed rather than
+   plain so it stays legible whichever gradient the subject draws. */
+.subject-card-year {
+  backdrop-filter: blur(6px);
+  background: rgba(19, 33, 30, 0.55);
+  border-radius: var(--radius-sm);
+  bottom: var(--space-3);
+  color: #fff;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  padding: var(--space-1) var(--space-2);
+  position: absolute;
+  right: var(--space-3);
+}
+
 .subject-card:hover,
 .subject-card:focus-visible {
   border-color: var(--workspace-accent);
