@@ -518,6 +518,7 @@
 .video-stage {
   align-items: center;
   aspect-ratio: 16 / 9;
+  max-height: 35rem;
   background: #0a2320;
   border-radius: var(--radius-md);
   display: flex;

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CheckIcon, PlayCircleIcon } from "../../components/icons";
+import { SubjectCoverArt } from "../../components/subject-cover-art";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { demoSubjectCards } from "../../demo-data";
 import { requireWorkspaceUser } from "../../../server/workspace-auth";
@@ -31,15 +32,18 @@ export default async function LearnerSubjectsPage() {
               data-progress={subject.progressPercent}
               href={`/learn/subjects/${subject.slug}`}
             >
-              <span className="subject-card-top">
+              {/* The generated cover carries the subject code in the artwork
+                  itself, so the card does not repeat it as a separate badge. */}
+              <span className="subject-card-cover">
+                <SubjectCoverArt code={subject.code} seed={subject.slug} />
+              </span>
+
+              <span className="subject-card-body">
                 <span className="subject-card-identity">
                   <strong>{subject.subjectName}</strong>
                   <small>{subject.teacherName}</small>
                 </span>
-                <span className="subject-card-code">{subject.code}</span>
-              </span>
 
-              <span className="subject-card-body">
                 <span className="subject-card-next">
                   {subject.nextLessonTitle ? (
                     <>

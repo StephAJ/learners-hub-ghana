@@ -286,6 +286,7 @@
   border: 1px solid var(--day-line);
   border-radius: var(--radius-xl);
   background: white;
+  scroll-margin-top: 90px;
 }
 
 .school-day-heading {

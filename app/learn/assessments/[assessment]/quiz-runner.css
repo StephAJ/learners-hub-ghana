@@ -423,7 +423,22 @@
   border: 1px solid var(--quiz-line);
   border-radius: var(--radius-xl);
   background: var(--quiz-paper);
-  box-shadow: 0 12px 35px rgba(35, 56, 48, 0.05);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  position: relative;
+}
+
+/* The same top accent stripe the lesson player uses on its content cards, so
+   a question paper and a lesson block read as the same product rather than
+   two different tools stapled together. */
+.question-paper::before {
+  background: var(--quiz-green);
+  content: "";
+  height: 4px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
 }
 
 .question-paper > header {
@@ -762,6 +777,18 @@
   background: white;
   text-align: center;
   box-shadow: 0 24px 65px rgba(29, 53, 44, 0.08);
+}
+
+.quiz-result-card.is-passed {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(233, 184, 75, 0.16), transparent 55%),
+    white;
+  border-color: #cfe6da;
+}
+
+.quiz-result-card.is-passed .result-check {
+  background: #fbeecb;
+  font-size: var(--fs-28);
 }
 
 .quiz-result-card > span {

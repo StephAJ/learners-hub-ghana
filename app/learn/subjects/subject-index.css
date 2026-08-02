@@ -20,38 +20,34 @@
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
   height: 100%;
-  padding: var(--space-5);
+  /* The cover runs to the card's edges, so padding lives on the body. */
+  overflow: hidden;
   transition:
     border-color 160ms ease,
     background 160ms ease;
+}
+
+/* A generated banner standing in for real artwork, the way a course platform
+   shows a thumbnail before anyone has uploaded one. The code is drawn into the
+   art itself, which is why the card no longer carries a separate code chip. */
+.subject-card-cover {
+  aspect-ratio: 16 / 9;
+  display: block;
+  position: relative;
+  width: 100%;
+}
+
+.subject-card-cover svg {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 .subject-card:hover,
 .subject-card:focus-visible {
   border-color: var(--workspace-accent);
   outline: none;
-}
-
-.subject-card-top {
-  align-items: flex-start;
-  display: flex;
-  gap: var(--space-3);
-  justify-content: space-between;
-}
-
-/* A tinted pill rather than a filled square: it reads as a label, which is
-   what a subject code is, instead of competing with the subject name. */
-.subject-card-code {
-  background: var(--brand-soft);
-  border-radius: var(--radius-sm);
-  color: var(--workspace-accent);
-  flex: 0 0 auto;
-  font-size: var(--fs-12);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  padding: var(--space-1) var(--space-2);
 }
 
 .subject-card-identity {
@@ -75,9 +71,10 @@
 
 .subject-card-body {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--space-2);
-  margin-top: auto;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
 .subject-card-next {
@@ -105,6 +102,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* Sits at the foot of the card whatever the title wraps to, so a grid of
+     subjects lines up along the bottom. */
+  margin-top: auto;
 }
 
 .subject-card-progress-head {

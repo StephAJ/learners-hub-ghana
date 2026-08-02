@@ -125,10 +125,6 @@ export function WorkspaceShell({
           {toolbar ? (
             <div className="workspace-topbar-tools">{toolbar}</div>
           ) : null}
-          <div className="workspace-topbar-person">
-            <small>{workspaceLabelForRole(user.access.role)}</small>
-            <strong>{user.name}</strong>
-          </div>
         </header>
         <div className={contentClassName ?? "workspace-content"}>{children}</div>
       </main>
