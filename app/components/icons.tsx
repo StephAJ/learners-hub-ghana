@@ -135,6 +135,16 @@ export function PlayCircleIcon(props: IconProps) {
   );
 }
 
+/* A bare, filled triangle rather than the outline used elsewhere — reads
+   better solo on a glassmorphic overlay than a thin stroke does. */
+export function PlayIcon(props: IconProps) {
+  return (
+    <Icon fill="currentColor" stroke="none" {...props}>
+      <path d="M8 5.5v13l11-6.5Z" />
+    </Icon>
+  );
+}
+
 export function ReadIcon(props: IconProps) {
   return (
     <Icon {...props}>

@@ -14,6 +14,7 @@ import {
   LockIcon,
   PencilIcon,
   PlayCircleIcon,
+  PlayIcon,
   ReadIcon,
   SparkIcon,
 } from "../../../components/icons";
@@ -170,6 +171,50 @@ export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
   ).length;
 
   return (
+    <div className="lesson-shell">
+      <header className="lesson-toprail">
+        <div className="lesson-toprail-heading">
+          <Link className="course-back" href="/learn/subjects">
+            <ArrowLeftIcon size={14} />
+            All subjects
+          </Link>
+          <span className="lesson-toprail-divider" aria-hidden="true" />
+          <div className="lesson-toprail-title">
+            <p className="lesson-eyebrow">
+              {selectedLesson.unitTitle} · Lesson {lessonPosition} of{" "}
+              {lessons.length}
+            </p>
+            <h2>{selectedLesson.title}</h2>
+          </div>
+        </div>
+        <div className="course-stage-nav">
+          <span className={`learning-mode mode-${dataMode}`}>
+            <i aria-hidden="true" />
+            {dataMode === "protected"
+              ? "Progress saved"
+              : dataMode === "loading"
+                ? "Connecting"
+                : "Preview"}
+          </span>
+          <button
+            aria-label="Previous activity"
+            disabled={activeBlockIndex === 0}
+            onClick={() => void moveToBlock(activeBlockIndex - 1)}
+            type="button"
+          >
+            <ChevronLeftIcon size={18} />
+          </button>
+          <button
+            aria-label="Next activity"
+            disabled={activeBlockIndex >= selectedLesson.blocks.length - 1}
+            onClick={() => void moveToBlock(activeBlockIndex + 1)}
+            type="button"
+          >
+            <ChevronRightIcon size={18} />
+          </button>
+        </div>
+      </header>
+
     <div className="course-player">
       <aside className="course-outline" aria-label="Course content">
         <header className="course-outline-head">
@@ -268,46 +313,6 @@ export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
       </aside>
 
       <div className="course-stage">
-        <header className="course-stage-head">
-          <div className="course-stage-title">
-            <Link className="course-back" href="/learn/subjects">
-              <ArrowLeftIcon size={16} />
-              All subjects
-            </Link>
-            <p className="lesson-eyebrow">
-              {selectedLesson.unitTitle} · Lesson {lessonPosition} of{" "}
-              {lessons.length}
-            </p>
-            <h2>{selectedLesson.title}</h2>
-          </div>
-          <div className="course-stage-nav">
-            <span className={`learning-mode mode-${dataMode}`}>
-              <i aria-hidden="true" />
-              {dataMode === "protected"
-                ? "Progress saved"
-                : dataMode === "loading"
-                  ? "Connecting"
-                  : "Preview"}
-            </span>
-            <button
-              aria-label="Previous activity"
-              disabled={activeBlockIndex === 0}
-              onClick={() => void moveToBlock(activeBlockIndex - 1)}
-              type="button"
-            >
-              <ChevronLeftIcon size={18} />
-            </button>
-            <button
-              aria-label="Next activity"
-              disabled={activeBlockIndex >= selectedLesson.blocks.length - 1}
-              onClick={() => void moveToBlock(activeBlockIndex + 1)}
-              type="button"
-            >
-              <ChevronRightIcon size={18} />
-            </button>
-          </div>
-        </header>
-
         <LessonBlockView
           answer={answer}
           answerChecked={answerChecked}
@@ -415,6 +420,7 @@ export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
             {notice}
           </p>
         )}
+      </div>
       </div>
     </div>
   );
@@ -588,15 +594,38 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
   if (source?.kind === "youtube") {
     return (
       <article className="lesson-block video-block">
-        <div className="video-stage">
-          <iframe
-            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="strict-origin-when-cross-origin"
-            src={source.embedUrl}
-            title={block.title}
-          />
+        <div className={`video-stage${started ? " is-playing" : ""}`}>
+          {started ? (
+            <iframe
+              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+              src={withAutoplay(source.embedUrl)}
+              title={block.title}
+            />
+          ) : (
+            <>
+              <img
+                alt=""
+                aria-hidden="true"
+                className="video-poster"
+                loading="lazy"
+                src={`https://i.ytimg.com/vi/${source.videoId}/hqdefault.jpg`}
+              />
+              {/* Deferring the iframe until this is pressed is what actually
+                  holds off YouTube's cookies until playback — embedding it
+                  up front, as before, undercut that. */}
+              <button
+                aria-label={`Play: ${block.title}`}
+                className="video-play"
+                onClick={() => setStarted(true)}
+                type="button"
+              >
+                <PlayIcon size={26} />
+              </button>
+            </>
+          )}
         </div>
         <div className="block-copy">
           <p className="lesson-eyebrow">Guided video</p>
@@ -676,7 +705,7 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
             onClick={() => void play()}
             type="button"
           >
-            <span aria-hidden="true">▶</span>
+            <PlayIcon size={26} />
           </button>
         ) : null}
 
@@ -687,6 +716,13 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
       {copy}
     </article>
   );
+}
+
+/** Only added once the facade is pressed, so the poster click is what starts playback. */
+function withAutoplay(embedUrl: string): string {
+  const url = new URL(embedUrl);
+  url.searchParams.set("autoplay", "1");
+  return url.toString();
 }
 
 function formatDuration(seconds: number): string {

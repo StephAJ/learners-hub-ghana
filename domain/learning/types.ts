@@ -39,7 +39,7 @@ export type LessonBlock = {
 export type LessonVideoSource =
   | { kind: "asset"; url: string }
   | { kind: "file"; url: string }
-  | { kind: "youtube"; embedUrl: string; watchUrl: string };
+  | { kind: "youtube"; embedUrl: string; videoId: string; watchUrl: string };
 
 export type LessonBlockInput = Omit<LessonBlock, "position">;
 

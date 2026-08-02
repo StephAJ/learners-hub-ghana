@@ -63,6 +63,7 @@ export function WorkspaceShell({
   contentClassName,
   description,
   eyebrow,
+  hideTopbar,
   title,
   toolbar,
   user,
@@ -75,6 +76,9 @@ export function WorkspaceShell({
   contentClassName?: string;
   description: string;
   eyebrow: string;
+  /* Lets a page own its own sticky header instead — the lesson player builds
+     one around the lesson it is showing rather than the subject shell. */
+  hideTopbar?: boolean;
   title: string;
   /* Optional controls that belong beside the page title rather than in it. */
   toolbar?: ReactNode;
@@ -114,19 +118,21 @@ export function WorkspaceShell({
       />
 
       <main className="workspace-main" id="workspace-content">
-        <header className="workspace-topbar">
-          <Link className="workspace-mobile-brand" href="/" aria-label="Learners Hub">
-            <BrandMark size={34} />
-          </Link>
-          <div className="workspace-topbar-heading">
-            <p>{eyebrow}</p>
-            <h1>{title}</h1>
-            <span>{description}</span>
-          </div>
-          {toolbar ? (
-            <div className="workspace-topbar-tools">{toolbar}</div>
-          ) : null}
-        </header>
+        {hideTopbar ? null : (
+          <header className="workspace-topbar">
+            <Link className="workspace-mobile-brand" href="/" aria-label="Learners Hub">
+              <BrandMark size={34} />
+            </Link>
+            <div className="workspace-topbar-heading">
+              <p>{eyebrow}</p>
+              <h1>{title}</h1>
+              <span>{description}</span>
+            </div>
+            {toolbar ? (
+              <div className="workspace-topbar-tools">{toolbar}</div>
+            ) : null}
+          </header>
+        )}
         <div className={contentClassName ?? "workspace-content"}>{children}</div>
       </main>
 

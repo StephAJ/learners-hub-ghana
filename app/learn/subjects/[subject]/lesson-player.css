@@ -248,21 +248,70 @@
     var(--space-10);
 }
 
-.course-stage-head {
-  align-items: flex-start;
+/* -- Lesson toprail ------------------------------------------------------- */
+
+/* Replaces the generic workspace topbar for this page: the lesson it is
+   showing is more useful here than the subject/class/teacher line every
+   other page leads with, and folding the old course-stage-head into this
+   sticky rail means the preview chip and step controls travel with it
+   instead of scrolling away with the stage. */
+.lesson-shell {
+  --topbar-height: 4.25rem;
+}
+
+.lesson-toprail {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--workspace-line);
   display: flex;
   gap: var(--space-4);
   justify-content: space-between;
+  min-height: var(--topbar-height);
+  padding: var(--space-3) clamp(var(--space-5), 3vw, var(--space-8));
+  position: sticky;
+  top: 0;
+  z-index: 25;
+}
+
+.lesson-toprail-heading {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.lesson-toprail-divider {
+  background: var(--workspace-line);
+  flex: 0 0 auto;
+  height: 1.5rem;
+  width: 1px;
+}
+
+.lesson-toprail-title {
+  min-width: 0;
+}
+
+.lesson-toprail-title h2 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--lh-display);
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .course-back {
   align-items: center;
   color: var(--workspace-muted);
   display: inline-flex;
+  flex: 0 0 auto;
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
   transition: color 160ms ease;
 }
 
@@ -270,15 +319,6 @@
 .course-back:focus-visible {
   color: var(--workspace-accent);
   outline: none;
-}
-
-.course-stage-title h2 {
-  font-family: var(--font-serif);
-  font-size: var(--fs-28);
-  font-weight: var(--fw-regular);
-  letter-spacing: var(--tracking-display);
-  line-height: var(--lh-display);
-  margin: var(--space-2) 0 0;
 }
 
 .course-stage-nav {
@@ -567,12 +607,17 @@
 }
 
 .video-stage video,
-.video-stage iframe {
+.video-stage iframe,
+.video-stage img {
   border: 0;
   display: block;
   height: 100%;
   object-fit: contain;
   width: 100%;
+}
+
+.video-poster {
+  object-fit: cover;
 }
 
 .block-copy a {
@@ -581,17 +626,21 @@
 }
 
 /* Overlay play control. Sits above the poster frame and disappears the moment
-   playback starts, handing over to the native controls. */
+   playback starts, handing over to the native controls. Glassmorphic rather
+   than a solid disc, so it reads as chrome floating over the video rather
+   than a flat UI sticker. */
 .video-play {
   align-items: center;
-  background: rgba(255, 255, 255, 0.94);
-  border: 0;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 50%;
   box-shadow: var(--shadow-lg);
-  color: var(--primary);
+  color: #ffffff;
   cursor: pointer;
   display: flex;
-  height: 4rem;
+  height: 4.5rem;
   inset: 0;
   justify-content: center;
   margin: auto;
@@ -601,18 +650,17 @@
   transition:
     background 160ms ease,
     transform 160ms ease;
-  width: 4rem;
+  width: 4.5rem;
   z-index: 2;
 }
 
-.video-play span {
-  font-size: var(--fs-22);
-  line-height: 1;
+.video-play svg {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
 }
 
 .video-play:hover,
 .video-play:focus-visible {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.3);
   outline: none;
   transform: scale(1.06);
 }
@@ -1055,9 +1103,15 @@
     display: none;
   }
 
-  .course-stage-head {
+  .lesson-toprail {
+    align-items: flex-start;
     flex-direction: column;
     gap: var(--space-3);
+  }
+
+  .lesson-toprail-title h2 {
+    max-width: 70vw;
+    white-space: normal;
   }
 
   .course-tablist {

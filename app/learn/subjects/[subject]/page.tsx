@@ -38,6 +38,7 @@ export default async function SubjectLessonPlayerPage({
       contentClassName="workspace-content-flush"
       description={`${subject.className} · ${subject.teacherName}`}
       eyebrow="My subjects"
+      hideTopbar
       title={subject.subjectName}
       user={user}
       workspace="student"

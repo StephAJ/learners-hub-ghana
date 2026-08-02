@@ -149,47 +149,6 @@ export function SchoolDayView() {
           </Link>
         </section>
 
-        <section className="school-day-summary">
-          <article>
-            <span className="summary-icon green">✓</span>
-            <div>
-              <small>Attendance this week</small>
-              <strong>
-                {workspace.attendance.summary.percentage.toFixed(1)}%
-              </strong>
-              <p>
-                Today:{" "}
-                {workspace.attendance.currentCode
-                  ? humanise(workspace.attendance.currentCode)
-                  : "register pending"}
-              </p>
-            </div>
-          </article>
-          <article>
-            <span className="summary-icon gold">◆</span>
-            <div>
-              <small>Assignments</small>
-              <strong>{workspace.assignments.length}</strong>
-              <p>
-                {
-                  workspace.assignments.filter(
-                    (item) => item.status === "submitted",
-                  ).length
-                }{" "}
-                submitted
-              </p>
-            </div>
-          </article>
-          <article>
-            <span className="summary-icon blue">□</span>
-            <div>
-              <small>Lessons today</small>
-              <strong>{workspace.timetable.length}</strong>
-              <p>Friday timetable</p>
-            </div>
-          </article>
-        </section>
-
         {notice ? (
           <button
             className="school-day-notice"

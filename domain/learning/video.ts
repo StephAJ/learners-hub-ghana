@@ -79,6 +79,7 @@ export function resolveVideoUrl(
     return {
       kind: "youtube",
       embedUrl: embed.toString(),
+      videoId,
       watchUrl: `https://www.youtube.com/watch?v=${videoId}`,
     };
   }

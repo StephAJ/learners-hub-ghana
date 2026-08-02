@@ -202,65 +202,6 @@
   font-weight: var(--fw-semibold);
 }
 
-.school-day-summary {
-  margin: 16px 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-
-.school-day-summary article {
-  padding: 16px;
-  border: 1px solid var(--day-line);
-  border-radius: var(--radius-lg);
-  background: white;
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  align-items: center;
-  gap: 12px;
-}
-
-.summary-icon {
-  width: 39px;
-  height: 39px;
-  border-radius: var(--radius-md);
-  display: grid;
-  place-items: center;
-  font-weight: var(--fw-semibold);
-}
-
-.summary-icon.green {
-  background: #e5f4ed;
-  color: var(--day-green);
-}
-
-.summary-icon.gold {
-  background: #fff1d0;
-  color: #89610c;
-}
-
-.summary-icon.blue {
-  background: #e6effa;
-  color: #315f91;
-}
-
-.school-day-summary article > div {
-  display: grid;
-}
-
-.school-day-summary small,
-.school-day-summary p {
-  margin: 0;
-  color: var(--day-muted);
-  font-size: var(--fs-14);
-}
-
-.school-day-summary strong {
-  margin: 4px 0;
-  font-family: var(--font-serif);
-  font-size: var(--fs-22);
-}
-
 .school-day-grid,
 .guardian-day-grid {
   display: grid;
@@ -794,10 +735,6 @@
   .school-day-welcome,
   .guardian-day-welcome {
     padding: 24px;
-  }
-
-  .school-day-summary {
-    grid-template-columns: 1fr;
   }
 
   .guardian-day-summary {
