@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LearnerSubject } from "../../../../db/learning-repository";
-import type { LessonBlock } from "../../../../domain/learning/types";
+import type {
+  LessonAttachment,
+  LessonBlock,
+} from "../../../../domain/learning/types";
 import { resolveLessonVideo } from "../../../../domain/learning/video";
 import {
   ArrowLeftIcon,
@@ -11,6 +14,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DownloadIcon,
+  FileTextIcon,
+  ImageIcon,
   LockIcon,
   PencilIcon,
   PlayCircleIcon,
@@ -490,26 +495,43 @@ function LessonBlockView({
 
   if (block.type === "resource") {
     const resourceAssetId = block.config?.mediaAssetId;
-    const mediaUrl = resourceAssetId
-      ? (previewMediaUrl(resourceAssetId) ??
-        `/api/content/media?assetId=${encodeURIComponent(resourceAssetId)}`)
-      : undefined;
+    const mediaUrl = resourceAssetId ? mediaUrlFor(resourceAssetId) : undefined;
+    const attachment = block.attachment;
     return (
       <article className="lesson-block resource-block">
-        <span aria-hidden="true">↓</span>
+        <span aria-hidden="true">
+          <FileGlyph kind={attachment?.kind} />
+        </span>
         <div>
           <p className="lesson-eyebrow">Study resource</p>
           <h2>{block.title}</h2>
           <p>{block.content}</p>
+          {/* What the file is, before the learner spends the data on it. A
+              download offering no name, format or size is a guess on a metered
+              connection. */}
+          {attachment ? (
+            <ul className="resource-facts">
+              <li title={attachment.filename}>{attachment.filename}</li>
+              <li>{describeFileKind(attachment)}</li>
+              <li>{formatFileSize(attachment.sizeBytes)}</li>
+            </ul>
+          ) : null}
           <small>
-            {mediaUrl
-              ? "Downloads once, then works offline."
-              : "Your teacher has not attached the file yet."}
+            {!mediaUrl
+              ? "Your teacher has not attached the file yet."
+              : attachment
+                ? "Downloads once, then works offline."
+                : "This file is no longer available. Ask your teacher to attach it again."}
           </small>
         </div>
         {/* A download control with nothing to download used to render as an
             ordinary button that did nothing when pressed. */}
-        {mediaUrl ? <a href={mediaUrl}>Download resource</a> : null}
+        {mediaUrl && attachment ? (
+          <a download={attachment.filename} href={mediaUrl}>
+            <DownloadIcon size={16} />
+            Download
+          </a>
+        ) : null}
       </article>
     );
   }
@@ -744,6 +766,40 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
       {copy}
     </article>
   );
+}
+
+/** A glyph that tells a document apart from a picture at a glance. */
+function FileGlyph({ kind }: { kind?: LessonAttachment["kind"] }) {
+  if (kind === "image") return <ImageIcon size={18} />;
+  if (kind === "audio" || kind === "video") return <PlayCircleIcon size={18} />;
+  return <FileTextIcon size={18} />;
+}
+
+/** "PDF · 2 pages" is the teacher's job; this is only the format. */
+function describeFileKind(attachment: LessonAttachment): string {
+  const extension = attachment.filename.split(".").at(-1);
+  if (extension && extension !== attachment.filename) {
+    return extension.toUpperCase();
+  }
+  return attachment.kind === "document" ? "Document" : attachment.kind;
+}
+
+/**
+ * Bytes as a learner would say them.
+ *
+ * Decimal units, because a phone reporting a 4.2 MB download and a page
+ * claiming 4.0 MiB for the same file reads as one of them being wrong.
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const units = ["kB", "MB", "GB"];
+  let value = bytes / 1000;
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
 
 /** Preview uploads win over the authenticated route — see LessonVideoBlock. */

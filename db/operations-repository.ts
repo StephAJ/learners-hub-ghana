@@ -6,6 +6,7 @@ import {
 } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
 import {
+  assertSubmittableWork,
   changeTimetableEntry,
   correctAttendance,
   DailyOperationsPolicyError,
@@ -24,8 +25,10 @@ import type {
   SubmissionStatus,
   TimetableEntryStatus,
 } from "../domain/operations/types";
+import { validateUpload } from "../domain/content/content-policy";
+import type { MediaKind } from "../domain/content/types";
 import { ensureReportingFoundation } from "./reporting-repository";
-import { getSchoolDatabase } from "./index";
+import { getMediaStore, getSchoolDatabase } from "./index";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
 import { SCIENCE_OFFERING_ID } from "./learning-repository";
 import { ensurePeopleSeed } from "./people-repository";
@@ -34,6 +37,10 @@ import {
   demoPeriods,
   demoTimetable,
 } from "../domain/demo/greenfield";
+
+/* Enough for a scanned exercise book without becoming a place to park a
+   video. Each file is still bounded by the shared 25 MB upload limit. */
+const MAX_SUBMISSION_ATTACHMENTS = 6;
 
 const TENANT_ID = "tenant-greenfield";
 const CLASS_GROUP_ID = "class-jhs2-gold";
@@ -59,6 +66,7 @@ export type TeacherAssignmentSummary = {
 export type MarkingSubmission = {
   assignmentId: string;
   assignmentTitle: string;
+  attachments: SubmissionAttachmentView[];
   criteria: RubricCriterionView[];
   id: string;
   learnerName: string;
@@ -114,7 +122,17 @@ export type TeacherOperationsWorkspace = {
   timetable: TimetableEntryView[];
 };
 
+/** One handed-in file, as both the learner and the marker see it. */
+export type SubmissionAttachmentView = {
+  contentType: string;
+  filename: string;
+  id: string;
+  sizeBytes: number;
+  uploadedAt: string;
+};
+
 export type LearnerAssignmentView = {
+  attachments: SubmissionAttachmentView[];
   dueAt: string;
   feedback: string | null;
   id: string;
@@ -674,13 +692,21 @@ export async function submitPersistentLearnerAssignment(
       "Only the learner may submit work from this school-day view.",
     );
   }
-  if (!input.responseText.trim()) {
-    throw new DailyOperationsPolicyError(
-      "Write a response before submitting the assignment.",
-    );
-  }
   await ensureOperationsFoundation();
   const database = await getSchoolDatabase();
+
+  /* Counting is only worth a round trip when there is no written answer to
+     accept on its own. */
+  assertSubmittableWork({
+    attachmentCount: input.responseText.trim()
+      ? 1
+      : await countSubmissionAttachments(
+          database,
+          access,
+          input.assignmentId,
+        ),
+    responseText: input.responseText,
+  });
   const submission = await database
     .prepare(
       `SELECT s.id, s.status, v.due_at
@@ -729,6 +755,356 @@ export async function submitPersistentLearnerAssignment(
     ),
   ]);
   return getLearnerSchoolDay(access);
+}
+
+/* ==========================================================================
+   Submission attachments
+
+   Handed-in files go through media_assets like every other upload, so they
+   inherit its size and type rules and its storage layout. What they do not
+   inherit is its access check: media_assets is scoped to a subject offering,
+   and every learner in a class shares that offering — serving submissions
+   through the ordinary media route would let any classmate read anyone's work
+   by guessing an id. Hence the dedicated reader below, which resolves the
+   owner before it resolves the bytes.
+   ========================================================================== */
+
+/** Where a learner's own draft submission lives, or an error explaining why not. */
+async function findOwnOpenSubmission(
+  database: SchoolDatabase,
+  access: AccessContext,
+  assignmentId: string,
+) {
+  const submission = await database
+    .prepare(
+      `SELECT s.id, s.status, a.offering_id
+      FROM assignment_submissions s
+      INNER JOIN assignments a ON a.id = s.assignment_id
+      WHERE s.assignment_id = ? AND s.learner_person_id = ?
+        AND s.tenant_id = ? AND a.status = 'published'
+      LIMIT 1`,
+    )
+    .bind(assignmentId, access.actorPersonId, access.tenantId)
+    .first<{ id: string; offering_id: string; status: SubmissionStatus }>();
+  if (!submission) {
+    throw new DailyOperationsPolicyError("That assignment is not open to you.");
+  }
+  return submission;
+}
+
+async function countSubmissionAttachments(
+  database: SchoolDatabase,
+  access: AccessContext,
+  assignmentId: string,
+): Promise<number> {
+  const submission = await findOwnOpenSubmission(
+    database,
+    access,
+    assignmentId,
+  );
+  const row = await database
+    .prepare(
+      `SELECT COUNT(*) AS total FROM submission_attachments
+      WHERE tenant_id = ? AND submission_id = ?`,
+    )
+    .bind(access.tenantId, submission.id)
+    .first<{ total: number }>();
+  return Number(row?.total ?? 0);
+}
+
+/**
+ * Attaches a file to the learner's own submission.
+ *
+ * Only before it is handed in: once a submission is submitted or marked, its
+ * contents are what the teacher is looking at, and quietly adding a page to it
+ * afterwards is not something a marker could see.
+ */
+export async function attachLearnerSubmissionFile(
+  access: AccessContext,
+  input: { assignmentId: string; file: File },
+): Promise<LearnerSchoolDayWorkspace> {
+  if (access.role !== "learner") {
+    throw new AuthorizationError(
+      "Only the learner may attach work to their own submission.",
+    );
+  }
+  await ensureOperationsFoundation();
+  const database = await getSchoolDatabase();
+  const submission = await findOwnOpenSubmission(
+    database,
+    access,
+    input.assignmentId,
+  );
+  if (submission.status !== "not-started") {
+    throw new DailyOperationsPolicyError(
+      "This assignment has already been handed in.",
+    );
+  }
+
+  const existing = await database
+    .prepare(
+      `SELECT COUNT(*) AS total FROM submission_attachments
+      WHERE tenant_id = ? AND submission_id = ?`,
+    )
+    .bind(access.tenantId, submission.id)
+    .first<{ total: number }>();
+  if (Number(existing?.total ?? 0) >= MAX_SUBMISSION_ATTACHMENTS) {
+    throw new DailyOperationsPolicyError(
+      `A submission can carry at most ${MAX_SUBMISSION_ATTACHMENTS} files.`,
+    );
+  }
+
+  const contentType = input.file.type || "application/octet-stream";
+  /* Handed-in work is a document or a photograph of one; the kind is inferred
+     rather than taken from the client, which has no business choosing how its
+     own upload gets validated. */
+  const kind: MediaKind = contentType.startsWith("image/")
+    ? "image"
+    : "document";
+  const validated = validateUpload({
+    contentType,
+    filename: input.file.name,
+    kind,
+    sizeBytes: input.file.size,
+  });
+
+  const assetId = crypto.randomUUID();
+  const objectKey = [
+    access.tenantId,
+    submission.offering_id,
+    `${assetId}.${validated.extension}`,
+  ].join("/");
+  const bucket = await getMediaStore();
+  await bucket.put(objectKey, input.file.stream(), {
+    customMetadata: {
+      assetId,
+      offeringId: submission.offering_id,
+      tenantId: access.tenantId,
+    },
+    httpMetadata: { contentType },
+  });
+
+  try {
+    await database.batch([
+      database
+        .prepare(
+          `INSERT INTO media_assets
+            (id, tenant_id, offering_id, uploaded_by_person_id, kind,
+             original_filename, content_type, size_bytes, object_key, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready')`,
+        )
+        .bind(
+          assetId,
+          access.tenantId,
+          submission.offering_id,
+          access.actorPersonId,
+          kind,
+          validated.filename,
+          contentType,
+          input.file.size,
+          objectKey,
+        ),
+      database
+        .prepare(
+          `INSERT INTO submission_attachments
+            (id, tenant_id, submission_id, media_asset_id, uploaded_at)
+          VALUES (?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          access.tenantId,
+          submission.id,
+          assetId,
+          new Date().toISOString(),
+        ),
+      auditStatement(
+        database,
+        access,
+        "assignment.attachment-added",
+        "assignment-submission",
+        submission.id,
+        { assetId },
+      ),
+    ]);
+  } catch (error) {
+    /* The bytes landed but the rows did not, so the object would otherwise sit
+       in storage with nothing pointing at it. */
+    await bucket.delete(objectKey).catch(() => undefined);
+    throw error;
+  }
+
+  return getLearnerSchoolDay(access);
+}
+
+/** Removes one of the learner's own attachments, before it is handed in. */
+export async function removeLearnerSubmissionFile(
+  access: AccessContext,
+  attachmentId: string,
+): Promise<LearnerSchoolDayWorkspace> {
+  if (access.role !== "learner") {
+    throw new AuthorizationError(
+      "Only the learner may remove their own attachment.",
+    );
+  }
+  await ensureOperationsFoundation();
+  const database = await getSchoolDatabase();
+  const row = await database
+    .prepare(
+      `SELECT t.id, t.media_asset_id, m.object_key, s.status, s.id AS submission_id
+      FROM submission_attachments t
+      INNER JOIN assignment_submissions s ON s.id = t.submission_id
+      INNER JOIN media_assets m ON m.id = t.media_asset_id
+      WHERE t.id = ? AND t.tenant_id = ? AND s.learner_person_id = ?
+      LIMIT 1`,
+    )
+    .bind(attachmentId, access.tenantId, access.actorPersonId)
+    .first<{
+      id: string;
+      media_asset_id: string;
+      object_key: string;
+      status: SubmissionStatus;
+      submission_id: string;
+    }>();
+  if (!row) {
+    throw new DailyOperationsPolicyError("That attachment is not yours.");
+  }
+  if (row.status !== "not-started") {
+    throw new DailyOperationsPolicyError(
+      "Work that has been handed in cannot be changed.",
+    );
+  }
+
+  await database.batch([
+    database
+      .prepare(
+        `DELETE FROM submission_attachments WHERE id = ? AND tenant_id = ?`,
+      )
+      .bind(row.id, access.tenantId),
+    /* The asset row is marked rather than deleted so the audit trail still
+       resolves the filename it is talking about. */
+    database
+      .prepare(
+        `UPDATE media_assets SET status = 'deleted'
+        WHERE id = ? AND tenant_id = ?`,
+      )
+      .bind(row.media_asset_id, access.tenantId),
+    auditStatement(
+      database,
+      access,
+      "assignment.attachment-removed",
+      "assignment-submission",
+      row.submission_id,
+      { assetId: row.media_asset_id },
+    ),
+  ]);
+  const bucket = await getMediaStore();
+  await bucket.delete(row.object_key).catch(() => undefined);
+  return getLearnerSchoolDay(access);
+}
+
+/**
+ * Streams one attachment to someone entitled to read it.
+ *
+ * Entitled means the learner who handed it in, or a teacher assigned to the
+ * offering the assignment belongs to. Guardians are deliberately not included
+ * yet: nothing in the product shows them submitted work, and widening the read
+ * here would be the only place it were possible.
+ */
+export async function getSubmissionAttachmentResponse(
+  access: AccessContext,
+  attachmentId: string,
+): Promise<Response> {
+  await ensureOperationsFoundation();
+  const database = await getSchoolDatabase();
+  const row = await database
+    .prepare(
+      `SELECT m.object_key, m.content_type, m.original_filename, m.size_bytes,
+        s.learner_person_id, a.offering_id
+      FROM submission_attachments t
+      INNER JOIN assignment_submissions s ON s.id = t.submission_id
+      INNER JOIN assignments a ON a.id = s.assignment_id
+      INNER JOIN media_assets m ON m.id = t.media_asset_id
+      WHERE t.id = ? AND t.tenant_id = ?
+      LIMIT 1`,
+    )
+    .bind(attachmentId, access.tenantId)
+    .first<{
+      content_type: string;
+      learner_person_id: string;
+      object_key: string;
+      offering_id: string;
+      original_filename: string;
+      size_bytes: number;
+    }>();
+  if (!row) return new Response("Attachment not found.", { status: 404 });
+
+  const isOwner = access.actorPersonId === row.learner_person_id;
+  const scoped = isOwner ? access : await withTeacherAssignments(access);
+  if (!isOwner && !canTeachOffering(scoped, row.offering_id)) {
+    throw new AuthorizationError(
+      "You are not authorised to read this submission.",
+    );
+  }
+
+  const bucket = await getMediaStore();
+  const object = await bucket.get(row.object_key);
+  if (!object) return new Response("Attachment not found.", { status: 404 });
+
+  return new Response(object.body, {
+    headers: {
+      "cache-control": "private, no-store",
+      "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
+        row.original_filename,
+      )}`,
+      "content-length": String(row.size_bytes),
+      "content-type": row.content_type,
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
+/** Attachments for a set of submissions, in one query rather than per row. */
+async function loadSubmissionAttachments(
+  database: SchoolDatabase,
+  tenantId: string,
+  submissionIds: string[],
+): Promise<Map<string, SubmissionAttachmentView[]>> {
+  const bySubmission = new Map<string, SubmissionAttachmentView[]>();
+  if (submissionIds.length === 0) return bySubmission;
+
+  const placeholders = submissionIds.map(() => "?").join(", ");
+  const result = await database
+    .prepare(
+      `SELECT t.id, t.submission_id, t.uploaded_at, m.original_filename,
+        m.content_type, m.size_bytes
+      FROM submission_attachments t
+      INNER JOIN media_assets m ON m.id = t.media_asset_id
+      WHERE t.tenant_id = ? AND m.status = 'ready'
+        AND t.submission_id IN (${placeholders})
+      ORDER BY t.uploaded_at`,
+    )
+    .bind(tenantId, ...submissionIds)
+    .all<{
+      content_type: string;
+      id: string;
+      original_filename: string;
+      size_bytes: number;
+      submission_id: string;
+      uploaded_at: string;
+    }>();
+
+  for (const row of result.results) {
+    const list = bySubmission.get(row.submission_id) ?? [];
+    list.push({
+      contentType: row.content_type,
+      filename: row.original_filename,
+      id: row.id,
+      sizeBytes: Number(row.size_bytes),
+      uploadedAt: row.uploaded_at,
+    });
+    bySubmission.set(row.submission_id, list);
+  }
+  return bySubmission;
 }
 
 export async function getGuardianSchoolDay(
@@ -1146,10 +1522,16 @@ async function loadMarkingQueue(
       title: string;
       version_id: string;
     }>();
+  const attachments = await loadSubmissionAttachments(
+    database,
+    tenantId,
+    result.results.map((row) => row.id),
+  );
   return Promise.all(
     result.results.map(async (row) => ({
       assignmentId: row.assignment_id,
       assignmentTitle: row.title,
+      attachments: attachments.get(row.id) ?? [],
       criteria: await loadRubricCriteria(
         database,
         tenantId,
@@ -1374,7 +1756,7 @@ async function loadLearnerAssignments(
   const result = await database
     .prepare(
       `SELECT a.id, v.title, v.due_at, v.maximum_points, s.status,
-        s.total_points, s.feedback
+        s.total_points, s.feedback, s.id AS submission_id
       FROM assignments a
       INNER JOIN assignment_versions v
         ON v.assignment_id = a.id AND v.version = a.current_version
@@ -1391,10 +1773,17 @@ async function loadLearnerAssignments(
       id: string;
       maximum_points: number;
       status: SubmissionStatus;
+      submission_id: string;
       title: string;
       total_points: number | null;
     }>();
+  const attachments = await loadSubmissionAttachments(
+    database,
+    tenantId,
+    result.results.map((row) => row.submission_id),
+  );
   return result.results.map((row) => ({
+    attachments: attachments.get(row.submission_id) ?? [],
     dueAt: row.due_at,
     feedback: row.feedback,
     id: row.id,

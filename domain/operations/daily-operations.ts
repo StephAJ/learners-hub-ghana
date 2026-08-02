@@ -52,6 +52,25 @@ export function preparePublishedAssignment(
   return { ...assignment, status: "published" as const };
 }
 
+/**
+ * What counts as work worth handing in.
+ *
+ * Either a written answer or an attached file. The rule used to be "the text
+ * box is not empty", which meant a learner who had photographed four pages of
+ * working still had to type something into it before the button would enable —
+ * so they typed a full stop, and the marker got a full stop.
+ */
+export function assertSubmittableWork(input: {
+  attachmentCount: number;
+  responseText: string;
+}) {
+  if (input.responseText.trim().length > 0) return;
+  if (input.attachmentCount > 0) return;
+  throw new DailyOperationsPolicyError(
+    "Write a response or attach a file before submitting the assignment.",
+  );
+}
+
 export function scoreRubric(
   criteria: RubricCriterion[],
   scores: RubricScore[],

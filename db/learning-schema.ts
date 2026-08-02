@@ -647,6 +647,17 @@ CREATE TABLE IF NOT EXISTS "rubric_scores" (
   FOREIGN KEY ("marked_by_person_id") REFERENCES "people" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "submission_attachments" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "submission_id" text NOT NULL,
+  "media_asset_id" text NOT NULL,
+  "uploaded_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("submission_id") REFERENCES "assignment_submissions" ("id"),
+  FOREIGN KEY ("media_asset_id") REFERENCES "media_assets" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "teacher_assignments" (
   "id" text PRIMARY KEY,
   "tenant_id" text NOT NULL,
@@ -833,6 +844,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS "offerings_subject_class_year_idx"
 
 CREATE UNIQUE INDEX IF NOT EXISTS "subjects_tenant_code_idx"
   ON "subjects" ("tenant_id", "code");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "submission_attachment_asset_idx"
+  ON "submission_attachments" ("submission_id", "media_asset_id");
+
+CREATE INDEX IF NOT EXISTS "submission_attachment_submission_idx"
+  ON "submission_attachments" ("tenant_id", "submission_id");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "teacher_offering_assignment_idx"
   ON "teacher_assignments" ("tenant_id", "offering_id", "teacher_person_id");

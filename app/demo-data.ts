@@ -23,6 +23,7 @@ import {
   type DemoAssessment,
   type DemoSubject,
 } from "../domain/demo/greenfield";
+import type { LessonBlock } from "../domain/learning/types";
 
 /* ==========================================================================
    Demo projections
@@ -91,10 +92,34 @@ export function demoLearnerSubject(subject: DemoSubject): LearnerSubject {
   };
 }
 
+/**
+ * Resolves a demo block's asset id into the file metadata the player shows.
+ *
+ * The database does this with a join; without one the demo would render every
+ * resource as "no longer available", which is exactly the dead end the
+ * download used to be. The asset records already exist — they were only never
+ * connected to the blocks that reference them.
+ */
+function withDemoAttachment(block: LessonBlock): LessonBlock {
+  const assetId = block.config?.mediaAssetId;
+  if (!assetId) return block;
+  const asset = demoMediaAssets.find((item) => item.id === assetId);
+  if (!asset || asset.status !== "ready") return block;
+  return {
+    ...block,
+    attachment: {
+      contentType: asset.contentType,
+      filename: asset.originalFilename,
+      kind: asset.kind,
+      sizeBytes: asset.sizeBytes,
+    },
+  };
+}
+
 function toLearnerLesson(lesson: DemoSubject["lessons"][number]): LearnerLesson {
   return {
     availability: lesson.availability,
-    blocks: lesson.blocks,
+    blocks: lesson.blocks.map(withDemoAttachment),
     estimatedMinutes: lesson.estimatedMinutes,
     id: lesson.id,
     objectives: lesson.objectives,

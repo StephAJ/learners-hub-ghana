@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertSubmittableWork,
   changeTimetableEntry,
   correctAttendance,
   findTimetableClashes,
@@ -209,3 +210,35 @@ function timetable(
     weekday: 4,
   };
 }
+
+describe("assertSubmittableWork", () => {
+  it("accepts a written answer with no attachments", () => {
+    expect(() =>
+      assertSubmittableWork({
+        attachmentCount: 0,
+        responseText: "The small intestine absorbs most nutrients.",
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts an attached file with no written answer", () => {
+    expect(() =>
+      assertSubmittableWork({ attachmentCount: 1, responseText: "" }),
+    ).not.toThrow();
+  });
+
+  it("rejects an empty submission", () => {
+    expect(() =>
+      assertSubmittableWork({ attachmentCount: 0, responseText: "" }),
+    ).toThrow(/attach a file/i);
+  });
+
+  it("does not accept whitespace as a written answer", () => {
+    expect(() =>
+      assertSubmittableWork({
+        attachmentCount: 0,
+        responseText: " \t \n ",
+      }),
+    ).toThrow(/attach a file/i);
+  });
+});

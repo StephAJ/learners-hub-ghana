@@ -68,6 +68,15 @@ const previewWorkspace: TeacherOperationsWorkspace = {
       "Ama Serwaa",
       "LH-260112",
       "I linked the respiratory and circulatory systems and labelled how oxygen travels from the lungs to cells.",
+      [
+        {
+          contentType: "application/pdf",
+          filename: "body-systems-model-diagram.pdf",
+          id: "attachment-body-ama-1",
+          sizeBytes: 1_884_160,
+          uploadedAt: "2026-07-23T15:02:00Z",
+        },
+      ],
     ),
   ],
   periods: [
@@ -555,7 +564,35 @@ function RubricMarker({
         </div>
         <em>{item.status}</em>
       </header>
-      <p className="learner-response">{item.responseText}</p>
+      {item.responseText ? (
+        <p className="learner-response">{item.responseText}</p>
+      ) : null}
+
+      {/* Handed-in files open in a new tab so the marker keeps this form, and
+          the scores they have already typed into it. */}
+      {item.attachments.length > 0 ? (
+        <ul className="submission-files">
+          {item.attachments.map((file) => (
+            <li key={file.id}>
+              <a
+                href={`/api/learn/submissions/attachment?attachmentId=${encodeURIComponent(file.id)}`}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                {file.filename}
+              </a>
+              <span>{formatFileSize(file.sizeBytes)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {!item.responseText && item.attachments.length === 0 ? (
+        <p className="learner-response">
+          Handed in with no written answer and no attached file.
+        </p>
+      ) : null}
+
       <div className="rubric-score-grid">
         {item.criteria.map((criterion) => (
           <label key={criterion.id}>
@@ -1045,10 +1082,14 @@ function submission(
   learnerName: string,
   studentId: string,
   responseText: string,
+  /* Handed-in files. One preview submission carries them so the marking card
+     shows what a scanned hand-in actually looks like. */
+  attachments: MarkingSubmission["attachments"] = [],
 ): MarkingSubmission {
   return {
     assignmentId: "assignment-body-systems",
     assignmentTitle: "Body systems model",
+    attachments,
     criteria: previewRubric,
     id,
     learnerName,
@@ -1118,6 +1159,19 @@ function periodFor(
   entry?: TimetableEntryView,
 ) {
   return workspace.periods.find((item) => item.id === entry?.periodId);
+}
+
+/** Decimal units, so the page and the marker's own file manager agree. */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const units = ["kB", "MB", "GB"];
+  let value = bytes / 1000;
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
 
 function initials(name: string) {

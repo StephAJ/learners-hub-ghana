@@ -427,11 +427,116 @@
   line-height: 1.45;
 }
 
+/* Files already attached to a submission. Shown whether or not the work has
+   been handed in — a learner asking "did it arrive?" needs to see the list. */
+.submission-files {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+.submission-files li {
+  align-items: center;
+  background: #f3f6f3;
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.submission-files a {
+  color: var(--day-green);
+  flex: 1;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-width: 0;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submission-files a:hover {
+  text-decoration: underline;
+}
+
+.submission-files span {
+  color: var(--day-muted);
+  flex: 0 0 auto;
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+}
+
+.submission-files button {
+  background: transparent;
+  border: 0;
+  color: var(--day-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: var(--fs-16);
+  line-height: 1;
+  padding: var(--space-1);
+}
+
+.submission-files button:hover {
+  color: #9b4d3c;
+}
+
 .learner-submission {
   margin-top: 12px;
   display: grid !important;
-  grid-template-columns: 1fr auto;
   gap: 8px;
+}
+
+.learner-submission-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+/* The input itself is hidden rather than styled: browsers give almost no
+   control over the native control, and the label is already a valid,
+   keyboard-reachable trigger for it. */
+.learner-attach input {
+  height: 0;
+  opacity: 0;
+  position: absolute;
+  width: 0;
+}
+
+.learner-attach span {
+  align-items: center;
+  border: 1px dashed var(--day-line);
+  border-radius: var(--radius-sm);
+  color: var(--day-green);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.learner-attach:hover span {
+  background: var(--brand-soft);
+  border-color: var(--day-green);
+}
+
+.learner-attach input:focus-visible + span {
+  outline: 2px solid var(--day-green);
+  outline-offset: 2px;
+}
+
+.learner-submission > small {
+  color: var(--day-muted);
+  font-size: var(--fs-13);
 }
 
 .learner-submission textarea {

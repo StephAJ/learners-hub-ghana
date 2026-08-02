@@ -931,6 +931,45 @@
   margin-top: 8px;
 }
 
+/* Filename, format and size, so the learner knows what the download costs
+   before they start it. The name truncates and the other two never do — on a
+   narrow screen the size is the fact that decides it. */
+.resource-facts {
+  color: var(--workspace-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-13);
+  gap: var(--space-2) var(--space-3);
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+.resource-facts li {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.resource-facts li:first-child {
+  color: var(--ink);
+  font-weight: var(--fw-semibold);
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-facts li + li::before {
+  background: var(--line-strong);
+  border-radius: 50%;
+  content: "";
+  flex: 0 0 auto;
+  height: 3px;
+  width: 3px;
+}
+
 .resource-block > button,
 .resource-block > a {
   align-items: center;
@@ -941,9 +980,27 @@
   display: inline-flex;
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
+  gap: var(--space-2);
   justify-content: center;
   min-height: 38px;
-  padding: 0 12px;
+  padding: 0 var(--space-4);
+  transition: background 160ms ease;
+}
+
+.resource-block > a:hover {
+  background: var(--brand-strong);
+}
+
+@media (max-width: 680px) {
+  /* The glyph and the button drop below the copy rather than squeezing it. */
+  .resource-block {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .resource-facts li:first-child {
+    max-width: 100%;
+  }
 }
 
 .h5p-block {

@@ -1,3 +1,5 @@
+import type { MediaKind } from "../content/types";
+
 export type LessonStatus = "draft" | "published" | "archived";
 
 export type LessonBlockType =
@@ -7,7 +9,20 @@ export type LessonBlockType =
   | "practice"
   | "resource";
 
+/* What a block's attached file actually is. Filled in when a lesson is read,
+   never when it is authored — the block itself stores only an asset id, and a
+   learner deciding whether to spend data on a download needs to know the name,
+   the format and the size first. */
+export type LessonAttachment = {
+  contentType: string;
+  filename: string;
+  kind: MediaKind;
+  sizeBytes: number;
+};
+
 export type LessonBlock = {
+  /** Resolved from `config.mediaAssetId` on read. Absent while authoring. */
+  attachment?: LessonAttachment;
   config?: {
     activityId?: string;
     mediaAssetId?: string;
