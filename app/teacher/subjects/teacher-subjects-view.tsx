@@ -7,7 +7,10 @@ import type {
   TeacherLessonWorkspace,
 } from "../../../db/learning-repository";
 import type { TeacherContentWorkspace } from "../../../db/content-repository";
-import type { LessonBlockType } from "../../../domain/learning/types";
+import type {
+  LessonBlock,
+  LessonBlockType,
+} from "../../../domain/learning/types";
 import { demoContentWorkspace, demoTeacherLessonWorkspace } from "../../demo-data";
 import { demoSubjectBySlug } from "../../../domain/demo/greenfield";
 import {
@@ -487,11 +490,10 @@ export function TeacherSubjectsView() {
 type CreateLessonFormInput = {
   availableFrom?: string;
   blocks: Array<{
-    config?: {
-      activityId?: string;
-      mediaAssetId?: string;
-      provider?: "h5p";
-    };
+    /* Borrowed from the domain type rather than restated. The local copy had
+       drifted: it never listed the note fields the text branch has been
+       sending since highlights were added, so nothing checked them. */
+    config?: LessonBlock["config"];
     content: string;
     title: string;
     type: LessonBlockType;
@@ -544,6 +546,7 @@ function LessonDraftForm({
   const [blockTitle, setBlockTitle] = useState("");
   const [blockContent, setBlockContent] = useState("");
   const [attachmentId, setAttachmentId] = useState("");
+  const [posterId, setPosterId] = useState("");
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [blocks, setBlocks] = useState<
@@ -587,18 +590,13 @@ function LessonDraftForm({
     setBlocks((current) => [
       ...current,
       {
-        config:
-          blockType === "interactive" && attachmentId
-            ? { activityId: attachmentId, provider: "h5p" }
-            : (blockType === "video" || blockType === "resource") &&
-                attachmentId
-              ? { mediaAssetId: attachmentId }
-              : blockType === "text" && noteBody.trim()
-                ? {
-                    noteBody: noteBody.trim(),
-                    noteTitle: noteTitle.trim() || undefined,
-                  }
-                : undefined,
+        config: blockConfig({
+          attachmentId,
+          blockType,
+          noteBody,
+          noteTitle,
+          posterId,
+        }),
         content: blockContent.trim(),
         id: crypto.randomUUID(),
         title: blockTitle.trim(),
@@ -610,6 +608,7 @@ function LessonDraftForm({
     setNoteTitle("");
     setNoteBody("");
     setAttachmentId("");
+    setPosterId("");
   }
 
   function moveBlock(index: number, direction: -1 | 1) {
@@ -722,7 +721,7 @@ function LessonDraftForm({
           <legend>Lesson activities</legend>
           <div className="block-type-picker">
             {(["text", "video", "interactive", "practice", "resource"] as LessonBlockType[]).map((type) => (
-              <button className={blockType === type ? "active" : ""} key={type} onClick={() => { setBlockType(type); setAttachmentId(""); }} type="button">
+              <button className={blockType === type ? "active" : ""} key={type} onClick={() => { setBlockType(type); setAttachmentId(""); setPosterId(""); }} type="button">
                 <span aria-hidden="true">{blockSymbol(type)}</span>{type}
               </button>
             ))}
@@ -768,6 +767,31 @@ function LessonDraftForm({
             </small>
           </label>
         )}
+        {blockType === "video" && (
+          <label>
+            <span>Thumbnail (optional)</span>
+            <select
+              onChange={(event) => setPosterId(event.target.value)}
+              value={posterId}
+            >
+              <option value="">Use generated artwork</option>
+              {assets
+                .filter(
+                  (asset) => asset.status === "ready" && asset.kind === "image",
+                )
+                .map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    {asset.originalFilename}
+                  </option>
+                ))}
+            </select>
+            <small>
+              The still learners see before they press play. Leave it on
+              generated artwork and each activity gets its own — no lesson shows
+              a blank frame for want of a thumbnail.
+            </small>
+          </label>
+        )}
         <button className="add-block-button" onClick={addBlock} type="button">+ Add activity</button>
         <ol className="draft-block-list">
           {blocks.map((block, index) => (
@@ -798,6 +822,57 @@ function releaseLabel(lesson: LessonSummary) {
   }
   if (lesson.releaseMode === "scheduled") return "Scheduled release";
   return "Available when published";
+}
+
+/**
+ * Folds the block builder's attachment fields into the config a block stores.
+ *
+ * Extracted from the nested conditional it used to be because the video branch
+ * now carries two assets rather than one, and expressing "the poster is
+ * optional, but only on a video" as another ternary layer was how the
+ * interactive branch's provider once went missing.
+ */
+function blockConfig({
+  attachmentId,
+  blockType,
+  noteBody,
+  noteTitle,
+  posterId,
+}: {
+  attachmentId: string;
+  blockType: LessonBlockType;
+  noteBody: string;
+  noteTitle: string;
+  posterId: string;
+}): CreateLessonFormInput["blocks"][number]["config"] {
+  if (blockType === "interactive") {
+    return attachmentId
+      ? { activityId: attachmentId, provider: "h5p" }
+      : undefined;
+  }
+
+  if (blockType === "video") {
+    /* A poster is worth keeping even with no footage yet: the teacher has said
+       what the activity should look like, and the block is still a draft. */
+    if (!attachmentId && !posterId) return undefined;
+    return {
+      ...(attachmentId ? { mediaAssetId: attachmentId } : {}),
+      ...(posterId ? { posterAssetId: posterId } : {}),
+    };
+  }
+
+  if (blockType === "resource") {
+    return attachmentId ? { mediaAssetId: attachmentId } : undefined;
+  }
+
+  if (blockType === "text" && noteBody.trim()) {
+    return {
+      noteBody: noteBody.trim(),
+      noteTitle: noteTitle.trim() || undefined,
+    };
+  }
+
+  return undefined;
 }
 
 function blockSymbol(type: LessonBlockType) {

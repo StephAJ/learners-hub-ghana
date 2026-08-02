@@ -619,6 +619,14 @@
   object-fit: cover;
 }
 
+/* Sits over the <video> rather than replacing it, so the element keeps loading
+   its metadata underneath and the play control still hands over to it. */
+.video-poster-overlay {
+  inset: 0;
+  position: absolute;
+  z-index: 1;
+}
+
 .block-copy a {
   color: var(--primary);
   text-decoration: underline;

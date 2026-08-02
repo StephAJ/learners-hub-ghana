@@ -18,6 +18,7 @@ import {
   ReadIcon,
   SparkIcon,
 } from "../../../components/icons";
+import { LessonPoster } from "../../../components/lesson-poster";
 import { beginFocusMode, endFocusMode } from "../../../components/sidebar-state";
 import { demoActivityById } from "../../../../domain/demo/greenfield";
 import { previewLessonsFor, previewMediaUrl } from "../../../preview-workspace";
@@ -555,11 +556,13 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
 
   /* A teacher working without a database uploads into the in-tab preview
      library, so that is tried before the authenticated media route. */
-  const source = resolveLessonVideo(block.config, (assetId) =>
-    previewMediaUrl(assetId) ??
-    `/api/content/media?assetId=${encodeURIComponent(assetId)}`,
-  );
+  const source = resolveLessonVideo(block.config, mediaUrlFor);
   const mediaUrl = source?.kind === "youtube" ? undefined : source?.url;
+
+  /* The teacher's own still, if they attached one. Everything below falls back
+     to generated artwork rather than to nothing. */
+  const posterAssetId = block.config?.posterAssetId;
+  const posterUrl = posterAssetId ? mediaUrlFor(posterAssetId) : undefined;
 
   async function play() {
     const video = videoRef.current;
@@ -606,12 +609,18 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
             />
           ) : (
             <>
+              {/* The teacher's still wins over YouTube's own: they chose a
+                  frame that suits the lesson, and it is served from the
+                  school's origin rather than pinging Google before play. */}
               <img
                 alt=""
                 aria-hidden="true"
                 className="video-poster"
                 loading="lazy"
-                src={`https://i.ytimg.com/vi/${source.videoId}/hqdefault.jpg`}
+                src={
+                  posterUrl ??
+                  `https://i.ytimg.com/vi/${source.videoId}/hqdefault.jpg`
+                }
               />
               {/* Deferring the iframe until this is pressed is what actually
                   holds off YouTube's cookies until playback — embedding it
@@ -679,6 +688,25 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
           Your browser cannot play this lesson video.
         </video>
 
+        {/* Covers the video element until playback starts. `preload="metadata"`
+            gives us a duration but not a frame, so without this the stage is a
+            black rectangle — indistinguishable from a video that failed. */}
+        {!started && !failed ? (
+          posterUrl ? (
+            <img
+              alt=""
+              aria-hidden="true"
+              className="video-poster video-poster-overlay"
+              src={posterUrl}
+            />
+          ) : (
+            <LessonPoster
+              className="video-poster video-poster-overlay"
+              seed={block.id}
+            />
+          )
+        ) : null}
+
         {failed ? (
           <div className="video-stage-message">
             <strong>This video could not be loaded</strong>
@@ -715,6 +743,14 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
       </div>
       {copy}
     </article>
+  );
+}
+
+/** Preview uploads win over the authenticated route — see LessonVideoBlock. */
+function mediaUrlFor(assetId: string): string {
+  return (
+    previewMediaUrl(assetId) ??
+    `/api/content/media?assetId=${encodeURIComponent(assetId)}`
   );
 }
 

@@ -24,6 +24,11 @@ export type LessonBlock = {
        are first-class. When both are set the uploaded asset wins, because it is
        the copy the school controls. */
     videoUrl?: string;
+    /* The still a learner sees before pressing play. Optional on purpose: a
+       teacher who has not chosen one gets generated artwork rather than a
+       black rectangle, so the block never looks broken for want of a
+       thumbnail nobody had time to make. */
+    posterAssetId?: string;
   };
   content: string;
   id: string;
