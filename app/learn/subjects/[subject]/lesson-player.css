@@ -615,7 +615,10 @@
   width: 100%;
 }
 
-.video-poster {
+/* Scoped to the stage so it outweighs `.video-stage img` above, which would
+   otherwise letterbox a 4:3 YouTube thumbnail inside the 16:9 stage. A poster
+   is a backdrop for the play control, so it fills rather than fits. */
+.video-stage .video-poster {
   object-fit: cover;
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LearnerSubject } from "../../../../db/learning-repository";
@@ -634,15 +635,17 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
               {/* The teacher's still wins over YouTube's own: they chose a
                   frame that suits the lesson, and it is served from the
                   school's origin rather than pinging Google before play. */}
-              <img
+              <Image
                 alt=""
                 aria-hidden="true"
                 className="video-poster"
-                loading="lazy"
+                fill
+                sizes="(max-width: 680px) 100vw, 55vw"
                 src={
                   posterUrl ??
                   `https://i.ytimg.com/vi/${source.videoId}/hqdefault.jpg`
                 }
+                unoptimized
               />
               {/* Deferring the iframe until this is pressed is what actually
                   holds off YouTube's cookies until playback — embedding it
@@ -715,11 +718,17 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
             black rectangle — indistinguishable from a video that failed. */}
         {!started && !failed ? (
           posterUrl ? (
-            <img
+            /* unoptimized because the media route is access-checked: the image
+               optimizer would fetch it server-side with no learner session and
+               get a 401 back. */
+            <Image
               alt=""
               aria-hidden="true"
               className="video-poster video-poster-overlay"
+              fill
+              sizes="(max-width: 680px) 100vw, 55vw"
               src={posterUrl}
+              unoptimized
             />
           ) : (
             <LessonPoster
