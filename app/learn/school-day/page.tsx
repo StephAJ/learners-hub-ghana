@@ -20,7 +20,6 @@ export default async function LearnerSchoolDayPage() {
   return (
     <WorkspaceShell
       activeHref="/learn/school-day"
-      description="Your timetable, the work that is due, and your attendance record."
       eyebrow={schoolDateLabel()}
       title="Your school day"
       user={user}

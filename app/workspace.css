@@ -28,7 +28,10 @@
   --workspace-sidebar: var(--brand-deep);
   --sidebar-height: 100vh;
   --sidebar-width: 15.5rem;
-  --topbar-height: 6.75rem;
+  /* One height for every toprail in the app, including the lesson player's
+     own. The rail carries an eyebrow over a title and nothing else — it used
+     to also carry a description line, which is what forced it to 6.75rem. */
+  --topbar-height: 4.25rem;
   /* One gutter for the topbar and the content column, so the page has a
      single left edge instead of the two it had. */
   --page-gutter: clamp(var(--space-6), 4vw, 3.5rem);
@@ -374,7 +377,7 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
   gap: var(--space-5);
   grid-template-columns: 1fr auto auto;
   min-height: var(--topbar-height);
-  padding: var(--space-5) var(--page-inline);
+  padding: var(--space-3) var(--page-inline);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -388,27 +391,23 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
 .workspace-topbar p,
 .workspace-eyebrow {
   color: var(--workspace-accent);
-  font-size: var(--fs-13);
+  font-size: var(--fs-12);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--tracking-label);
-  margin: 0 0 4px;
+  margin: 0;
   text-transform: uppercase;
 }
 
 .workspace-topbar h1 {
   font-family: var(--font-serif);
-  font-size: var(--fs-page);
+  font-size: var(--fs-22);
   font-weight: var(--fw-regular);
   letter-spacing: var(--tracking-display);
   line-height: var(--lh-display);
-  margin: 0;
-}
-
-.workspace-topbar > div:first-of-type > span {
-  color: var(--workspace-muted);
-  display: block;
-  font-size: var(--fs-16);
-  margin-top: 8px;
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-topbar-person {
@@ -1012,8 +1011,7 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
   .workspace-topbar {
     gap: 12px;
     grid-template-columns: auto 1fr;
-    min-height: 92px;
-    padding: var(--space-4) var(--page-inline);
+    padding: var(--space-3) var(--page-inline);
   }
 
   .workspace-mobile-brand {
@@ -1071,11 +1069,7 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
   }
 
   .workspace-topbar h1 {
-    font-size: var(--fs-22);
-  }
-
-  .workspace-topbar > div:first-of-type > span {
-    display: none;
+    font-size: var(--fs-18);
   }
 
   .workspace-action-row {

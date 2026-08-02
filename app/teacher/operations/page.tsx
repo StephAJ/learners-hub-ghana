@@ -10,7 +10,6 @@ export default async function OperationsPage() {
   return (
     <WorkspaceShell
       activeHref="/teacher/operations"
-      description="Today's timetable, the register and assignment submissions."
       eyebrow="Teaching"
       title="My classes"
       user={user}

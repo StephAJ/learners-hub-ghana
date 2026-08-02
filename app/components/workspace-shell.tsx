@@ -61,7 +61,6 @@ export function WorkspaceShell({
   activeHref,
   children,
   contentClassName,
-  description,
   eyebrow,
   hideTopbar,
   title,
@@ -74,7 +73,6 @@ export function WorkspaceShell({
   /* Lets a page opt out of the standard padded column — the lesson player
      needs the full width for its outline and stage. */
   contentClassName?: string;
-  description: string;
   eyebrow: string;
   /* Lets a page own its own sticky header instead — the lesson player builds
      one around the lesson it is showing rather than the subject shell. */
@@ -126,7 +124,6 @@ export function WorkspaceShell({
             <div className="workspace-topbar-heading">
               <p>{eyebrow}</p>
               <h1>{title}</h1>
-              <span>{description}</span>
             </div>
             {toolbar ? (
               <div className="workspace-topbar-tools">{toolbar}</div>

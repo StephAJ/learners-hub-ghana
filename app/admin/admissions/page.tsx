@@ -10,7 +10,6 @@ export default async function AdmissionsPage() {
   return (
     <WorkspaceShell
       activeHref="/admin/admissions"
-      description="Applications waiting on a decision, and the intake they belong to."
       eyebrow="Administration"
       title="Admissions"
       user={user}

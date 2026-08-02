@@ -254,11 +254,10 @@
    showing is more useful here than the subject/class/teacher line every
    other page leads with, and folding the old course-stage-head into this
    sticky rail means the preview chip and step controls travel with it
-   instead of scrolling away with the stage. */
-.lesson-shell {
-  --topbar-height: 4.25rem;
-}
+   instead of scrolling away with the stage.
 
+   Height comes from --topbar-height on the surrounding workspace shell, so
+   this rail and every other toprail in the app stay the same size. */
 .lesson-toprail {
   align-items: center;
   background: rgba(255, 255, 255, 0.82);

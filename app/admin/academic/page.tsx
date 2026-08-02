@@ -10,7 +10,6 @@ export default async function AcademicPage() {
   return (
     <WorkspaceShell
       activeHref="/admin/academic"
-      description="Academic years, class groups, subjects and enrolment."
       eyebrow="Administration"
       title="Academics"
       user={user}

@@ -10,7 +10,6 @@ export default async function TeacherContentPage() {
   return (
     <WorkspaceShell
       activeHref="/teacher/content"
-      description="One secure library per subject, reused across every lesson."
       eyebrow="Teaching"
       title="Content library"
       user={user}

@@ -10,7 +10,6 @@ export default async function PeoplePage() {
   return (
     <WorkspaceShell
       activeHref="/admin/people"
-      description="Staff, learners and guardians, and what each of them can reach."
       eyebrow="Administration"
       title="People"
       user={user}

@@ -17,7 +17,6 @@ export default async function AdminHomePage() {
   return (
     <WorkspaceShell
       activeHref="/admin"
-      description="34 applications, 4 staff invitations, and 2 reports are waiting."
       eyebrow={schoolDateLabel()}
       title={schoolGreeting()}
       user={user}

@@ -1,9 +1,8 @@
-import Link from "next/link";
-import { BrandMark } from "../components/brand-mark";
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "../auth";
 import { safeReturnPath } from "../../server/return-path";
-import { AuthenticationForm } from "./authentication-form";
+import { greenfieldProfile } from "../../domain/school/public-profile";
+import { SignInCard } from "./sign-in-card";
 
 export const dynamic = "force-dynamic";
 
@@ -18,31 +17,10 @@ export default async function SignInPage({
   if (user) redirect(returnTo);
 
   return (
-    <div className="authentication-page">
-      <header>
-        <Link className="public-brand" href="/">
-          <BrandMark size={42} />
-          <span>
-            <strong>Learners Hub</strong>
-            <small>Greenfield Academy</small>
-          </span>
-        </Link>
-        <Link href="/">Back to school home</Link>
-      </header>
-      <main>
-        <section>
-          <p className="public-kicker">Staff, students, and families</p>
-          <h1>Sign in to Learners Hub</h1>
-          <p>
-            Sign in to your school workspace, or create an account to apply for
-            admission.
-          </p>
-        </section>
-        <AuthenticationForm
-          initialMode={parameters.mode === "register" ? "register" : "sign-in"}
-          returnTo={returnTo}
-        />
-      </main>
-    </div>
+    <SignInCard
+      initialMode={parameters.mode === "register" ? "register" : "sign-in"}
+      returnTo={returnTo}
+      school={greenfieldProfile}
+    />
   );
 }
