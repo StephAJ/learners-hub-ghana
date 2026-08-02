@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "better-auth": "^1.6.25",
+    "canvas-confetti": "^1.9.4",
     "drizzle-orm": "0.45.2",
     "next": "16.2.12",
     "pg": "^8.22.0",
@@ -27,6 +28,7 @@
     "react-dom": "19.2.6"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "22.19.19",
     "@types/pg": "^8.20.0",
     "@types/react": "19.2.14",

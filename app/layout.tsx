@@ -1,8 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import "./public-site.css";
 import "./workspace.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 const description =
   "The school system Greenfield Academy uses for admissions, lesson planning, attendance, marking, and end-of-term reports.";
@@ -57,7 +64,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html className={inter.variable} lang="en">
       <body>{children}</body>
     </html>
   );

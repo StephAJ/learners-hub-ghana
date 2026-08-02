@@ -66,7 +66,7 @@ export default async function StudentHomePage() {
         <article>
           <small>Work due</small>
           <strong>3</strong>
-          <Link href="/learn/school-day">Next due tomorrow</Link>
+          <Link href="/learn/school-day#assignments">Next due tomorrow</Link>
         </article>
         <article>
           <small>Course progress</small>
@@ -76,7 +76,7 @@ export default async function StudentHomePage() {
         <article>
           <small>New feedback</small>
           <strong>2</strong>
-          <Link href="/learn/school-day">Read feedback</Link>
+          <Link href="/learn/school-day#assignments">Read feedback</Link>
         </article>
       </section>
 
@@ -117,7 +117,7 @@ export default async function StudentHomePage() {
               <strong>Digestive system knowledge check</strong>
               <small>Integrated Science · 20 minutes</small>
             </Link>
-            <Link href="/learn/school-day">
+            <Link href="/learn/school-day#assignments">
               <span>Assignment · Friday</span>
               <strong>Comprehension exercise</strong>
               <small>English Language</small>

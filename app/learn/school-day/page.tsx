@@ -276,7 +276,7 @@ export default function LearnerSchoolDayPage() {
             </div>
           </section>
 
-          <section className="school-day-panel">
+          <section className="school-day-panel" id="assignments">
             <div className="school-day-heading">
               <div>
                 <p>Due work</p>

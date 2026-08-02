@@ -146,17 +146,18 @@
   grid-template-columns: 45px 1fr;
 }
 
-.outline-subject > span {
-  align-items: center;
-  background: var(--brand-accent);
+.outline-subject-cover {
   border-radius: var(--radius-md);
-  color: var(--brand-accent-ink);
-  display: flex;
-  font-family: var(--font-serif);
-  font-size: var(--fs-16);
-  font-weight: var(--fw-semibold);
+  display: block;
   height: 45px;
-  justify-content: center;
+  overflow: hidden;
+  width: 45px;
+}
+
+.outline-subject-cover svg {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 .outline-subject small,
@@ -242,6 +243,7 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   color: var(--brand-on-deep);
   cursor: pointer;
   display: grid;
@@ -251,7 +253,16 @@
   min-height: 51px;
   padding: 8px;
   text-align: left;
+  transition: background 160ms ease;
   width: 100%;
+}
+
+.outline-lessons > button:first-child {
+  border-top: 0;
+}
+
+.outline-lessons > button:not(:disabled):not(.active):hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .outline-lessons > button.active {
@@ -350,20 +361,24 @@
 
 .lesson-main {
   margin: 0 auto;
-  max-width: 960px;
+  max-width: 1040px;
   padding: 38px clamp(22px, 5vw, 68px) 80px;
   width: 100%;
 }
 
 /* The lesson header is a card rather than loose text with a dial floating at
    the right edge, so the title, its standards and the learner's progress read
-   as one unit. */
+   as one unit. A soft brand wash instead of flat white gives it presence as
+   the page's banner, the way a course platform's title card sits above its
+   player rather than blending into the rest of the content. */
 .lesson-heading {
   align-items: center;
-  background: var(--card);
+  background:
+    radial-gradient(circle at 100% 0%, var(--brand-tint), transparent 60%),
+    var(--card);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
   display: grid;
   gap: var(--space-6);
   grid-template-columns: minmax(0, 1fr) auto;
@@ -609,11 +624,47 @@
 .lesson-block {
   background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
   margin-top: 20px;
   min-height: 330px;
+  overflow: hidden;
   padding: clamp(22px, 4vw, 38px);
+  position: relative;
+}
+
+.lesson-block::before {
+  background: var(--primary);
+  content: "";
+  height: 4px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+/* The video block is a theatre, not a card: the player runs full-bleed and
+   dark to the block's own edges, with the descriptive copy sitting in a
+   quieter panel underneath — the same shape Coursera and Udemy use to make
+   the video the obvious, immersive focal point of the page rather than one
+   more bordered box among several. */
+.lesson-block-video {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  margin-top: 20px;
+  overflow: hidden;
+}
+
+.lesson-block-video .video-stage {
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  max-height: 560px;
+}
+
+.lesson-block-video .block-copy {
+  padding: clamp(20px, 3.4vw, 32px);
 }
 
 .lesson-block h2 {
@@ -663,12 +714,6 @@
 .science-note strong {
   color: #4e4229;
   display: block;
-}
-
-.video-block {
-  display: grid;
-  gap: var(--space-8);
-  grid-template-columns: minmax(280px, 1.3fr) 1fr;
 }
 
 .video-stage {
@@ -1245,8 +1290,8 @@
     padding: 24px;
   }
 
-  .video-block {
-    grid-template-columns: 1fr;
+  .lesson-block-video .video-stage {
+    max-height: 320px;
   }
 
   .answer-grid {

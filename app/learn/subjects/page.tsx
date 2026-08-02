@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubjectCoverArt } from "../../components/subject-cover-art";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { demoSubjectCards } from "../../demo-data";
 import { requireWorkspaceUser } from "../../../server/workspace-auth";
@@ -29,41 +30,46 @@ export default async function LearnerSubjectsPage() {
               className="subject-card"
               href={`/learn/subjects/${subject.slug}`}
             >
-              <span className="subject-card-code" aria-hidden="true">
-                {subject.code}
-              </span>
-
-              <span className="subject-card-identity">
-                <strong>{subject.subjectName}</strong>
-                <small>{subject.teacherName}</small>
-              </span>
-
-              <span className="subject-card-progress">
-                <span className="subject-card-progress-head">
-                  <small>Progress</small>
-                  <b>{subject.progressPercent}%</b>
-                </span>
-                {/* Native meter semantics would be ideal here, but a meter
-                    cannot be styled consistently across browsers, so the value
-                    is announced by the label above instead. */}
-                <span className="subject-card-track" aria-hidden="true">
-                  <i style={{ width: `${subject.progressPercent}%` }} />
+              <span className="subject-card-cover">
+                <SubjectCoverArt code={subject.code} seed={subject.slug} />
+                <span className="subject-card-badge" aria-hidden="true">
+                  {subject.code}
                 </span>
               </span>
 
-              <span className="subject-card-next">
-                {subject.nextLessonTitle ? (
-                  <>
-                    <small>Next up</small>
-                    <span>{subject.nextLessonTitle}</span>
-                  </>
-                ) : (
-                  <small>All lessons complete</small>
-                )}
-              </span>
+              <span className="subject-card-body">
+                <span className="subject-card-identity">
+                  <strong>{subject.subjectName}</strong>
+                  <small>{subject.teacherName}</small>
+                </span>
 
-              <span className="subject-card-meta">
-                {subject.lessonCount} lessons
+                <span className="subject-card-progress">
+                  <span className="subject-card-progress-head">
+                    <small>Progress</small>
+                    <b>{subject.progressPercent}%</b>
+                  </span>
+                  {/* Native meter semantics would be ideal here, but a meter
+                      cannot be styled consistently across browsers, so the value
+                      is announced by the label above instead. */}
+                  <span className="subject-card-track" aria-hidden="true">
+                    <i style={{ width: `${subject.progressPercent}%` }} />
+                  </span>
+                </span>
+
+                <span className="subject-card-next">
+                  {subject.nextLessonTitle ? (
+                    <>
+                      <small>Next up</small>
+                      <span>{subject.nextLessonTitle}</span>
+                    </>
+                  ) : (
+                    <small>All lessons complete</small>
+                  )}
+                </span>
+
+                <span className="subject-card-meta">
+                  {subject.lessonCount} lessons
+                </span>
               </span>
             </Link>
           </li>

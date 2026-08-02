@@ -9,6 +9,7 @@ import { demoSubjectBySlug } from "../../../../domain/demo/greenfield";
 import type { LessonBlock } from "../../../../domain/learning/types";
 import { resolveLessonVideo } from "../../../../domain/learning/video";
 import { previewLessonsFor, previewMediaUrl } from "../../../preview-workspace";
+import { SubjectCoverArt } from "../../../components/subject-cover-art";
 import "./lesson-player.css";
 
 export default function SubjectLessonPlayerPage() {
@@ -164,18 +165,15 @@ function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
           <strong>{subject.subjectName}</strong>
         </nav>
         <div>
-          <span className={`learning-mode mode-${dataMode}`}>
-            <i aria-hidden="true" />
-            {dataMode === "protected" ? "Progress saved" : dataMode === "loading" ? "Connecting" : "Preview lesson"}
-          </span>
-          <button type="button" aria-label="Lesson options">•••</button>
           <span className="learner-avatar">KA</span>
         </div>
       </header>
 
       <aside className="lesson-outline" aria-label="Subject lesson outline">
         <div className="outline-subject">
-          <span aria-hidden="true">{subject.code}</span>
+          <span className="outline-subject-cover" aria-hidden="true">
+            <SubjectCoverArt code={subject.code} seed={subject.offeringId} />
+          </span>
           <div><small>{subject.className}</small><strong>{subject.subjectName}</strong><p>{subject.teacherName}</p></div>
         </div>
         <div className="outline-progress">
@@ -216,7 +214,7 @@ function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
             <p className="lesson-eyebrow">{selectedLesson.unitTitle} · Lesson {lessonPosition}</p>
             <h1>{selectedLesson.title}</h1>
             <p>{selectedLesson.summary}</p>
-            <div className="lesson-standard-chips">{selectedLesson.standardCodes.map((code) => <span key={code}>{code}</span>)}<span className="chip-quiet">{selectedLesson.estimatedMinutes} min</span></div>
+            <div className="lesson-standard-chips"><span className="chip-quiet">{selectedLesson.estimatedMinutes} min</span></div>
           </div>
           <LessonProgressRing percent={progress} />
         </section>
@@ -382,7 +380,6 @@ function LessonBlockView({
       <p className="lesson-eyebrow">Read and explore</p>
       <h2>{block.title}</h2>
       <p>{block.content}</p>
-      <div className="science-note"><span aria-hidden="true">★</span><p><strong>Science in daily life</strong>Chewing well increases the surface area of food, helping enzymes begin their work more effectively.</p></div>
     </article>
   );
 }
@@ -442,7 +439,7 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
      so a lesson can never point the iframe at an arbitrary host. */
   if (source?.kind === "youtube") {
     return (
-      <article className="lesson-block video-block">
+      <article className="lesson-block-video">
         <div className="video-stage">
           <iframe
             allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
@@ -470,7 +467,7 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
 
   if (!mediaUrl) {
     return (
-      <article className="lesson-block video-block">
+      <article className="lesson-block-video">
         <div className="video-stage video-stage-empty">
           <span aria-hidden="true">▶</span>
           <strong>No video attached yet</strong>
@@ -485,7 +482,7 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
   }
 
   return (
-    <article className="lesson-block video-block">
+    <article className="lesson-block-video">
       <div className={`video-stage${started ? " is-playing" : ""}`}>
         <video
           controls

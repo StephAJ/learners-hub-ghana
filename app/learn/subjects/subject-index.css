@@ -16,11 +16,10 @@
   border: 1px solid var(--workspace-line);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  display: grid;
-  gap: var(--space-3) var(--space-4);
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  padding: var(--space-5);
+  overflow: hidden;
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -35,17 +34,42 @@
   transform: translateY(-2px);
 }
 
-.subject-card-code {
-  align-items: center;
-  background: var(--workspace-accent-soft);
-  border-radius: var(--radius-md);
-  color: var(--workspace-accent);
-  display: inline-flex;
-  font-family: var(--font-serif);
-  font-size: var(--fs-18);
-  height: 3rem;
-  justify-content: center;
-  width: 3rem;
+/* The course-card cover: a generated banner standing in for real artwork,
+   the way Coursera and Udemy show a thumbnail before a school has uploaded
+   its own. */
+.subject-card-cover {
+  aspect-ratio: 16 / 9;
+  display: block;
+  position: relative;
+  width: 100%;
+}
+
+.subject-card-cover svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.subject-card-badge {
+  background: rgba(19, 33, 30, 0.55);
+  backdrop-filter: blur(6px);
+  border-radius: var(--radius-sm);
+  bottom: var(--space-3);
+  color: #fff;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  left: var(--space-3);
+  letter-spacing: var(--tracking-label);
+  padding: var(--space-1) var(--space-2);
+  position: absolute;
+  text-transform: uppercase;
+}
+
+.subject-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
 }
 
 .subject-card-identity {
@@ -64,13 +88,6 @@
   color: var(--workspace-muted);
   font-size: var(--fs-14);
   margin-top: var(--space-1);
-}
-
-/* The remaining rows span the full card width, under the code badge. */
-.subject-card-progress,
-.subject-card-next,
-.subject-card-meta {
-  grid-column: 1 / -1;
 }
 
 .subject-card-progress-head {

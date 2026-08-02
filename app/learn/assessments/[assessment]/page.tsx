@@ -1,5 +1,6 @@
 "use client";
 
+import confetti from "canvas-confetti";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import {
@@ -109,6 +110,26 @@ function AssessmentRunner({
     0,
   );
 
+  /* Marks only ever go up as a teacher finishes marking, never down, so a
+     score that already clears the pass mark is safe to celebrate even before
+     every question is released — the learner cannot end up below the bar
+     later. A score that has not cleared it yet stays silent rather than
+     showing a premature "below pass mark," since written questions still
+     awaiting marking could still push it over. */
+  const hasPassed = Boolean(
+    assessment.result &&
+      assessment.result.maximumMarks > 0 &&
+      (assessment.result.score / assessment.result.maximumMarks) * 100 >=
+        assessment.passMarkPercent,
+  );
+  const celebratedRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasPassed || celebratedRef.current) return;
+    celebratedRef.current = true;
+    celebratePass();
+  }, [hasPassed]);
+
   async function startAttempt() {
     if (dataMode === "protected") {
       const response = await fetch("/api/learn/assessments", {
@@ -204,7 +225,10 @@ function AssessmentRunner({
         result: {
           maximumMarks: totalMarks,
           released: false,
-          score: 4,
+          /* No answer key ships to the client, so preview mode cannot mark
+             the attempt for real — this stands in for a plausible pass until
+             a protected session provides the actual auto-marked score. */
+          score: Math.round(totalMarks * 0.85),
         },
       }));
       return;
@@ -316,13 +340,18 @@ function AssessmentRunner({
   if (assessment.attempt.status !== "in-progress") {
     return (
       <main className="quiz-result-shell">
-        <section className="quiz-result-card">
-          <div className="result-check">✓</div>
+        <section className={`quiz-result-card${hasPassed ? " is-passed" : ""}`}>
+          <div className="result-check">{hasPassed ? "🎉" : "✓"}</div>
           <span>Attempt submitted</span>
-          <h1>Your work is safely recorded.</h1>
+          <h1>
+            {hasPassed
+              ? "Nice work — you passed!"
+              : "Your work is safely recorded."}
+          </h1>
           <p>
-            Objective questions have been checked. Your teacher will review the
-            written response before releasing the final result.
+            {hasPassed
+              ? `You cleared the ${assessment.passMarkPercent}% pass mark for this assessment.`
+              : "Objective questions have been checked. Your teacher will review the written response before releasing the final result."}
           </p>
           <div className="result-summary">
             <article>
@@ -731,6 +760,31 @@ function questionTypeLabel(type: LearnerQuestion["type"]) {
     .split("-")
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function celebratePass() {
+  if (typeof window === "undefined") return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const colors = ["#0d5f55", "#e9b84b", "#f3faf7"];
+  const end = Date.now() + 1200;
+  (function burst() {
+    void confetti({
+      angle: 60,
+      colors,
+      origin: { x: 0, y: 0.7 },
+      particleCount: 3,
+      spread: 55,
+    });
+    void confetti({
+      angle: 120,
+      colors,
+      origin: { x: 1, y: 0.7 },
+      particleCount: 3,
+      spread: 55,
+    });
+    if (Date.now() < end) requestAnimationFrame(burst);
+  })();
 }
 
 function formatDuration(seconds: number) {
