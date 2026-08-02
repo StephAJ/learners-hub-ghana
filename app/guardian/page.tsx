@@ -24,7 +24,6 @@ export default async function GuardianHomePage() {
             <p>JHS 2 Gold · Greenfield Academy</p>
           </div>
         </div>
-        <button type="button">Switch child</button>
       </section>
 
       <section className="workspace-metric-grid" aria-label="Child summary">

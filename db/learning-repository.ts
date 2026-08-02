@@ -412,6 +412,190 @@ export async function createPersistentLessonDraft(
   };
 }
 
+/**
+ * Rewrites a draft in place.
+ *
+ * Only drafts. A published lesson is a version learners have already been
+ * taught from and may hold progress against, so changing it under them would
+ * be a different operation — a new version — not an edit. Attempting it is
+ * refused rather than silently ignored.
+ *
+ * The version's contents are replaced wholesale rather than diffed: blocks are
+ * ordered and a partial update would have to reconcile positions, which is a
+ * lot of machinery for a draft nobody else can see yet.
+ */
+export async function updatePersistentLessonDraft(
+  access: AccessContext,
+  lessonId: string,
+  input: CreateDraftInput,
+): Promise<LessonSummary> {
+  await ensureLearningFoundation();
+  validateDraftInput(input);
+  const scopedAccess = await withTeacherAssignments(access);
+  if (!canTeachOffering(scopedAccess, input.offeringId)) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+
+  const database = await getSchoolDatabase();
+  const existing = await database
+    .prepare(
+      `SELECT id, offering_id, status, current_version
+       FROM lessons
+       WHERE tenant_id = ? AND id = ?`,
+    )
+    .bind(access.tenantId, lessonId)
+    .first<{
+      current_version: number;
+      id: string;
+      offering_id: string;
+      status: string;
+    }>();
+
+  if (!existing) {
+    throw new AuthorizationError("That lesson is not in this school.");
+  }
+  if (existing.offering_id !== input.offeringId) {
+    throw new AuthorizationError(
+      "A lesson cannot be moved to a different subject.",
+    );
+  }
+  if (existing.status !== "draft") {
+    throw new AuthorizationError(
+      "Published lessons cannot be edited. Duplicate it to make changes.",
+    );
+  }
+
+  await requireOfferingUnit(
+    database,
+    access.tenantId,
+    input.offeringId,
+    input.unitId,
+  );
+  await requireOfferingStandards(
+    database,
+    access.tenantId,
+    input.offeringId,
+    input.standardIds,
+  );
+  await requirePrerequisiteLesson(
+    database,
+    access.tenantId,
+    input.offeringId,
+    input.prerequisiteLessonId,
+  );
+  await requireBlockAttachments(
+    database,
+    access.tenantId,
+    input.offeringId,
+    input.blocks,
+  );
+
+  const versionId = `${lessonId}:v${existing.current_version}`;
+  const objectives = input.objectives.map((objective) => objective.trim());
+
+  await database.batch([
+    database
+      .prepare(
+        `UPDATE lessons SET unit_id = ? WHERE tenant_id = ? AND id = ?`,
+      )
+      .bind(input.unitId, access.tenantId, lessonId),
+    database
+      .prepare(
+        `UPDATE lesson_versions
+         SET title = ?, summary = ?, objectives = ?
+         WHERE tenant_id = ? AND id = ?`,
+      )
+      .bind(
+        input.title.trim(),
+        input.summary.trim(),
+        JSON.stringify(objectives),
+        access.tenantId,
+        versionId,
+      ),
+    database
+      .prepare(
+        `DELETE FROM lesson_blocks WHERE tenant_id = ? AND lesson_version_id = ?`,
+      )
+      .bind(access.tenantId, versionId),
+    ...input.blocks.map((block, index) =>
+      database
+        .prepare(
+          `INSERT INTO lesson_blocks
+            (id, tenant_id, lesson_version_id, type, position, title, content, config, ready)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          access.tenantId,
+          versionId,
+          block.type,
+          index + 1,
+          block.title.trim(),
+          block.content.trim(),
+          JSON.stringify(block.config ?? {}),
+        ),
+    ),
+    database
+      .prepare(
+        `DELETE FROM lesson_standard_links WHERE tenant_id = ? AND lesson_id = ?`,
+      )
+      .bind(access.tenantId, lessonId),
+    ...input.standardIds.map((standardId) =>
+      database
+        .prepare(
+          `INSERT INTO lesson_standard_links
+            (id, tenant_id, lesson_id, standard_id)
+          VALUES (?, ?, ?, ?)`,
+        )
+        .bind(crypto.randomUUID(), access.tenantId, lessonId, standardId),
+    ),
+    database
+      .prepare(
+        `DELETE FROM lesson_release_rules WHERE tenant_id = ? AND lesson_id = ?`,
+      )
+      .bind(access.tenantId, lessonId),
+    database
+      .prepare(
+        `INSERT INTO lesson_release_rules
+          (id, tenant_id, lesson_id, available_from, prerequisite_lesson_id)
+        VALUES (?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        access.tenantId,
+        lessonId,
+        input.availableFrom?.trim() || null,
+        input.prerequisiteLessonId?.trim() || null,
+      ),
+    auditStatement(database, access, "lesson.draft_updated", lessonId, {
+      offeringId: input.offeringId,
+    }),
+  ]);
+
+  return {
+    blockCount: input.blocks.length,
+    id: lessonId,
+    objectiveCount: objectives.length,
+    prerequisiteTitle: input.prerequisiteLessonId
+      ? await findLessonTitle(database, input.prerequisiteLessonId)
+      : undefined,
+    releaseMode: input.prerequisiteLessonId
+      ? "prerequisite"
+      : input.availableFrom
+        ? "scheduled"
+        : "immediate",
+    standardCodes: await findStandardCodes(database, access.tenantId, lessonId),
+    status: "draft",
+    title: input.title.trim(),
+    unitId: input.unitId,
+    unitTitle: await findUnitTitle(database, input.unitId),
+    updatedAt: new Date().toISOString(),
+    version: existing.current_version,
+  };
+}
+
 export async function publishPersistentLesson(
   access: AccessContext,
   lessonId: string,

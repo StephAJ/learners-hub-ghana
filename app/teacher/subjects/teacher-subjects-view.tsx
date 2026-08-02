@@ -38,6 +38,10 @@ export function TeacherSubjectsView() {
     "loading",
   );
   const [notice, setNotice] = useState("");
+  /* The draft currently loaded into the builder, if any. Editing is limited to
+     drafts: a published lesson is a version learners may already hold progress
+     against, so changing it is a new version rather than an edit. */
+  const [editingLessonId, setEditingLessonId] = useState<string>();
 
   useEffect(() => {
     let active = true;
@@ -95,6 +99,72 @@ export function TeacherSubjectsView() {
   const mappedStandardCount = new Set(
     workspace.lessons.flatMap((lesson) => lesson.standardCodes),
   ).size;
+
+  async function saveDraft(input: CreateLessonFormInput) {
+    if (editingLessonId) {
+      await updateDraft(editingLessonId, input);
+      return;
+    }
+    await createDraft(input);
+  }
+
+  async function updateDraft(
+    lessonId: string,
+    input: CreateLessonFormInput,
+  ) {
+    if (dataMode !== "protected") {
+      setWorkspace((current) => ({
+        ...current,
+        lessons: current.lessons.map((lesson) =>
+          lesson.id === lessonId
+            ? {
+                ...lesson,
+                blockCount: input.blocks.length,
+                objectiveCount: input.objectives.length,
+                title: input.title,
+                unitId: input.unitId,
+                unitTitle:
+                  current.units.find((unit) => unit.id === input.unitId)
+                    ?.title ?? lesson.unitTitle,
+                updatedAt: new Date().toISOString(),
+              }
+            : lesson,
+        ),
+      }));
+      setEditingLessonId(undefined);
+      setNotice("Draft updated in this preview session.");
+      return;
+    }
+
+    const response = await fetch("/api/teacher/lessons", {
+      body: JSON.stringify({
+        action: "update",
+        lessonId,
+        ...input,
+        offeringId: workspace.offeringId,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      lesson?: LessonSummary;
+    };
+    if (!response.ok || !payload.lesson) {
+      setNotice(payload.error ?? "The lesson could not be updated.");
+      return;
+    }
+    setWorkspace((current) => ({
+      ...current,
+      lessons: current.lessons.map((lesson) =>
+        lesson.id === payload.lesson?.id
+          ? (payload.lesson as LessonSummary)
+          : lesson,
+      ),
+    }));
+    setEditingLessonId(undefined);
+    setNotice(`${payload.lesson.title} was updated.`);
+  }
 
   async function createDraft(input: CreateLessonFormInput) {
     if (dataMode !== "protected") {
@@ -287,7 +357,6 @@ export function TeacherSubjectsView() {
               <p>{workspace.className} · 38 learners · Term 1</p>
             </div>
             <div className="subject-hero-actions">
-              <button type="button">Subject settings</button>
               <a href="#new-lesson">+ New lesson</a>
             </div>
           </section>
@@ -323,7 +392,6 @@ export function TeacherSubjectsView() {
                   <strong>›</strong>
                 </button>
               ))}
-              <button className="add-unit" type="button">+ Add curriculum unit</button>
             </aside>
 
             <section className="lesson-library" id="lessons" aria-labelledby="lesson-library-title">
@@ -361,7 +429,20 @@ export function TeacherSubjectsView() {
                   <div>
                     <button onClick={duplicateSelectedLesson} type="button">Duplicate</button>
                     {selectedLesson.status === "draft" ? (
-                      <button className="publish-button" onClick={publishSelectedLesson} type="button">Publish to class →</button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditingLessonId(selectedLesson.id);
+                            document
+                              .getElementById("new-lesson")
+                              ?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          type="button"
+                        >
+                          Edit draft
+                        </button>
+                        <button className="publish-button" onClick={publishSelectedLesson} type="button">Publish to class →</button>
+                      </>
                     ) : (
                       <button
                         onClick={() =>
@@ -384,7 +465,15 @@ export function TeacherSubjectsView() {
               assets={contentWorkspace.mediaAssets}
               id="new-lesson"
               lessons={workspace.lessons}
-              onCreate={createDraft}
+              editingLesson={
+                editingLessonId
+                  ? workspace.lessons.find(
+                      (lesson) => lesson.id === editingLessonId,
+                    )
+                  : undefined
+              }
+              onCancelEdit={() => setEditingLessonId(undefined)}
+              onCreate={saveDraft}
               standards={workspace.standards}
               units={workspace.units}
             />
@@ -418,16 +507,23 @@ type CreateLessonFormInput = {
 function LessonDraftForm({
   activities,
   assets,
+  editingLesson,
   id,
   lessons,
+  onCancelEdit,
   onCreate,
   standards,
   units,
 }: {
   activities: TeacherContentWorkspace["activities"];
   assets: TeacherContentWorkspace["mediaAssets"];
+  /* Set when the builder is editing an existing draft rather than starting a
+     new one. The summary carries no blocks, so what can be pre-filled is the
+     lesson's shape; its activities are rebuilt. */
+  editingLesson?: TeacherLessonWorkspace["lessons"][number];
   id: string;
   lessons: TeacherLessonWorkspace["lessons"];
+  onCancelEdit: () => void;
   onCreate: (input: CreateLessonFormInput) => Promise<void>;
   standards: TeacherLessonWorkspace["standards"];
   units: TeacherLessonWorkspace["units"];
@@ -459,6 +555,32 @@ function LessonDraftForm({
       type: LessonBlockType;
     }>
   >([]);
+
+  /* Loading a draft replaces whatever was in the form, and switching drafts
+     reloads rather than merging the two. Comparing the prop to state during
+     render is React's documented way to adjust state when a prop changes — an
+     effect would render the previous draft's contents once first. */
+  const [loadedLessonId, setLoadedLessonId] = useState<string>();
+  if (editingLesson?.id !== loadedLessonId) {
+    setLoadedLessonId(editingLesson?.id);
+    setTitle(editingLesson?.title ?? "");
+    setSummary("");
+    setObjectives("");
+    setUnitId(editingLesson?.unitId ?? units[0]?.id ?? "");
+    setStandardIds(
+      editingLesson
+        ? standards
+            .filter((standard) =>
+              editingLesson.standardCodes.includes(standard.code),
+            )
+            .map((standard) => standard.id)
+        : standards[0]
+          ? [standards[0].id]
+          : [],
+    );
+    setReleaseMode(editingLesson?.releaseMode ?? "immediate");
+    setBlocks([]);
+  }
 
   function addBlock() {
     if (!blockTitle.trim() || !blockContent.trim()) return;
@@ -532,7 +654,25 @@ function LessonDraftForm({
 
   return (
     <aside className="lesson-builder" id={id} aria-labelledby="lesson-builder-title">
-      <div className="builder-heading"><span aria-hidden="true">+</span><div><p className="eyebrow">Authoring</p><h2 id="lesson-builder-title">New lesson draft</h2></div></div>
+      <div className="builder-heading">
+        <span aria-hidden="true">{editingLesson ? "✎" : "+"}</span>
+        <div>
+          <p className="eyebrow">Authoring</p>
+          <h2 id="lesson-builder-title">
+            {editingLesson ? "Edit draft" : "New lesson draft"}
+          </h2>
+          {editingLesson ? (
+            <small>
+              Rebuild the activities below — editing replaces them.
+            </small>
+          ) : null}
+        </div>
+        {editingLesson ? (
+          <button className="builder-cancel" onClick={onCancelEdit} type="button">
+            Cancel
+          </button>
+        ) : null}
+      </div>
       <form onSubmit={submit}>
         <label><span>Curriculum unit</span><select value={unitId} onChange={(event) => setUnitId(event.target.value)}>{units.map((unit) => <option value={unit.id} key={unit.id}>{unit.title}</option>)}</select></label>
         <label><span>Lesson title</span><input required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. How breathing works" /></label>
@@ -642,7 +782,10 @@ function LessonDraftForm({
             </li>
           ))}
         </ol>
-        <button className="save-draft-button" disabled={blocks.length === 0 || standardIds.length === 0} type="submit">Save {blocks.length}-activity draft <span aria-hidden="true">→</span></button>
+        <button className="save-draft-button" disabled={blocks.length === 0 || standardIds.length === 0} type="submit">
+          {editingLesson ? "Update" : "Save"} {blocks.length}-activity draft
+          <span aria-hidden="true">→</span>
+        </button>
       </form>
       <p className="builder-rule"><span aria-hidden="true">i</span>Standards, release rules, and every ordered activity are saved with the private draft.</p>
     </aside>

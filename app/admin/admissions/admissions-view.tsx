@@ -345,7 +345,6 @@ export function AdmissionsView() {
                     {statusNames[selected.status]}
                   </span>
                 </div>
-                <button type="button" aria-label="More applicant actions">•••</button>
               </div>
 
               <div className="detail-section">
@@ -402,7 +401,6 @@ export function AdmissionsView() {
               )}
 
               <div className="detail-actions">
-                <button className="secondary-action" type="button">Save note</button>
                 <button
                   className="primary-action"
                   disabled={

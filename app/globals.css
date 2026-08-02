@@ -230,6 +230,26 @@ blockquote {
   line-height: var(--lh-display);
 }
 
+/* The logo's navy and teal both go dark, so it needs a light ground wherever
+   it lands. On an already-light surface the tile is invisible and only the
+   mark reads. */
+.brand-mark-tile {
+  align-items: center;
+  background: #fff;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  overflow: hidden;
+  padding: 2px;
+}
+
+.brand-mark-tile img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
 .sr-only {
   clip: rect(0, 0, 0, 0);
   clip-path: inset(50%);

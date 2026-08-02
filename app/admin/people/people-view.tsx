@@ -286,7 +286,19 @@ export function PeopleView() {
                         <td><strong>{roleLabels[person.role]}</strong><small>{person.kind}</small></td>
                         <td><span className="scope-pill">{person.scopeLabel}</span></td>
                         <td><span className={`member-status member-${person.status}`}>{person.status}</span></td>
-                        <td><button type="button" aria-label={`View ${person.name}`}>›</button></td>
+                        <td>
+                          {/* The row carries a click handler, but a <tr> is
+                              not keyboard-reachable, so this button is the
+                              accessible way in rather than decoration that
+                              only works because the click bubbles. */}
+                          <button
+                            aria-label={`View access for ${person.name}`}
+                            onClick={() => setSelectedId(person.id)}
+                            type="button"
+                          >
+                            ›
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -312,7 +324,6 @@ function PersonAccessCard({ person }: { person: DirectoryPerson }) {
       <div className="person-access-head">
         <span className={`person-avatar avatar-${person.kind}`}>{initials(person.name)}</span>
         <div><p>{person.kind}</p><h2 id="person-access-title">{person.name}</h2><small>{roleLabels[person.role]}</small></div>
-        <button type="button" aria-label="More access actions">•••</button>
       </div>
       <dl>
         <div><dt>Access scope</dt><dd>{person.scopeLabel}</dd></div>

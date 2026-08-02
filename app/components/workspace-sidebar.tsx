@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandMark } from "./brand-mark";
 import { useSyncExternalStore, type ReactNode } from "react";
 import {
   BooksIcon,
@@ -85,9 +86,7 @@ export function WorkspaceSidebar({
     <aside className="workspace-sidebar">
       <div className="workspace-sidebar-head">
         <Link className="workspace-brand" href="/" title="Learners Hub">
-          <span className="workspace-brand-mark" aria-hidden="true">
-            LH
-          </span>
+          <BrandMark className="workspace-brand-mark" size={36} />
           <span className="workspace-brand-name">
             <strong>Learners Hub</strong>
             <small>{schoolName}</small>

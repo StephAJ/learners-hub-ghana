@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { AuthenticatedSchoolUser } from "../../db/people-repository";
 import type { SchoolRole } from "../../domain/identity/types";
+import { BrandMark } from "./brand-mark";
 import { schoolBrandStyle } from "../school-brand";
 import { SIDEBAR_STORAGE_KEY } from "./sidebar-state";
 import { WorkspaceSidebar, type SidebarNavItem } from "./workspace-sidebar";
@@ -114,8 +115,8 @@ export function WorkspaceShell({
 
       <main className="workspace-main" id="workspace-content">
         <header className="workspace-topbar">
-          <Link className="workspace-mobile-brand" href="/">
-            LH
+          <Link className="workspace-mobile-brand" href="/" aria-label="Learners Hub">
+            <BrandMark size={34} />
           </Link>
           <div className="workspace-topbar-heading">
             <p>{eyebrow}</p>

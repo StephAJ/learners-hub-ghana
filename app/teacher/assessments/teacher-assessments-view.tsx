@@ -749,9 +749,6 @@ function QuizPanel({
               <span className={`quiz-state ${assessment.status}`}>
                 {assessment.status}
               </span>
-              <button aria-label="Quiz actions" type="button">
-                •••
-              </button>
             </div>
             <div className="quiz-icon">✓</div>
             <p>{assessment.purpose.replace("-", " ")}</p>

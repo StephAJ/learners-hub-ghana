@@ -490,8 +490,19 @@ function LessonBlockView({
     return (
       <article className="lesson-block resource-block">
         <span aria-hidden="true">↓</span>
-        <div><p className="lesson-eyebrow">Study resource</p><h2>{block.title}</h2><p>{block.content}</p><small>PDF · 420 KB · Works offline after download</small></div>
-        {mediaUrl ? <a href={mediaUrl}>Download resource</a> : <button type="button">Download resource</button>}
+        <div>
+          <p className="lesson-eyebrow">Study resource</p>
+          <h2>{block.title}</h2>
+          <p>{block.content}</p>
+          <small>
+            {mediaUrl
+              ? "Downloads once, then works offline."
+              : "Your teacher has not attached the file yet."}
+          </small>
+        </div>
+        {/* A download control with nothing to download used to render as an
+            ordinary button that did nothing when pressed. */}
+        {mediaUrl ? <a href={mediaUrl}>Download resource</a> : null}
       </article>
     );
   }

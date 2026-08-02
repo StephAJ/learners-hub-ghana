@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "../../components/brand-mark";
 import { requireAuthenticatedUser } from "../../auth";
 import { getApplicantApplication } from "../../../db/applicant-repository";
 import { ApplicationForm } from "./application-form";
@@ -13,7 +14,7 @@ export default async function ApplyForAdmissionPage() {
     <div className="application-page">
       <header className="application-header">
         <Link className="public-brand" href="/">
-          <span aria-hidden="true">LH</span>
+          <BrandMark size={42} />
           <span>
             <strong>Learners Hub</strong>
             <small>Greenfield Academy Admissions</small>

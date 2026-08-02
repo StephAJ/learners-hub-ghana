@@ -3,6 +3,7 @@ import {
   duplicatePersistentLesson,
   listTeacherLessonWorkspace,
   publishPersistentLesson,
+  updatePersistentLessonDraft,
   type CreateDraftInput,
 } from "../../../../db/learning-repository";
 import {
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
     const schoolUser = await requireSchoolRequestUser();
     const payload = (await request.json()) as
       | ({ action: "create" } & CreateDraftInput)
+      | ({ action: "update"; lessonId: string } & CreateDraftInput)
       | { action: "duplicate"; lessonId: string }
       | { action: "publish"; lessonId: string };
 
@@ -42,6 +44,15 @@ export async function POST(request: Request) {
       const lesson = await publishPersistentLesson(
         schoolUser.access,
         payload.lessonId,
+      );
+      return Response.json({ lesson });
+    }
+
+    if (payload.action === "update") {
+      const lesson = await updatePersistentLessonDraft(
+        schoolUser.access,
+        payload.lessonId,
+        payload,
       );
       return Response.json({ lesson });
     }

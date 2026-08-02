@@ -184,7 +184,6 @@ export function AcademicView() {
                     <p className="eyebrow">Class subject policy</p>
                     <h2>Classes and required subjects</h2>
                   </div>
-                  <button type="button">+ New class</button>
                 </div>
 
                 <div className="class-tabs" role="tablist" aria-label="Classes">
@@ -222,7 +221,6 @@ export function AcademicView() {
                     <small>Class teacher</small>
                     <strong>{selectedClass.classTeacher}</strong>
                   </div>
-                  <button type="button">Edit class</button>
                 </div>
 
                 <div className="subject-policy-grid">

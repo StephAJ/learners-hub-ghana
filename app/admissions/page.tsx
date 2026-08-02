@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "../components/brand-mark";
 import { getAuthenticatedUser, registrationPath } from "../auth";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function PublicAdmissionsPage() {
     <div className="admissions-public-page">
       <header className="admissions-public-header">
         <Link className="public-brand" href="/">
-          <span aria-hidden="true">LH</span>
+          <BrandMark size={42} />
           <span>
             <strong>Learners Hub</strong>
             <small>Greenfield Academy</small>

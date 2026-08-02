@@ -81,18 +81,7 @@
 }
 
 .workspace-brand-mark {
-  align-items: center;
-  background: var(--brand-accent);
-  border-radius: var(--radius-md);
-  color: var(--brand-accent-ink);
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-bold);
-  height: 2.25rem;
-  justify-content: center;
-  letter-spacing: 0;
-  width: 2.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 .workspace-brand-name {
@@ -1029,15 +1018,7 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
 
   .workspace-mobile-brand {
     align-items: center;
-    background: var(--brand-accent);
-    border-radius: var(--radius-md);
-    color: var(--brand-accent-ink);
     display: inline-flex;
-    font-size: var(--fs-14);
-    font-weight: var(--fw-semibold);
-    height: 38px;
-    justify-content: center;
-    width: 38px;
   }
 
   .workspace-topbar-person {

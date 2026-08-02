@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "../components/brand-mark";
 import { requireAuthenticatedUser } from "../auth";
 import { SignOutButton } from "../components/sign-out-button";
 import { getApplicantApplication } from "../../db/applicant-repository";
@@ -13,7 +14,7 @@ export default async function ApplicantHomePage() {
     <div className="applicant-workspace">
       <header className="applicant-topbar">
         <Link className="public-brand" href="/">
-          <span aria-hidden="true">LH</span>
+          <BrandMark size={42} />
           <span>
             <strong>Learners Hub</strong>
             <small>Applicant workspace</small>

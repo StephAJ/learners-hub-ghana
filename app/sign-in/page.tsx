@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "../components/brand-mark";
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "../auth";
 import { safeReturnPath } from "../../server/return-path";
@@ -20,7 +21,7 @@ export default async function SignInPage({
     <div className="authentication-page">
       <header>
         <Link className="public-brand" href="/">
-          <span aria-hidden="true">LH</span>
+          <BrandMark size={42} />
           <span>
             <strong>Learners Hub</strong>
             <small>Greenfield Academy</small>

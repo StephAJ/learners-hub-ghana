@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "./components/brand-mark";
 import { getAuthenticatedUser, signInPath } from "./auth";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export default async function PublicHomePage() {
     <div className="public-site">
       <header className="public-header">
         <Link className="public-brand" href="/">
-          <span aria-hidden="true">LH</span>
+          <BrandMark size={42} />
           <span>
             <strong>Learners Hub</strong>
             <small>Greenfield Academy</small>
@@ -191,7 +192,7 @@ export default async function PublicHomePage() {
 
       <footer className="public-footer">
         <Link className="public-brand" href="/">
-          <span aria-hidden="true">LH</span>
+          <BrandMark size={42} />
           <span>
             <strong>Learners Hub</strong>
             <small>School management and learning</small>
