@@ -3,7 +3,12 @@ import type {
   LessonAvailability,
   LessonBlock,
 } from "../learning/types";
-import type { AssessmentPurpose, QuestionOption, QuestionType } from "../assessment/types";
+import type {
+  AssessmentPurpose,
+  QuestionAnswerKey,
+  QuestionOption,
+  QuestionType,
+} from "../assessment/types";
 
 /* ==========================================================================
    Greenfield Academy demo
@@ -80,23 +85,33 @@ export type DemoSubject = {
 };
 
 export type DemoQuestion = {
-  answerNote: string;
+  /* Machine-readable, so the same definition renders the paper and marks it.
+     `value` for auto-marked types, `rubric` for the ones a teacher reads. */
+  answerKey: QuestionAnswerKey;
+  difficulty: "foundation" | "standard" | "challenge";
   id: string;
   marks: number;
+  offeringId: string;
   options: QuestionOption[];
-  position: number;
   prompt: string;
+  /* Shown to a learner after release, and to a teacher while marking. */
+  rationale: string;
+  topic: string;
   type: QuestionType;
 };
 
 export type DemoAssessment = {
+  authorPersonId: string;
   id: string;
   instructions: string;
   offeringId: string;
   passMarkPercent: number;
+  publishedAt?: string;
   purpose: AssessmentPurpose;
-  questions: DemoQuestion[];
+  /** Ids into demoQuestionBank, in the order the paper presents them. */
+  questionIds: string[];
   slug: string;
+  status: "draft" | "published";
   timeLimitMinutes: number;
   title: string;
 };
@@ -172,6 +187,30 @@ export const demoPeople: DemoPerson[] = [
     scopeId: DEMO_CLASS_NAME,
     scopeType: "class",
   },
+  /* Kwame's classmates. A markbook with one learner in it demonstrates
+     nothing, and attendance needs a class to take a register of. These two
+     were previously invented inside the reporting seed, which is why they
+     appeared in the markbook but not in the People directory. */
+  {
+    email: "ama.serwaa@student.greenfield.edu.gh",
+    firstName: "Ama",
+    id: "person-ama",
+    kind: "learner",
+    lastName: "Serwaa",
+    role: "learner",
+    scopeId: DEMO_CLASS_NAME,
+    scopeType: "class",
+  },
+  {
+    email: "kojo.antwi@student.greenfield.edu.gh",
+    firstName: "Kojo",
+    id: "person-kojo",
+    kind: "learner",
+    lastName: "Antwi",
+    role: "learner",
+    scopeId: DEMO_CLASS_NAME,
+    scopeType: "class",
+  },
   {
     email: "kwame.agyeman@student.greenfield.edu.gh",
     firstName: "Kwame",
@@ -194,6 +233,11 @@ export const demoPeople: DemoPerson[] = [
     scopeType: "learner",
   },
 ];
+
+/** JHS 2 Gold's register, in the order a teacher would read it. */
+export const demoLearners: DemoPerson[] = demoPeople
+  .filter((person) => person.role === "learner")
+  .sort((a, b) => a.lastName.localeCompare(b.lastName));
 
 export function demoPersonName(personId: string): string {
   const person = demoPeople.find((item) => item.id === personId);
@@ -736,6 +780,81 @@ export function demoSubjectBySlug(slug: string): DemoSubject | undefined {
   return demoSubjects.find((subject) => subject.slug === slug);
 }
 
+/* -------------------------------------------------------------------------
+   Timetable
+
+   The school day, derived from the same four subjects rather than written out
+   again. The old operations seed had its own copy, and it disagreed: English
+   was credited to Mary Asante, who is an academic administrator and teaches
+   nothing, and Mathematics to Emmanuel Ofori rather than Kofi Boateng. Three
+   of the four lessons carried no offering id at all, so a learner could not
+   open the subject from their timetable.
+   ------------------------------------------------------------------------- */
+
+export type DemoPeriod = {
+  endsAt: string;
+  id: string;
+  kind: "lesson" | "break";
+  name: string;
+  position: number;
+  startsAt: string;
+};
+
+export const demoPeriods: DemoPeriod[] = [
+  { endsAt: "09:00", id: "period-1", kind: "lesson", name: "Period 1", position: 1, startsAt: "08:00" },
+  { endsAt: "10:10", id: "period-2", kind: "lesson", name: "Period 2", position: 2, startsAt: "09:10" },
+  { endsAt: "10:35", id: "period-break", kind: "break", name: "Break", position: 3, startsAt: "10:10" },
+  { endsAt: "11:35", id: "period-3", kind: "lesson", name: "Period 3", position: 4, startsAt: "10:35" },
+  { endsAt: "12:45", id: "period-4", kind: "lesson", name: "Period 4", position: 5, startsAt: "11:45" },
+];
+
+/** Where each subject is taught. */
+const demoRooms: Record<string, string> = {
+  "english-language": "Block A · Room 4",
+  "integrated-science": "Science Lab",
+  mathematics: "Block A · Room 2",
+  "social-studies": "Block B · Room 2",
+};
+
+export type DemoTimetableEntry = {
+  id: string;
+  offeringId: string;
+  periodId: string;
+  room: string;
+  subjectName: string;
+  teacherPersonId: string;
+  weekday: number;
+};
+
+/**
+ * One lesson per subject per day, rotating so no subject is always first.
+ *
+ * Weekdays are 1–5. The break period carries no lesson, so only the four
+ * teaching periods are filled.
+ */
+export const demoTimetable: DemoTimetableEntry[] = (() => {
+  const teachingPeriods = demoPeriods.filter(
+    (period) => period.kind === "lesson",
+  );
+  const entries: DemoTimetableEntry[] = [];
+  for (let weekday = 1; weekday <= 5; weekday += 1) {
+    teachingPeriods.forEach((period, index) => {
+      const subject =
+        demoSubjects[(index + weekday - 1) % demoSubjects.length];
+      entries.push({
+        id: `timetable-${weekday}-${index + 1}`,
+        offeringId: subject.offeringId,
+        periodId: period.id,
+        room: demoRooms[subject.slug] ?? "Block A",
+        subjectName: subject.subjectName,
+        teacherPersonId: subject.teacherPersonId,
+        weekday,
+      });
+    });
+  }
+  return entries;
+})();
+
 export function demoSubjectByOffering(
   offeringId: string,
 ): DemoSubject | undefined {
@@ -757,172 +876,347 @@ export function demoSubjectProgress(subject: DemoSubject): number {
 /* -------------------------------------------------------------------------
    Assessments
 
-   Between them these cover every question type the marker handles, so the
-   demo exercises auto-marking and the teacher review queue rather than only
-   the easy multiple-choice path.
+   A question bank, and assessments that draw from it. That is how the schema
+   models it — a question is versioned and reusable, and an assessment holds a
+   snapshot of the version it published — and it is also how a teacher works:
+   questions accumulate, papers are assembled.
+
+   Every question carries a machine-readable answer key, so the same definition
+   both renders the paper for a learner (answer keys stripped) and lets the
+   marker score it. The bank previously lived inside the assessment seed while
+   the pages read a separate, key-less copy from here; the fractions homework
+   defined here never reached the database at all.
    ------------------------------------------------------------------------- */
+
+export const demoQuestionBank: DemoQuestion[] = [
+  {
+    answerKey: { value: "small-intestine" },
+    difficulty: "foundation",
+    id: "question-absorption-site",
+    marks: 1,
+    offeringId: "offering-science-jhs2",
+    options: [
+      { id: "mouth", label: "Mouth" },
+      { id: "stomach", label: "Stomach" },
+      { id: "small-intestine", label: "Small intestine" },
+      { id: "large-intestine", label: "Large intestine" },
+    ],
+    prompt: "Where does most nutrient absorption take place?",
+    rationale: "Villi give the small intestine a very large surface area.",
+    topic: "Human body systems",
+    type: "single-choice",
+  },
+  {
+    answerKey: { value: true },
+    difficulty: "foundation",
+    id: "question-bile-true-false",
+    marks: 1,
+    offeringId: "offering-science-jhs2",
+    options: [],
+    prompt: "Bile helps the body digest fats.",
+    rationale: "Bile emulsifies fat into smaller droplets.",
+    topic: "Human body systems",
+    type: "true-false",
+  },
+  {
+    answerKey: { value: ["saliva", "gastric-juice", "bile"] },
+    difficulty: "standard",
+    id: "question-digestive-fluids",
+    marks: 2,
+    offeringId: "offering-science-jhs2",
+    options: [
+      { id: "saliva", label: "Saliva" },
+      { id: "gastric-juice", label: "Gastric juice" },
+      { id: "bile", label: "Bile" },
+      { id: "plasma", label: "Blood plasma" },
+    ],
+    prompt: "Select every fluid that plays a part in digestion.",
+    rationale: "Blood plasma transports nutrients but does not digest them.",
+    topic: "Human body systems",
+    type: "multiple-choice",
+  },
+  {
+    answerKey: { value: "villi" },
+    difficulty: "standard",
+    id: "question-villi-name",
+    marks: 1,
+    offeringId: "offering-science-jhs2",
+    options: [],
+    prompt:
+      "What name is given to the tiny folds lining the small intestine?",
+    rationale: "Villi, and the microvilli on them, multiply the surface area.",
+    topic: "Human body systems",
+    type: "short-text",
+  },
+  {
+    answerKey: { tolerance: 1, value: 7 },
+    difficulty: "foundation",
+    id: "question-intestine-length",
+    marks: 1,
+    offeringId: "offering-science-jhs2",
+    options: [],
+    prompt:
+      "Roughly how many metres long is the small intestine in an adult?",
+    rationale: "About seven metres, coiled within the abdomen.",
+    topic: "Human body systems",
+    type: "numeric",
+  },
+  {
+    answerKey: {
+      value: {
+        mouth: "chewing",
+        "small-intestine": "absorbing",
+        stomach: "churning",
+      },
+    },
+    difficulty: "standard",
+    id: "question-organ-action-match",
+    marks: 2,
+    offeringId: "offering-science-jhs2",
+    options: [
+      { id: "left:mouth", label: "Mouth" },
+      { id: "left:stomach", label: "Stomach" },
+      { id: "left:small-intestine", label: "Small intestine" },
+      { id: "right:chewing", label: "Chewing" },
+      { id: "right:churning", label: "Churning" },
+      { id: "right:absorbing", label: "Absorbing nutrients" },
+    ],
+    prompt: "Match each digestive organ to its main action.",
+    rationale: "Each organ does one main job as food passes through it.",
+    topic: "Human body systems",
+    type: "matching",
+  },
+  {
+    answerKey: {
+      value: ["mouth", "oesophagus", "stomach", "small-intestine"],
+    },
+    difficulty: "standard",
+    id: "question-digestion-order",
+    marks: 2,
+    offeringId: "offering-science-jhs2",
+    options: [
+      { id: "stomach", label: "Stomach" },
+      { id: "mouth", label: "Mouth" },
+      { id: "oesophagus", label: "Oesophagus" },
+      { id: "small-intestine", label: "Small intestine" },
+    ],
+    prompt: "Arrange the organs in the order food travels through them.",
+    rationale: "Food travels mouth, oesophagus, stomach, small intestine.",
+    topic: "Human body systems",
+    type: "ordering",
+  },
+  {
+    answerKey: {
+      rubric:
+        "Explains that villi provide a large surface area, and that a thin wall with a rich blood supply speeds absorption.",
+    },
+    difficulty: "challenge",
+    id: "question-villi-explanation",
+    marks: 3,
+    offeringId: "offering-science-jhs2",
+    options: [],
+    prompt:
+      "Explain two ways the small intestine is adapted for nutrient absorption.",
+    rationale: "Marked against the rubric; two distinct adaptations are needed.",
+    topic: "Human body systems",
+    type: "essay",
+  },
+
+  /* Bank items that no paper currently publishes. A question bank a teacher
+     can draw from is only demonstrable if it holds more than the questions
+     already used, and these carry the three types no assessment uses yet. */
+  {
+    answerKey: { value: ["protein", "vitamins"] },
+    difficulty: "standard",
+    id: "question-nutrients-multiple",
+    marks: 2,
+    offeringId: "offering-science-jhs2",
+    options: [
+      { id: "protein", label: "Protein" },
+      { id: "vitamins", label: "Vitamins" },
+      { id: "water", label: "Water" },
+      { id: "roughage", label: "Roughage" },
+    ],
+    prompt:
+      "Select the two nutrient groups most associated with growth and protection.",
+    rationale: "Protein builds tissue; vitamins protect against deficiency.",
+    topic: "Food and nutrition",
+    type: "multiple-choice",
+  },
+  {
+    answerKey: {
+      rubric:
+        "Diagram labels the mouth, oesophagus, stomach, small intestine and large intestine.",
+    },
+    difficulty: "challenge",
+    id: "question-digestion-file",
+    marks: 4,
+    offeringId: "offering-science-jhs2",
+    options: [],
+    prompt: "Submit a clearly labelled digestive-system diagram.",
+    rationale: "Marked on completeness and accuracy of the labels.",
+    topic: "Human body systems",
+    type: "file-upload",
+  },
+  {
+    answerKey: { value: "zone-3" },
+    difficulty: "standard",
+    id: "question-stomach-hotspot",
+    marks: 1,
+    offeringId: "offering-science-jhs2",
+    options: [],
+    prompt: "Select the area where the stomach is located.",
+    rationale: "Upper left of the abdomen, below the diaphragm.",
+    topic: "Human body systems",
+    type: "hotspot",
+  },
+  {
+    answerKey: {
+      rubric:
+        "Identifies the nutrient groups in the meal and justifies one improvement.",
+    },
+    difficulty: "challenge",
+    id: "question-meal-composite",
+    marks: 4,
+    offeringId: "offering-science-jhs2",
+    options: [],
+    prompt:
+      "Read the meal scenario, identify its nutrient groups, and recommend one improvement.",
+    rationale: "Marked on both the classification and the justification.",
+    topic: "Food and nutrition",
+    type: "composite",
+  },
+
+  /* Mathematics. */
+  {
+    answerKey: { tolerance: 0, value: 12 },
+    difficulty: "foundation",
+    id: "question-common-denominator",
+    marks: 1,
+    offeringId: "offering-maths-jhs2",
+    options: [],
+    prompt:
+      "What is the smallest common denominator for one third and one quarter?",
+    rationale: "12 is the lowest common multiple of 3 and 4.",
+    topic: "Fractions",
+    type: "numeric",
+  },
+  {
+    answerKey: { value: "seven-twelfths" },
+    difficulty: "standard",
+    id: "question-add-fractions",
+    marks: 2,
+    offeringId: "offering-maths-jhs2",
+    options: [
+      { id: "five-twelfths", label: "5/12" },
+      { id: "seven-twelfths", label: "7/12" },
+      { id: "two-sevenths", label: "2/7" },
+      { id: "one-half", label: "1/2" },
+    ],
+    prompt: "Work out one third plus one quarter.",
+    rationale: "4/12 + 3/12 = 7/12.",
+    topic: "Fractions",
+    type: "single-choice",
+  },
+  {
+    answerKey: {
+      rubric:
+        "Explains that thirds and quarters describe pieces of different sizes, so they must be rewritten in the same size first.",
+    },
+    difficulty: "challenge",
+    id: "question-why-common",
+    marks: 3,
+    offeringId: "offering-maths-jhs2",
+    options: [],
+    prompt:
+      "Explain, in your own words, why fractions must share a denominator before they can be added.",
+    rationale: "Marked against the rubric; the size argument is the key idea.",
+    topic: "Fractions",
+    type: "essay",
+  },
+];
 
 export const demoAssessments: DemoAssessment[] = [
   {
+    authorPersonId: "person-grace",
     id: "assessment-digestion-check",
     instructions:
       "Answer every question. You can flag an item and return to it before submitting.",
     offeringId: "offering-science-jhs2",
     passMarkPercent: 60,
+    publishedAt: "2026-07-22T09:00:00Z",
     purpose: "formative",
+    /* Order matters: this is the order the paper presents them in. */
+    questionIds: [
+      "question-absorption-site",
+      "question-bile-true-false",
+      "question-digestive-fluids",
+      "question-villi-name",
+      "question-intestine-length",
+      "question-organ-action-match",
+      "question-digestion-order",
+      "question-villi-explanation",
+    ],
     slug: "digestive-system-check",
+    status: "published",
     timeLimitMinutes: 12,
     title: "Digestive system knowledge check",
-    questions: [
-      {
-        answerNote: "Small intestine — villi give it a very large surface area.",
-        id: "question-absorption-site",
-        marks: 1,
-        options: [
-          { id: "mouth", label: "Mouth" },
-          { id: "stomach", label: "Stomach" },
-          { id: "small-intestine", label: "Small intestine" },
-          { id: "large-intestine", label: "Large intestine" },
-        ],
-        position: 1,
-        prompt: "Where does most nutrient absorption take place?",
-        type: "single-choice",
-      },
-      {
-        answerNote: "True — bile emulsifies fat into smaller droplets.",
-        id: "question-bile-true-false",
-        marks: 1,
-        options: [],
-        position: 2,
-        prompt: "Bile helps the body digest fats.",
-        type: "true-false",
-      },
-      {
-        answerNote: "Saliva, gastric juice and bile are all digestive fluids.",
-        id: "question-digestive-fluids",
-        marks: 2,
-        options: [
-          { id: "saliva", label: "Saliva" },
-          { id: "gastric-juice", label: "Gastric juice" },
-          { id: "bile", label: "Bile" },
-          { id: "plasma", label: "Blood plasma" },
-        ],
-        position: 3,
-        prompt: "Select every fluid that plays a part in digestion.",
-        type: "multiple-choice",
-      },
-      {
-        answerNote: "Villi.",
-        id: "question-villi-name",
-        marks: 1,
-        options: [],
-        position: 4,
-        prompt:
-          "What name is given to the tiny folds lining the small intestine?",
-        type: "short-text",
-      },
-      {
-        answerNote: "About 7 metres in an adult.",
-        id: "question-intestine-length",
-        marks: 1,
-        options: [],
-        position: 5,
-        prompt:
-          "Roughly how many metres long is the small intestine in an adult?",
-        type: "numeric",
-      },
-      {
-        answerNote: "Mouth chews, stomach churns, small intestine absorbs.",
-        id: "question-organ-action-match",
-        marks: 2,
-        options: [
-          { id: "left:mouth", label: "Mouth" },
-          { id: "left:stomach", label: "Stomach" },
-          { id: "left:small-intestine", label: "Small intestine" },
-          { id: "right:chewing", label: "Chewing" },
-          { id: "right:churning", label: "Churning" },
-          { id: "right:absorbing", label: "Absorbing nutrients" },
-        ],
-        position: 6,
-        prompt: "Match each digestive organ to its main action.",
-        type: "matching",
-      },
-      {
-        answerNote: "Mouth, oesophagus, stomach, small intestine.",
-        id: "question-digestion-order",
-        marks: 2,
-        options: [
-          { id: "stomach", label: "Stomach" },
-          { id: "mouth", label: "Mouth" },
-          { id: "oesophagus", label: "Oesophagus" },
-          { id: "small-intestine", label: "Small intestine" },
-        ],
-        position: 7,
-        prompt: "Arrange the organs in the order food travels through them.",
-        type: "ordering",
-      },
-      {
-        answerNote:
-          "Marked by rubric: surface area from villi, and a thin wall with a good blood supply.",
-        id: "question-villi-explanation",
-        marks: 3,
-        options: [],
-        position: 8,
-        prompt:
-          "Explain two ways the small intestine is adapted for nutrient absorption.",
-        type: "essay",
-      },
-    ],
   },
   {
+    authorPersonId: "person-kofi",
     id: "assessment-fractions-homework",
     instructions:
       "Show the common denominator you used for each question. Calculators are not needed.",
     offeringId: "offering-maths-jhs2",
     passMarkPercent: 50,
+    publishedAt: "2026-07-26T16:00:00Z",
     purpose: "homework",
+    questionIds: [
+      "question-common-denominator",
+      "question-add-fractions",
+      "question-why-common",
+    ],
     slug: "fractions-homework",
+    status: "published",
     timeLimitMinutes: 20,
     title: "Fractions homework",
-    questions: [
-      {
-        answerNote: "12 — the lowest common multiple of 3 and 4.",
-        id: "question-common-denominator",
-        marks: 1,
-        options: [],
-        position: 1,
-        prompt:
-          "What is the smallest common denominator for one third and one quarter?",
-        type: "numeric",
-      },
-      {
-        answerNote: "7/12.",
-        id: "question-add-fractions",
-        marks: 2,
-        options: [
-          { id: "five-twelfths", label: "5/12" },
-          { id: "seven-twelfths", label: "7/12" },
-          { id: "two-sevenths", label: "2/7" },
-          { id: "one-half", label: "1/2" },
-        ],
-        position: 2,
-        prompt: "Work out one third plus one quarter.",
-        type: "single-choice",
-      },
-      {
-        answerNote:
-          "Marked by rubric: thirds and quarters are different-sized pieces.",
-        id: "question-why-common",
-        marks: 3,
-        options: [],
-        position: 3,
-        prompt:
-          "Explain, in your own words, why fractions must share a denominator before they can be added.",
-        type: "essay",
-      },
-    ],
+  },
+  {
+    /* A draft, so the teacher's assessment list shows unpublished work and the
+       learner's list correctly does not. */
+    authorPersonId: "person-grace",
+    id: "assessment-nutrition-exit-ticket",
+    instructions: "Two quick questions before you leave.",
+    offeringId: "offering-science-jhs2",
+    passMarkPercent: 50,
+    purpose: "diagnostic",
+    questionIds: ["question-nutrients-multiple", "question-meal-composite"],
+    slug: "nutrition-exit-ticket",
+    status: "draft",
+    timeLimitMinutes: 8,
+    title: "Nutrition exit ticket",
   },
 ];
+
+export function demoQuestionById(id: string): DemoQuestion | undefined {
+  return demoQuestionBank.find((question) => question.id === id);
+}
+
+/** The paper's questions, in the order it presents them. */
+export function demoAssessmentQuestions(
+  assessment: DemoAssessment,
+): DemoQuestion[] {
+  return assessment.questionIds
+    .map((id) => demoQuestionById(id))
+    .filter((question): question is DemoQuestion => question !== undefined);
+}
+
+export function demoAssessmentMarks(assessment: DemoAssessment): number {
+  return demoAssessmentQuestions(assessment).reduce(
+    (total, question) => total + question.marks,
+    0,
+  );
+}
 
 export function demoAssessmentBySlug(slug: string): DemoAssessment | undefined {
   return demoAssessments.find((assessment) => assessment.slug === slug);
@@ -1119,3 +1413,122 @@ export const demoAdmissionApplication = {
   supportNeeds:
     "Wears glasses for reading and would benefit from a seat near the front.",
 };
+
+/* -------------------------------------------------------------------------
+   Reports
+
+   End-of-term results, one row per subject the learner actually takes. The
+   reporting seed used to carry its own list of six subjects — including
+   Computing and Religious & Moral Education, which have no lessons, no
+   teacher and no timetable slot anywhere else in the school — against
+   offering ids that do not exist. A report card is the document a guardian
+   reads most carefully, so it should describe the school the learner is in.
+   ------------------------------------------------------------------------- */
+
+export type DemoSubjectResult = {
+  comment: string;
+  /* Tenths of a percent, matching how the gradebook stores scores. */
+  scoreTenths: number;
+};
+
+export type DemoLearnerReport = {
+  attendancePresent: number;
+  attendanceTotal: number;
+  classTeacherComment: string;
+  conduct: string;
+  learnerPersonId: string;
+  /** Keyed by subject slug. */
+  results: Record<string, DemoSubjectResult>;
+};
+
+export const demoReports: DemoLearnerReport[] = [
+  {
+    attendancePresent: 58,
+    attendanceTotal: 60,
+    classTeacherComment:
+      "Kwame is thoughtful and consistent. He should contribute more often during group practicals.",
+    conduct: "Very good",
+    learnerPersonId: "person-kwame",
+    results: {
+      "english-language": {
+        comment: "Communicates ideas with growing confidence.",
+        scoreTenths: 740,
+      },
+      "integrated-science": {
+        comment: "Applies lesson concepts well in practical work.",
+        scoreTenths: 832,
+      },
+      mathematics: {
+        comment: "Shows sound numerical reasoning.",
+        scoreTenths: 780,
+      },
+      "social-studies": {
+        comment: "Understands community and civic themes.",
+        scoreTenths: 690,
+      },
+    },
+  },
+  {
+    attendancePresent: 60,
+    attendanceTotal: 60,
+    classTeacherComment:
+      "Ama shows excellent curiosity and explains scientific ideas clearly.",
+    conduct: "Excellent",
+    learnerPersonId: "person-ama",
+    results: {
+      "english-language": {
+        comment: "Writes with precision and a strong sense of audience.",
+        scoreTenths: 850,
+      },
+      "integrated-science": {
+        comment: "Explains and applies concepts with real confidence.",
+        scoreTenths: 900,
+      },
+      mathematics: {
+        comment: "Reasons quickly and checks her own working.",
+        scoreTenths: 880,
+      },
+      "social-studies": {
+        comment: "Brings well-chosen examples to discussion.",
+        scoreTenths: 810,
+      },
+    },
+  },
+  {
+    attendancePresent: 54,
+    attendanceTotal: 60,
+    classTeacherComment:
+      "Kojo is improving steadily. Completion of the model project is required.",
+    conduct: "Good",
+    learnerPersonId: "person-kojo",
+    results: {
+      "english-language": {
+        comment: "Reading has improved; written work needs more planning.",
+        scoreTenths: 660,
+      },
+      "integrated-science": {
+        comment: "Practical work is strong when the project is completed.",
+        scoreTenths: 610,
+      },
+      mathematics: {
+        comment: "Secure with number; needs practice with ratio.",
+        scoreTenths: 700,
+      },
+      "social-studies": {
+        comment: "Engages well with civic themes.",
+        scoreTenths: 640,
+      },
+    },
+  },
+];
+
+/** Mean across the subjects a learner takes, in tenths. */
+export function demoReportAverageTenths(report: DemoLearnerReport): number {
+  const scores = Object.values(report.results).map(
+    (result) => result.scoreTenths,
+  );
+  if (scores.length === 0) return 0;
+  return Math.round(
+    scores.reduce((total, score) => total + score, 0) / scores.length,
+  );
+}

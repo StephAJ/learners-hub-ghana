@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   demoActivities,
+  demoAssessmentQuestions,
   demoAssessments,
+  demoQuestionBank,
+  demoLearners,
   demoMediaAssets,
   demoPeople,
+  demoPeriods,
+  demoReportAverageTenths,
+  demoReports,
+  demoTimetable,
   demoSubjectBySlug,
   demoSubjectProgress,
   demoSubjects,
@@ -200,7 +207,7 @@ describe("demo dataset integrity", () => {
   it("covers every question type across the demo assessments", () => {
     const used = new Set(
       demoAssessments.flatMap((assessment) =>
-        assessment.questions.map((question) => question.type),
+        demoAssessmentQuestions(assessment).map((question) => question.type),
       ),
     );
     for (const type of [
@@ -217,15 +224,57 @@ describe("demo dataset integrity", () => {
     }
   });
 
-  it("numbers assessment questions from one and marks them all", () => {
+  it("resolves every question an assessment lists", () => {
     for (const assessment of demoAssessments) {
-      const positions = assessment.questions.map(
-        (question) => question.position,
-      );
-      expect(positions).toEqual(positions.map((_, index) => index + 1));
-      for (const question of assessment.questions) {
-        expect(question.marks, question.id).toBeGreaterThan(0);
-        expect(question.answerNote.length, question.id).toBeGreaterThan(0);
+      /* A missing id would silently shorten the paper rather than fail. */
+      expect(
+        demoAssessmentQuestions(assessment).map((question) => question.id),
+        assessment.slug,
+      ).toEqual(assessment.questionIds);
+    }
+  });
+
+  it("marks every bank question and gives it an answer key", () => {
+    for (const question of demoQuestionBank) {
+      expect(question.marks, question.id).toBeGreaterThan(0);
+      const { rubric, value } = question.answerKey;
+      /* Auto-marked types need a value; the ones a teacher reads need a
+         rubric. A question with neither cannot be marked at all. */
+      expect(
+        rubric !== undefined || value !== undefined,
+        `${question.id} has no answer key`,
+      ).toBe(true);
+      expect(question.rationale.length, question.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps bank question ids unique", () => {
+    const ids = demoQuestionBank.map((question) => question.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("only puts a question on a paper from the same subject", () => {
+    for (const assessment of demoAssessments) {
+      for (const question of demoAssessmentQuestions(assessment)) {
+        expect(question.offeringId, `${assessment.slug}/${question.id}`).toBe(
+          assessment.offeringId,
+        );
+      }
+    }
+  });
+
+  it("offers choices for the types that need them, and none for the rest", () => {
+    const needsOptions = new Set([
+      "single-choice",
+      "multiple-choice",
+      "matching",
+      "ordering",
+    ]);
+    for (const question of demoQuestionBank) {
+      if (needsOptions.has(question.type)) {
+        expect(question.options.length, question.id).toBeGreaterThan(1);
+      } else {
+        expect(question.options, question.id).toEqual([]);
       }
     }
   });
@@ -311,5 +360,133 @@ describe("lesson video sources", () => {
       () => undefined,
     );
     expect(source?.kind).toBe("youtube");
+  });
+});
+
+/* The timetable and the register feed the operations and reporting seeds. Both
+   used to be written out separately inside those seeds, and both had drifted:
+   English was credited to an administrator, and two learners existed in the
+   markbook but in no directory. These hold them to the subjects. */
+
+describe("class roster and timetable", () => {
+  it("puts every learner in the class", () => {
+    expect(demoLearners.length).toBeGreaterThanOrEqual(3);
+    for (const learner of demoLearners) {
+      expect(learner.kind).toBe("learner");
+      expect(learner.scopeType).toBe("class");
+    }
+  });
+
+  it("gives every learner a distinct id and email", () => {
+    const ids = demoLearners.map((learner) => learner.id);
+    const emails = demoLearners.map((learner) => learner.email);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(new Set(emails).size).toBe(emails.length);
+  });
+
+  it("only ever schedules a subject with the teacher who owns it", () => {
+    for (const entry of demoTimetable) {
+      const subject = demoSubjects.find(
+        (candidate) => candidate.offeringId === entry.offeringId,
+      );
+      expect(subject, entry.id).toBeDefined();
+      expect(entry.teacherPersonId, entry.id).toBe(subject!.teacherPersonId);
+      expect(entry.subjectName, entry.id).toBe(subject!.subjectName);
+    }
+  });
+
+  it("never schedules anyone who cannot teach", () => {
+    for (const entry of demoTimetable) {
+      const teacher = demoPeople.find(
+        (person) => person.id === entry.teacherPersonId,
+      );
+      expect(["teacher", "class-teacher"], entry.id).toContain(teacher?.role);
+    }
+  });
+
+  it("schedules into real teaching periods, never the break", () => {
+    const teaching = new Set(
+      demoPeriods.filter((p) => p.kind === "lesson").map((p) => p.id),
+    );
+    for (const entry of demoTimetable) {
+      expect(teaching, entry.id).toContain(entry.periodId);
+    }
+  });
+
+  it("puts one lesson in each period of each weekday", () => {
+    const seen = new Set<string>();
+    for (const entry of demoTimetable) {
+      const slot = `${entry.weekday}:${entry.periodId}`;
+      expect(seen.has(slot), `two lessons in ${slot}`).toBe(false);
+      seen.add(slot);
+    }
+    const teachingPeriods = demoPeriods.filter((p) => p.kind === "lesson");
+    expect(demoTimetable).toHaveLength(5 * teachingPeriods.length);
+  });
+
+  it("gives every timetable entry a distinct id", () => {
+    const ids = demoTimetable.map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("orders periods without overlapping them", () => {
+    const sorted = [...demoPeriods].sort((a, b) => a.position - b.position);
+    expect(sorted.map((p) => p.id)).toEqual(demoPeriods.map((p) => p.id));
+    for (let i = 1; i < sorted.length; i += 1) {
+      expect(
+        sorted[i].startsAt >= sorted[i - 1].endsAt,
+        `${sorted[i].id} starts before ${sorted[i - 1].id} ends`,
+      ).toBe(true);
+    }
+  });
+});
+
+/* The gradebook and report seeds project from these. A report card is what a
+   guardian reads most carefully, so it has to describe the school the learner
+   is actually in — the previous seed listed six subjects, two of which existed
+   nowhere else, against offering ids that were never created. */
+
+describe("reports", () => {
+  it("writes a report for every learner on the register", () => {
+    const reported = new Set(demoReports.map((r) => r.learnerPersonId));
+    for (const learner of demoLearners) {
+      expect(reported, `no report for ${learner.id}`).toContain(learner.id);
+    }
+    expect(demoReports).toHaveLength(demoLearners.length);
+  });
+
+  it("reports on exactly the subjects the learner takes", () => {
+    const slugs = demoSubjects.map((subject) => subject.slug).sort();
+    for (const report of demoReports) {
+      expect(Object.keys(report.results).sort(), report.learnerPersonId).toEqual(
+        slugs,
+      );
+    }
+  });
+
+  it("keeps every score and attendance figure in range", () => {
+    for (const report of demoReports) {
+      expect(report.attendancePresent).toBeLessThanOrEqual(
+        report.attendanceTotal,
+      );
+      expect(report.attendancePresent).toBeGreaterThanOrEqual(0);
+      for (const [slug, result] of Object.entries(report.results)) {
+        expect(result.scoreTenths, `${report.learnerPersonId}/${slug}`)
+          .toBeGreaterThanOrEqual(0);
+        expect(result.scoreTenths, `${report.learnerPersonId}/${slug}`)
+          .toBeLessThanOrEqual(1000);
+        expect(result.comment.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("averages across the subjects it reports on", () => {
+    for (const report of demoReports) {
+      const scores = Object.values(report.results).map((r) => r.scoreTenths);
+      const expected = Math.round(
+        scores.reduce((total, score) => total + score, 0) / scores.length,
+      );
+      expect(demoReportAverageTenths(report)).toBe(expected);
+    }
   });
 });

@@ -1,8 +1,18 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import "./public-site.css";
 import "./workspace.css";
+
+/* Self-hosted at build time rather than fetched from Google, so a learner on a
+   slow connection makes one fewer third-party request and the school is not
+   leaking who is reading what. `swap` keeps text readable while it loads. */
+const inter = Inter({
+  display: "swap",
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 const description =
   "The school system Greenfield Academy uses for admissions, lesson planning, attendance, marking, and end-of-term reports.";
@@ -57,7 +67,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html className={inter.variable} lang="en">
       <body>{children}</body>
     </html>
   );

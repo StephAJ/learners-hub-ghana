@@ -1,3 +1,12 @@
+import { ensurePeopleSeed } from "./people-repository";
+import {
+  demoReportAverageTenths,
+  demoReports,
+  demoSubjects,
+  DEMO_CLASS_GROUP_ID,
+  DEMO_CLASS_NAME,
+  type DemoLearnerReport,
+} from "../domain/demo/greenfield";
 import { ensureAssessmentFoundation } from "./assessment-repository";
 import { getSchoolDatabase } from "./index";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
@@ -578,62 +587,18 @@ export async function getGuardianReportWorkspace(
 }
 
 export async function ensureReportingFoundation() {
+  /* Report cards and grade entries are keyed to learners, so the register has
+     to exist first. This used to invent Ama and Kojo locally, which is why
+     they showed up in the markbook and in no directory. */
+  await ensurePeopleSeed();
   await ensureAssessmentFoundation();
   const database = await getSchoolDatabase();
   await database.batch([
-    ...seedLearners(database),
     ...seedPeriodsAndPolicy(database),
     ...seedGradebook(database),
     ...seedCurrentReports(database),
     ...seedReleasedReport(database),
   ]);
-}
-
-function seedLearners(database: SchoolDatabase) {
-  return [
-    seedLearner(
-      database,
-      "person-ama",
-      "Ama",
-      "Serwaa",
-      "ama.serwaa@student.greenfield.edu.gh",
-    ),
-    seedLearner(
-      database,
-      "person-kojo",
-      "Kojo",
-      "Boateng",
-      "kojo.boateng@student.greenfield.edu.gh",
-    ),
-    seedLearnerMembership(database, "person-ama"),
-    seedLearnerMembership(database, "person-kojo"),
-  ];
-}
-
-function seedLearner(
-  database: SchoolDatabase,
-  id: string,
-  firstName: string,
-  lastName: string,
-  email: string,
-) {
-  return database
-    .prepare(
-      `INSERT OR IGNORE INTO people
-        (id, tenant_id, kind, first_name, last_name, email, status)
-      VALUES (?, ?, 'learner', ?, ?, ?, 'active')`,
-    )
-    .bind(id, TENANT_ID, firstName, lastName, email);
-}
-
-function seedLearnerMembership(database: SchoolDatabase, personId: string) {
-  return database
-    .prepare(
-      `INSERT OR IGNORE INTO tenant_memberships
-        (id, tenant_id, person_id, role, status, scope_type, scope_id, accepted_at)
-      VALUES (?, ?, ?, 'learner', 'active', 'class', 'JHS 2 Gold', CURRENT_TIMESTAMP)`,
-    )
-    .bind(`membership-${personId}`, TENANT_ID, personId);
 }
 
 function seedPeriodsAndPolicy(database: SchoolDatabase) {
@@ -652,21 +617,40 @@ function seedPeriodsAndPolicy(database: SchoolDatabase) {
         VALUES ('period-2025-term2', ?, '2025 / 2026', 'Term 2', '2026-01-06', '2026-04-10', 'closed', 1)`,
       )
       .bind(TENANT_ID),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO grade_categories
-          (id, tenant_id, period_id, offering_id, name, kind, weight_percent, position)
-        VALUES ('category-science-ca', ?, ?, ?, 'Continuous assessment', 'continuous-assessment', 40, 1)`,
-      )
-      .bind(TENANT_ID, CURRENT_PERIOD_ID, SCIENCE_OFFERING_ID),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO grade_categories
-          (id, tenant_id, period_id, offering_id, name, kind, weight_percent, position)
-        VALUES ('category-science-exam', ?, ?, ?, 'End-of-term examination', 'examination', 60, 2)`,
-      )
-      .bind(TENANT_ID, CURRENT_PERIOD_ID, SCIENCE_OFFERING_ID),
   ];
+
+  /* Every subject is marked the same way — 40% continuous assessment, 60%
+     examination — so the weighting is seeded per subject rather than for
+     Integrated Science alone. A markbook that only knows one of a learner's
+     four subjects cannot produce their report. */
+  demoSubjects.forEach((subject) => {
+    statements.push(
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO grade_categories
+            (id, tenant_id, period_id, offering_id, name, kind, weight_percent, position)
+          VALUES (?, ?, ?, ?, 'Continuous assessment', 'continuous-assessment', 40, 1)`,
+        )
+        .bind(
+          `category-${subject.slug}-ca`,
+          TENANT_ID,
+          CURRENT_PERIOD_ID,
+          subject.offeringId,
+        ),
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO grade_categories
+            (id, tenant_id, period_id, offering_id, name, kind, weight_percent, position)
+          VALUES (?, ?, ?, ?, 'End-of-term examination', 'examination', 60, 2)`,
+        )
+        .bind(
+          `category-${subject.slug}-exam`,
+          TENANT_ID,
+          CURRENT_PERIOD_ID,
+          subject.offeringId,
+        ),
+    );
+  });
   const bands = [
     [80, 100, "A", "Excellent"],
     [70, 79.9, "B", "Very good"],
@@ -703,7 +687,7 @@ function seedGradebook(database: SchoolDatabase) {
     seedGradeItem(
       database,
       "grade-item-digestion-quiz",
-      "category-science-ca",
+      "category-integrated-science-ca",
       "Digestive system quiz",
       20,
       1,
@@ -712,7 +696,7 @@ function seedGradebook(database: SchoolDatabase) {
     seedGradeItem(
       database,
       "grade-item-model-project",
-      "category-science-ca",
+      "category-integrated-science-ca",
       "Body systems model",
       30,
       2,
@@ -721,7 +705,7 @@ function seedGradebook(database: SchoolDatabase) {
     seedGradeItem(
       database,
       "grade-item-term-exam",
-      "category-science-exam",
+      "category-integrated-science-exam",
       "End-of-term examination",
       50,
       3,
@@ -798,41 +782,25 @@ function seedGradeItem(
 }
 
 function seedCurrentReports(database: SchoolDatabase) {
-  const learners = [
-    {
-      average: 782,
-      id: "person-kwame",
-      name: "Kwame Agyeman",
-      science: 832,
-      comment: "Kwame is thoughtful and consistent. He should contribute more often during group practicals.",
-    },
-    {
-      average: 873,
-      id: "person-ama",
-      name: "Ama Serwaa",
-      science: 900,
-      comment: "Ama shows excellent curiosity and explains scientific ideas clearly.",
-    },
-    {
-      average: 692,
-      id: "person-kojo",
-      name: "Kojo Boateng",
-      science: 0,
-      comment: "Kojo is improving steadily. Completion of the model project is required.",
-    },
-  ];
   const statements: SchoolStatement[] = [];
-  learners.forEach((learner) => {
-    const reportId = `report-${learner.id}-term1`;
+  demoReports.forEach((report) => {
+    const reportId = `report-${report.learnerPersonId}-term1`;
     const versionId = `${reportId}:v0`;
     statements.push(
       database
         .prepare(
           `INSERT OR IGNORE INTO report_cards
             (id, tenant_id, learner_person_id, period_id, class_group_id, class_name, status, current_version)
-          VALUES (?, ?, ?, ?, 'class-jhs2-gold', 'JHS 2 Gold', 'draft', 0)`,
+          VALUES (?, ?, ?, ?, ?, ?, 'draft', 0)`,
         )
-        .bind(reportId, TENANT_ID, learner.id, CURRENT_PERIOD_ID),
+        .bind(
+          reportId,
+          TENANT_ID,
+          report.learnerPersonId,
+          CURRENT_PERIOD_ID,
+          DEMO_CLASS_GROUP_ID,
+          DEMO_CLASS_NAME,
+        ),
       database
         .prepare(
           `INSERT OR IGNORE INTO report_card_versions
@@ -840,23 +808,21 @@ function seedCurrentReports(database: SchoolDatabase) {
              attendance_present, attendance_total, conduct, class_teacher_comment,
              headteacher_comment, promotion_decision, next_term_begins_on,
              created_by_person_id)
-          VALUES (?, ?, ?, 0, 'draft', ?, 58, 60, 'Very good', ?, ?,
+          VALUES (?, ?, ?, 0, 'draft', ?, ?, ?, ?, ?, ?,
             'Progressing', '2027-01-12', 'person-emmanuel')`,
         )
         .bind(
           versionId,
           TENANT_ID,
           reportId,
-          learner.average,
-          learner.comment,
+          demoReportAverageTenths(report),
+          report.attendancePresent,
+          report.attendanceTotal,
+          report.conduct,
+          report.classTeacherComment,
           "Continue the good work and make the most of every learning opportunity.",
         ),
-      ...seedReportSubjects(
-        database,
-        versionId,
-        learner.science,
-        learner.name,
-      ),
+      ...seedReportSubjects(database, versionId, report),
     );
   });
   return statements;
@@ -900,19 +866,15 @@ function seedReleasedReport(database: SchoolDatabase) {
 function seedReportSubjects(
   database: SchoolDatabase,
   versionId: string,
-  scienceScore: number,
-  learnerName: string,
+  report: DemoLearnerReport,
 ) {
-  const subjects: Array<[string, string, number, string]> = [
-    ["MA", "Mathematics", learnerName.includes("Ama") ? 880 : 780, "Shows sound numerical reasoning."],
-    ["EN", "English Language", learnerName.includes("Ama") ? 850 : 740, "Communicates ideas with growing confidence."],
-    ["IS", "Integrated Science", scienceScore, "Applies lesson concepts well in practical work."],
-    ["SS", "Social Studies", learnerName.includes("Kojo") ? 640 : 690, "Understands community and civic themes."],
-    ["CT", "Computing", learnerName.includes("Ama") ? 910 : 850, "Uses digital tools responsibly and effectively."],
-    ["RM", "Religious & Moral Education", learnerName.includes("Kojo") ? 720 : 800, "Contributes respectfully to class discussion."],
-  ];
-  return subjects.map(([code, name, score, comment], index) => {
-    const scale = seedGrade(score / 10);
+  /* One row per subject on the timetable, against the real offering id. The
+     previous version listed six subjects, two of which existed nowhere else in
+     the school, against offering ids that were never created. */
+  return demoSubjects.map((subject, index) => {
+    const result = report.results[subject.slug];
+    if (!result) return undefined;
+    const scale = seedGrade(result.scoreTenths / 10);
     return database
       .prepare(
         `INSERT OR IGNORE INTO report_subject_results
@@ -921,34 +883,36 @@ function seedReportSubjects(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
-        `${versionId}-${code}`,
+        `${versionId}-${subject.code}`,
         TENANT_ID,
         versionId,
-        code === "IS" ? SCIENCE_OFFERING_ID : `offering-${code.toLowerCase()}-jhs2`,
-        code,
-        name,
-        score,
+        subject.offeringId,
+        subject.code,
+        subject.subjectName,
+        result.scoreTenths,
         scale.grade,
         scale.remark,
-        comment,
+        result.comment,
         index + 1,
       );
-  });
+  }).filter((statement): statement is SchoolStatement => statement !== undefined);
 }
 
 function seedReleasedReportSubjects(
   database: SchoolDatabase,
   versionId: string,
 ) {
-  const subjects: Array<[string, string, number, string]> = [
-    ["MA", "Mathematics", 740, "Good progress in algebra and number work."],
-    ["EN", "English Language", 710, "Written expression is becoming clearer."],
-    ["IS", "Integrated Science", 790, "Shows strong understanding of body systems."],
-    ["SS", "Social Studies", 660, "Participates thoughtfully in civic discussions."],
-    ["CT", "Computing", 810, "Works confidently with data and documents."],
-    ["RM", "Religious & Moral Education", 780, "Demonstrates respect and sound moral judgement."],
-  ];
-  return subjects.map(([code, name, score, comment], index) => {
+  /* Last term's released report, over the same four subjects as this term's.
+     Scores are a little lower throughout, so the guardian view shows movement
+     between terms rather than two unrelated documents. */
+  const lastTerm: Record<string, [number, string]> = {
+    "english-language": [710, "Written expression is becoming clearer."],
+    "integrated-science": [790, "Shows strong understanding of body systems."],
+    mathematics: [740, "Good progress in algebra and number work."],
+    "social-studies": [660, "Participates thoughtfully in civic discussions."],
+  };
+  return demoSubjects.map((subject, index) => {
+    const [score, comment] = lastTerm[subject.slug] ?? [700, "Steady progress."];
     const scale = seedGrade(score / 10);
     return database
       .prepare(
@@ -958,12 +922,12 @@ function seedReleasedReportSubjects(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
-        `${versionId}-${code}`,
+        `${versionId}-${subject.code}`,
         TENANT_ID,
         versionId,
-        code === "IS" ? SCIENCE_OFFERING_ID : `offering-${code.toLowerCase()}-jhs2`,
-        code,
-        name,
+        subject.offeringId,
+        subject.code,
+        subject.subjectName,
         score,
         scale.grade,
         scale.remark,

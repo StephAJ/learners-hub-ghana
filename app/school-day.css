@@ -10,12 +10,6 @@
   --day-gold: var(--brand-accent);
 }
 
-.school-day-shell {
-  min-height: 100vh;
-  background: #f4f7f4;
-  color: var(--day-ink);
-}
-
 .school-day-header {
   min-height: 74px;
   padding: 11px max(22px, calc((100vw - 1240px) / 2));
@@ -105,24 +99,44 @@
 }
 
 .school-day-page {
-  width: min(1200px, calc(100% - 42px));
-  margin: 0 auto;
-  padding: 36px 0 72px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .school-day-welcome,
 .guardian-day-welcome {
-  min-height: 205px;
-  padding: 32px 36px;
+  padding: var(--space-6) var(--space-8);
   border-radius: var(--radius-2xl);
   background:
     radial-gradient(circle at 82% 18%, rgba(233, 187, 76, 0.28), transparent 24%),
     linear-gradient(128deg, var(--brand), var(--brand-deep));
   color: white;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 285px;
-  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-6);
   align-items: center;
+}
+
+.school-day-welcome h2 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-28);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-display);
+  margin: var(--space-2) 0 var(--space-2);
+}
+
+.school-day-next-action {
+  align-items: center;
+  background: var(--brand-accent);
+  border-radius: var(--radius-md);
+  color: #3f3009;
+  display: inline-flex;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-height: 2.5rem;
+  padding: 0 var(--space-5);
+  white-space: nowrap;
 }
 
 .school-day-welcome > div:first-child,

@@ -1,0 +1,78 @@
+/* The learner's list of set assessments. A list rather than cards: these are
+   things to be done in order, not things to browse. */
+
+.assessment-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  max-width: 52rem;
+  padding: 0;
+}
+
+.assessment-list a {
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  padding: var(--space-5);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.assessment-list a:hover,
+.assessment-list a:focus-visible {
+  border-color: var(--workspace-accent);
+  outline: none;
+}
+
+.assessment-list a > svg {
+  color: var(--workspace-muted);
+  flex: 0 0 auto;
+}
+
+.assessment-list a:hover > svg {
+  color: var(--workspace-accent);
+}
+
+.assessment-list-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.assessment-list-meta {
+  color: var(--workspace-accent);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.assessment-list-copy strong {
+  font-size: var(--fs-18);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.012em;
+  margin-top: var(--space-2);
+}
+
+.assessment-list-facts {
+  color: var(--workspace-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-14);
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.assessment-list-facts > span {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-1);
+}

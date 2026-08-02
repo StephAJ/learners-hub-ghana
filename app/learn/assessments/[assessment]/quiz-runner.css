@@ -10,11 +10,9 @@
 
 .quiz-intro-shell,
 .quiz-result-shell,
-.quiz-runner-shell {
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(232, 246, 239, 0.8), transparent 28%),
-    var(--quiz-bg);
+/* The runner sits in the workspace content column now, so it no longer paints
+   a page background or claims the viewport height. */
+.quiz-runner-layout {
   color: var(--quiz-ink);
 }
 
@@ -222,30 +220,20 @@
 }
 
 .quiz-runner-header {
-  height: 76px;
-  padding: 0 36px;
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  background: white;
-  border-bottom: 1px solid var(--quiz-line);
+  background: var(--card);
+  border: 1px solid var(--quiz-line);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: var(--space-4);
+  padding: var(--space-4) var(--space-5);
 }
 
-.quiz-runner-header > a {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-md);
+.quiz-runner-header > div:first-child {
   display: grid;
-  place-items: center;
-  background: var(--quiz-green-dark);
-  color: white;
-  text-decoration: none;
-  font-weight: var(--fw-semibold);
-}
-
-.quiz-runner-header > div:nth-child(2) {
-  display: grid;
+  min-width: 0;
 }
 
 .quiz-runner-header span {

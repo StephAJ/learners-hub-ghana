@@ -1,610 +1,454 @@
-.learning-shell {
-  background: #f4f6f1;
-  color: var(--ink);
+/* ==========================================================================
+   Course player
+
+   The learner's main screen, laid out the way a course platform is: the
+   contents of the course down one side, the activity itself taking the room it
+   needs, and its detail in tabs underneath rather than stacked above it.
+
+   It sits inside the workspace shell, so the app's own navigation is still
+   there — collapse the sidebar for focus. The outline below is the course's
+   contents, not the app's.
+   ========================================================================== */
+
+.course-player {
   display: grid;
-  grid-template-columns: 258px minmax(0, 1fr);
-  min-height: 100vh;
-  padding-top: 68px;
+  grid-template-columns: 20rem minmax(0, 1fr);
+  min-height: calc(100vh - var(--topbar-height, 6.75rem));
 }
 
-.learning-topbar {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid #e2e7df;
-  display: grid;
-  gap: 20px;
-  grid-template-columns: 240px 1fr auto;
-  height: 68px;
-  left: 0;
-  padding: 0 24px;
-  position: fixed;
-  right: 0;
-  top: 0;
-  z-index: 20;
-}
+/* -- Course contents ----------------------------------------------------- */
 
-.learning-brand {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.learning-brand > span {
-  align-items: center;
-  background: var(--primary);
-  border-radius: var(--radius-sm);
-  color: #ffffff;
-  display: flex;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  height: 34px;
-  justify-content: center;
-  width: 34px;
-}
-
-.learning-brand strong {
-  font-family: var(--font-serif);
-  font-size: var(--fs-18);
-  font-weight: var(--fw-semibold);
-}
-
-.learning-topbar nav {
-  align-items: center;
-  color: #7c8985;
-  display: flex;
-  font-size: var(--fs-13);
-  gap: 8px;
-}
-
-.learning-topbar nav strong {
-  color: #40514c;
-}
-
-.learning-topbar > div:last-child {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-}
-
-.learning-mode {
-  align-items: center;
-  background: #eef3ef;
-  border-radius: 999px;
-  color: #6a7874;
-  display: inline-flex;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  gap: 8px;
-  padding: 8px 8px;
-}
-
-.learning-mode i {
-  background: #9ba8a3;
-  border-radius: 50%;
-  height: 6px;
-  width: 6px;
-}
-
-.learning-mode.mode-protected {
-  background: #dff0e8;
-  color: #176050;
-}
-
-.learning-mode.mode-protected i {
-  background: #1d826c;
-}
-
-.learning-mode.mode-preview {
-  background: #f5ead1;
-  color: #765a1d;
-}
-
-.learning-mode.mode-preview i {
-  background: #b98524;
-}
-
-.learning-topbar > div:last-child > button {
-  background: #f2f4f1;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: #74817d;
-  height: 32px;
-  width: 32px;
-}
-
-.learner-avatar {
-  align-items: center;
-  background: #dbeae4;
-  border-radius: 50%;
-  color: var(--primary);
-  display: flex;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  height: 34px;
-  justify-content: center;
-  width: 34px;
-}
-
-.lesson-outline {
-  background:
-    radial-gradient(circle at 10% 8%, rgba(225, 185, 81, 0.12), transparent 16rem),
-    var(--brand-deep);
-  color: #f3faf7;
+.course-outline {
+  background: var(--card);
+  border-right: 1px solid var(--workspace-line);
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 68px);
+  max-height: calc(100vh - var(--topbar-height, 6.75rem));
   overflow-y: auto;
-  padding: 20px 16px 20px;
   position: sticky;
-  top: 68px;
+  top: var(--topbar-height, 6.75rem);
 }
 
-.outline-subject {
-  align-items: center;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 45px 1fr;
+.course-outline-head {
+  border-bottom: 1px solid var(--workspace-line);
+  padding: var(--space-5);
 }
 
-.outline-subject > span {
-  align-items: center;
-  background: var(--brand-accent);
-  border-radius: var(--radius-md);
-  color: var(--brand-accent-ink);
-  display: flex;
-  font-family: var(--font-serif);
-  font-size: var(--fs-16);
-  font-weight: var(--fw-semibold);
-  height: 45px;
-  justify-content: center;
-}
-
-.outline-subject small,
-.outline-subject strong,
-.outline-subject p {
-  display: block;
-  margin: 0;
-}
-
-.outline-subject small {
-  color: var(--brand-on-deep-quiet);
-  font-size: var(--fs-13);
-}
-
-.outline-subject strong {
-  font-family: var(--font-serif);
-  font-size: var(--fs-16);
-  margin-top: 4px;
-}
-
-.outline-subject p {
-  color: var(--brand-on-deep);
-  font-size: var(--fs-14);
-  margin-top: 4px;
-}
-
-.outline-progress {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-  margin-top: 20px;
-  padding: 16px 0;
-}
-
-.outline-progress > div {
-  display: flex;
-  font-size: var(--fs-13);
-  justify-content: space-between;
-}
-
-.outline-progress > div span {
-  color: var(--brand-on-deep);
-}
-
-.outline-progress > div strong {
-  color: var(--brand-accent);
-}
-
-.outline-progress > span {
-  background: rgba(255, 255, 255, 0.11);
-  border-radius: 999px;
-  display: block;
-  height: 5px;
-  margin-top: 8px;
-  overflow: hidden;
-}
-
-.outline-progress > span i {
-  background: var(--brand-accent);
-  display: block;
-  height: 100%;
-}
-
-.outline-lessons {
-  margin-top: 20px;
-}
-
-.outline-label {
-  color: var(--brand-on-deep-quiet);
-  font-size: var(--fs-13);
+.course-outline-head p {
+  color: var(--workspace-muted);
+  font-size: var(--fs-12);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--tracking-label);
-  margin: 0;
+  margin: 0 0 var(--space-3);
   text-transform: uppercase;
 }
 
-.outline-lessons h2 {
-  font-size: var(--fs-14);
-  margin: 4px 4px 12px;
+.course-outline-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.outline-lessons > button {
+.course-outline-progress > span:first-child {
+  color: var(--ink-soft);
+  font-size: var(--fs-13);
+}
+
+.course-outline-track {
+  background: var(--line);
+  border-radius: var(--radius-pill);
+  display: block;
+  height: 4px;
+  overflow: hidden;
+}
+
+.course-outline-track i {
+  background: var(--workspace-accent);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width 420ms ease;
+}
+
+.course-outline-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+}
+
+.course-outline-lesson {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  text-align: left;
+  transition: background 160ms ease;
+  width: 100%;
+}
+
+.course-outline-lesson:hover:not(:disabled) {
+  background: var(--brand-tint);
+}
+
+.course-outline-lesson:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.is-open > .course-outline-lesson {
+  background: var(--brand-soft);
+}
+
+/* A numbered disc that becomes a tick. Keeping one shape for both means the
+   list does not reflow as lessons are finished. */
+.course-outline-status {
+  align-items: center;
+  background: var(--canvas);
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--workspace-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  height: 1.375rem;
+  justify-content: center;
+  margin-top: 1px;
+  width: 1.375rem;
+}
+
+.course-outline-status.is-done {
+  background: var(--workspace-accent);
+  border-color: var(--workspace-accent);
+  color: #fff;
+}
+
+.course-outline-lesson-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.course-outline-lesson-copy strong {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+}
+
+.course-outline-lesson-copy small {
+  color: var(--workspace-muted);
+  font-size: var(--fs-13);
+  margin-top: var(--space-1);
+}
+
+.course-outline-activities {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0 var(--space-2) 0 calc(var(--space-3) + 1.375rem + var(--space-3));
+}
+
+.course-outline-activities button {
   align-items: center;
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
-  color: var(--brand-on-deep);
+  color: var(--ink-soft);
   cursor: pointer;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 26px 1fr 8px;
-  margin-top: 4px;
-  min-height: 51px;
-  padding: 8px;
+  display: flex;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  gap: var(--space-2);
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
   text-align: left;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
   width: 100%;
 }
 
-.outline-lessons > button.active {
-  background: rgba(255, 255, 255, 0.09);
-  color: #ffffff;
+.course-outline-activities button:hover {
+  background: var(--brand-tint);
+  color: var(--ink);
 }
 
-.outline-lessons > button:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
-}
-
-.outline-lessons > button > span {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.09);
-  border-radius: var(--radius-xs);
-  display: flex;
-  font-size: var(--fs-14);
+.course-outline-activities button.is-current {
+  background: var(--brand-soft);
+  color: var(--workspace-accent);
   font-weight: var(--fw-semibold);
-  height: 28px;
+}
+
+.course-activity-tick {
+  align-items: center;
+  color: var(--workspace-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 0.875rem;
   justify-content: center;
+  width: 0.875rem;
 }
 
-.outline-lessons > button.active > span {
-  background: var(--brand-accent);
-  color: var(--brand-accent-ink);
+.course-outline-activities button.is-current .course-activity-tick {
+  color: var(--workspace-accent);
 }
 
-.outline-lessons button p,
-.outline-lessons button strong,
-.outline-lessons button small {
-  display: block;
-  margin: 0;
+.course-activity-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.outline-lessons button strong {
-  font-size: var(--fs-14);
-  line-height: 1.3;
+.course-activity-kind {
+  color: var(--workspace-muted);
+  flex: 0 0 auto;
+  font-size: var(--fs-12);
 }
 
-.outline-lessons button small {
-  color: var(--brand-on-deep-quiet);
-  font-size: var(--fs-14);
-  margin-top: 4px;
-}
+/* -- Stage --------------------------------------------------------------- */
 
-.outline-lessons button i {
-  font-style: normal;
-}
-
-.outline-help {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: var(--radius-sm);
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 27px 1fr;
-  margin-top: auto;
-  padding: 8px;
-}
-
-.outline-help > span {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
+.course-stage {
   display: flex;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  height: 28px;
-  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  padding: var(--space-6) clamp(var(--space-5), 3vw, var(--space-10))
+    var(--space-10);
 }
 
-.outline-help strong,
-.outline-help small {
-  display: block;
+.course-stage-head {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
 }
 
-.outline-help strong {
-  font-size: var(--fs-13);
-}
-
-.outline-help small {
-  color: var(--brand-on-deep-quiet);
-  font-size: var(--fs-13);
-  line-height: 1.35;
-  margin-top: 4px;
-}
-
-.back-dashboard {
-  color: var(--brand-on-deep);
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  margin-top: 12px;
-  text-align: center;
-}
-
-.lesson-main {
-  margin: 0 auto;
-  max-width: 960px;
-  padding: 38px clamp(22px, 5vw, 68px) 80px;
-  width: 100%;
-}
-
-/* The lesson header is a card rather than loose text with a dial floating at
-   the right edge, so the title, its standards and the learner's progress read
-   as one unit. */
-.lesson-heading {
-  align-items: center;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  display: grid;
-  gap: var(--space-6);
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: var(--space-6) var(--space-8);
-}
-
-.lesson-eyebrow {
-  color: var(--primary);
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-}
-
-.lesson-heading-copy > p:first-child {
-  margin: 0;
-}
-
-.lesson-heading h1 {
+.course-stage-title h2 {
   font-family: var(--font-serif);
-  font-size: var(--fs-page);
+  font-size: var(--fs-28);
   font-weight: var(--fw-regular);
   letter-spacing: var(--tracking-display);
   line-height: var(--lh-display);
   margin: var(--space-2) 0 0;
 }
 
-.lesson-heading-copy > p:nth-of-type(2) {
-  color: var(--muted);
-  font-size: var(--fs-16);
-  line-height: var(--lh-body);
-  margin: var(--space-3) 0 0;
-  max-width: 54ch;
+.course-stage-nav {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
 }
 
-.lesson-standard-chips {
+.course-stage-nav button {
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: inline-flex;
+  height: 2.25rem;
+  justify-content: center;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+  width: 2.25rem;
+}
+
+.course-stage-nav button:hover:not(:disabled) {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-accent);
+}
+
+.course-stage-nav button:disabled {
+  color: var(--line-strong);
+  cursor: not-allowed;
+}
+
+/* -- Tabs ---------------------------------------------------------------- */
+
+.course-tabs {
+  display: flex;
+  flex-direction: column;
+}
+
+.course-tablist {
+  border-bottom: 1px solid var(--workspace-line);
+  display: flex;
+  gap: var(--space-6);
+}
+
+.course-tablist button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--workspace-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  margin-bottom: -1px;
+  padding: var(--space-3) 0;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.course-tablist button:hover {
+  color: var(--ink);
+}
+
+.course-tablist button.is-active {
+  border-bottom-color: var(--workspace-accent);
+  color: var(--workspace-accent);
+  font-weight: var(--fw-semibold);
+}
+
+.course-tabpanel {
+  padding-top: var(--space-5);
+}
+
+.course-tabpanel:focus-visible {
+  outline: 2px solid var(--workspace-accent);
+  outline-offset: 4px;
+}
+
+.course-tabpanel > p {
+  color: var(--ink-soft);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+  margin: 0;
+  max-width: 68ch;
+}
+
+.course-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: var(--space-6) 0 0;
+}
+
+.course-facts dt {
+  color: var(--workspace-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.course-facts dd {
+  font-size: var(--fs-16);
+  margin: var(--space-1) 0 0;
+}
+
+.course-objectives {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  max-width: 68ch;
+  padding: 0;
+}
+
+.course-objectives li {
+  color: var(--ink-soft);
+  display: flex;
+  font-size: var(--fs-16);
+  gap: var(--space-3);
+  line-height: var(--lh-snug);
+}
+
+.course-objectives svg {
+  color: var(--workspace-accent);
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.course-standards {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.lesson-standard-chips span {
+.course-standards li {
   background: var(--brand-soft);
-  border: 1px solid var(--brand-line);
   border-radius: var(--radius-pill);
-  color: var(--primary);
+  color: var(--workspace-accent);
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
   padding: var(--space-1) var(--space-3);
 }
 
-/* The time estimate is metadata, not a curriculum standard — same shape,
-   quieter treatment, so the two do not read as one list. */
-.lesson-standard-chips .chip-quiet {
-  background: transparent;
-  border-color: var(--line-strong);
-  color: var(--muted);
-}
+/* -- Footer -------------------------------------------------------------- */
 
-.lesson-progress-ring {
-  display: grid;
-  flex: 0 0 auto;
-  height: 6.25rem;
-  place-items: center;
-  width: 6.25rem;
-}
-
-.lesson-progress-ring > svg,
-.lesson-progress-ring > span {
-  grid-area: 1 / 1;
-}
-
-.lesson-progress-ring > svg {
-  height: 100%;
-  /* Start the arc at twelve o'clock. */
-  transform: rotate(-90deg);
-  width: 100%;
-}
-
-.lesson-progress-ring circle {
-  fill: none;
-  stroke-width: 7;
-}
-
-.lesson-progress-ring .ring-track {
-  stroke: var(--line);
-}
-
-.lesson-progress-ring .ring-value {
-  stroke: var(--primary);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 420ms ease;
-}
-
-.lesson-progress-ring > span {
-  display: grid;
-  justify-items: center;
-  line-height: var(--lh-snug);
-}
-
-.lesson-progress-ring strong {
-  font-family: var(--font-serif);
-  font-size: var(--fs-22);
-  font-weight: var(--fw-regular);
-}
-
-.lesson-progress-ring small {
-  color: var(--muted);
-  font-size: var(--fs-13);
-}
-
-.objective-card {
-  align-items: start;
-  background: #e7f1ec;
-  border: 1px solid #cee1d8;
-  border-radius: var(--radius-md);
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 34px 1fr;
-  margin-top: 24px;
-  padding: 16px;
-}
-
-.objective-card > span {
+.course-stage-foot {
   align-items: center;
-  background: var(--primary);
-  border-radius: var(--radius-sm);
-  color: #ffffff;
+  border-top: 1px solid var(--workspace-line);
   display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  padding-top: var(--space-5);
+}
+
+.course-stage-foot > span {
+  color: var(--workspace-muted);
   font-size: var(--fs-14);
-  height: 34px;
-  justify-content: center;
 }
 
-.objective-card p,
-.objective-card h2 {
-  margin: 0;
-}
-
-.objective-card h2 {
-  font-size: var(--fs-14);
-  margin-top: 4px;
-}
-
-.objective-card ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-
-.objective-card li {
-  color: #53665f;
-  font-size: var(--fs-13);
-}
-
-.objective-card li::before {
-  color: var(--primary);
-  content: "✓";
-  font-weight: var(--fw-semibold);
-  margin-right: 8px;
-}
-
-/* The activity stepper. Each step is a full-height target with a rounded rail
-   underneath, rather than a bare label sitting on a 3px square-ended bar. */
-.block-steps {
-  display: grid;
-  gap: var(--space-2);
-  grid-auto-columns: 1fr;
-  grid-auto-flow: column;
-  margin-top: var(--space-6);
-}
-
-.block-steps button {
+.course-primary {
   align-items: center;
-  background: transparent;
+  background: var(--workspace-accent);
   border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--muted);
+  border-radius: var(--radius-md);
+  color: #fff;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
+  font-family: inherit;
   font-size: var(--fs-14);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-semibold);
   gap: var(--space-2);
-  justify-content: center;
-  min-height: 2.75rem;
-  padding: var(--space-2) var(--space-2) var(--space-4);
-  position: relative;
-  transition: color 160ms ease;
+  min-height: 2.5rem;
+  padding: 0 var(--space-5);
+  transition: background 160ms ease;
 }
 
-.block-steps button::after {
-  background: var(--line);
-  border-radius: var(--radius-pill);
-  bottom: 0;
-  content: "";
-  height: 4px;
-  left: 0;
-  position: absolute;
-  right: 0;
-  transition: background 200ms ease;
+.course-primary:hover {
+  background: var(--brand-strong);
 }
 
-.block-steps button span {
-  align-items: center;
-  background: #e5eae6;
-  border-radius: 50%;
-  display: flex;
-  flex: 0 0 auto;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  height: 1.75rem;
-  justify-content: center;
-  transition:
-    background 200ms ease,
-    color 200ms ease;
-  width: 1.75rem;
+@media (max-width: 1080px) {
+  /* The outline moves above the stage rather than shrinking into a column too
+     narrow to read lesson titles in. */
+  .course-player {
+    grid-template-columns: 1fr;
+  }
+
+  .course-outline {
+    border-bottom: 1px solid var(--workspace-line);
+    border-right: 0;
+    max-height: 20rem;
+    position: static;
+  }
+
+  .course-stage {
+    padding: var(--space-5) var(--space-5) var(--space-8);
+  }
 }
 
-.block-steps button:hover {
-  color: var(--ink);
-}
-
-.block-steps button.active {
-  color: var(--primary);
-  font-weight: var(--fw-semibold);
-}
-
-.block-steps button.active::after,
-.block-steps button.complete::after {
-  background: var(--primary);
-}
-
-.block-steps button.active span,
-.block-steps button.complete span {
-  background: var(--primary);
-  color: #ffffff;
-}
 
 .lesson-block {
   background: #ffffff;
@@ -1106,43 +950,6 @@
   line-height: 1.55;
 }
 
-.lesson-controls {
-  align-items: center;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr auto 1fr;
-  margin-top: 20px;
-}
-
-.lesson-controls button {
-  background: #ffffff;
-  border: 1px solid #d8ded8;
-  border-radius: var(--radius-sm);
-  color: #566761;
-  cursor: pointer;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  justify-self: start;
-  min-height: 37px;
-  padding: 0 12px;
-}
-
-.lesson-controls button:disabled {
-  color: #a3ada9;
-}
-
-.lesson-controls span {
-  color: #7e8c87;
-  font-size: var(--fs-13);
-}
-
-.lesson-controls .next-control {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #ffffff;
-  justify-self: end;
-}
-
 .lesson-notice {
   background: #e2f0e9;
   border-radius: var(--radius-sm);
@@ -1153,96 +960,78 @@
   text-align: center;
 }
 
-@media (max-width: 900px) {
-  .learning-shell {
-    display: block;
-  }
+/* -- Shared block chrome ------------------------------------------------- */
 
-  .learning-topbar {
-    grid-template-columns: 1fr auto;
-  }
+/* Restored with the redesign: the eyebrow and the save-state badge are still
+   used, but their old rules lived in the layout block that was replaced. */
+.lesson-eyebrow {
+  color: var(--workspace-accent);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  margin: 0;
+  text-transform: uppercase;
+}
 
-  .learning-topbar nav {
-    display: none;
-  }
+.learning-mode {
+  align-items: center;
+  background: var(--canvas);
+  border-radius: var(--radius-pill);
+  color: var(--workspace-muted);
+  display: inline-flex;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  margin-right: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  white-space: nowrap;
+}
 
-  .lesson-outline {
-    height: auto;
-    padding: 16px 20px;
-    position: static;
-  }
+.learning-mode i {
+  background: currentColor;
+  border-radius: 50%;
+  height: 6px;
+  width: 6px;
+}
 
-  .outline-subject {
-    max-width: 280px;
-  }
+.learning-mode.mode-protected {
+  background: var(--brand-soft);
+  color: var(--workspace-accent);
+}
 
-  .outline-progress {
-    margin-top: 12px;
-  }
+.learning-mode.mode-preview {
+  background: #f5ead1;
+  color: #765a1d;
+}
 
-  .outline-lessons {
-    display: none;
-  }
-
-  .outline-help,
-  .back-dashboard {
-    display: none;
-  }
-
-  .lesson-main {
-    padding-bottom: 60px;
-  }
+/* Once playback starts the overlay control is gone, so the stage stops
+   reserving space for it. */
+.video-stage.is-playing .video-play {
+  display: none;
 }
 
 @media (max-width: 680px) {
-  .learning-mode,
-  .learning-topbar > div:last-child > button {
+  .learning-mode {
     display: none;
   }
 
-  .learning-topbar {
-    height: 62px;
-    padding: 0 16px;
-  }
-
-  .learning-shell {
-    padding-top: 64px;
-  }
-
-  .lesson-main {
-    padding: 28px 16px 56px;
-  }
-
-  .lesson-heading {
-    align-items: start;
-    gap: var(--space-4);
-    padding: var(--space-5);
-  }
-
-  .lesson-progress-ring {
-    height: 4.75rem;
-    width: 4.75rem;
-  }
-
-  .lesson-progress-ring strong {
-    font-size: var(--fs-18);
-  }
-
-  .lesson-progress-ring small {
-    display: none;
-  }
-
-  .objective-card ul {
+  .course-stage-head {
     flex-direction: column;
+    gap: var(--space-3);
   }
 
-  .block-steps button small {
-    display: none;
+  .course-tablist {
+    gap: var(--space-4);
+    overflow-x: auto;
+  }
+
+  .course-facts {
+    gap: var(--space-5);
   }
 
   .lesson-block {
     min-height: 0;
-    padding: 24px;
+    padding: var(--space-5);
   }
 
   .video-block {
@@ -1255,31 +1044,25 @@
 
   .resource-block {
     align-items: start;
-    grid-template-columns: 48px 1fr;
+    grid-template-columns: 3rem 1fr;
   }
 
   .resource-block > span {
-    height: 48px;
+    height: 3rem;
   }
 
-  .resource-block > button {
+  .resource-block > button,
+  .resource-block > a {
     grid-column: 1 / -1;
   }
-}
 
-@media (max-width: 430px) {
-  /* Progress is the one thing a learner returning mid-lesson looks for, so it
-     stacks under the title rather than being dropped. */
-  .lesson-heading {
-    grid-template-columns: 1fr;
-    justify-items: start;
+  .course-stage-foot {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: var(--space-3);
   }
 
-  .lesson-controls {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .lesson-controls > span {
-    display: none;
+  .course-primary {
+    justify-content: center;
   }
 }

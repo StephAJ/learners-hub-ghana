@@ -84,10 +84,20 @@
     0 2px 6px rgba(20, 45, 41, 0.05),
     0 12px 32px rgba(20, 45, 41, 0.1);
 
+  /* Inter for everything the reader actually reads: it was drawn for screens,
+     its lowercase is unusually even at small sizes, and it carries the full
+     Latin range these schools need. Loaded in app/layout.tsx and self-hosted.
+     The stack behind it is what shows for the few hundred milliseconds before
+     the file lands. */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Kept for display headings only. The serif is what stops the product
+     reading like every other dashboard, and it is never set below 18px. */
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+
+  /* Inter's default tracking is loose for UI text at 14-16px. */
+  --tracking-body: -0.011em;
 
   --canvas: #f3f5ef;
   --card: #ffffff;
@@ -155,6 +165,7 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: var(--fs-16);
+  letter-spacing: var(--tracking-body);
   line-height: var(--lh-body);
   margin: 0;
   min-width: 320px;

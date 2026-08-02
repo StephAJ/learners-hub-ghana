@@ -30,6 +30,14 @@ import {
   SCIENCE_OFFERING_ID,
 } from "./learning-repository";
 import { getSchoolDatabase } from "./index";
+import {
+  demoAssessmentBySlug,
+  demoAssessmentQuestions,
+  demoAssessments,
+  demoQuestionBank,
+  demoSubjectByOffering,
+  type DemoAssessment,
+} from "../domain/demo/greenfield";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
 
 const TENANT_ID = "tenant-greenfield";
@@ -868,182 +876,53 @@ export async function releasePersistentResult(
 export async function ensureAssessmentFoundation() {
   await ensureLearningFoundation();
   const database = await getSchoolDatabase();
-  const questions = seedQuestions(database);
-  const publishedQuizQuestions = questions.snapshots.filter((question) =>
-    [
-      "question-absorption-site",
-      "question-bile-true-false",
-      "question-organ-action-match",
-      "question-digestion-order",
-      "question-villi-explanation",
-    ].includes(question.id),
+  /* The published paper's snapshots, which the review attempt marks against. */
+  const publishedQuizQuestions = assessmentSnapshots(
+    demoAssessmentBySlug("digestive-system-check")!,
   );
   await database.batch([
-    ...questions.statements,
-    ...seedAssessments(database, publishedQuizQuestions),
+    ...seedQuestions(database),
+    ...seedAssessments(database),
     ...seedReviewAttempt(database, publishedQuizQuestions),
   ]);
 }
 
+/** A paper's questions in the shape the schema snapshots them. */
+function assessmentSnapshots(
+  assessment: DemoAssessment,
+): AssessmentQuestionSnapshot[] {
+  return demoAssessmentQuestions(assessment).map((question, index) => ({
+    answerKey: question.answerKey,
+    id: question.id,
+    marks: question.marks,
+    options: question.options,
+    position: index + 1,
+    prompt: question.prompt,
+    questionVersion: 1,
+    type: question.type,
+  }));
+}
+
 function seedQuestions(database: SchoolDatabase) {
-  const definitions: SeedQuestion[] = [
-    {
-      answerKey: { value: "small-intestine" },
-      difficulty: "foundation",
-      id: "question-absorption-site",
-      marks: 1,
-      options: [
-        { id: "mouth", label: "Mouth" },
-        { id: "stomach", label: "Stomach" },
-        { id: "small-intestine", label: "Small intestine" },
-        { id: "large-intestine", label: "Large intestine" },
-      ],
-      prompt: "Where does most nutrient absorption take place?",
-      topic: "Human body systems",
-      type: "single-choice",
-    },
-    {
-      answerKey: { value: true },
-      difficulty: "foundation",
-      id: "question-bile-true-false",
-      marks: 1,
-      options: [],
-      prompt: "Bile helps the body digest fats.",
-      topic: "Human body systems",
-      type: "true-false",
-    },
-    {
-      answerKey: {
-        value: { mouth: "chewing", stomach: "churning" },
-      },
-      difficulty: "standard",
-      id: "question-organ-action-match",
-      marks: 2,
-      options: [
-        { id: "left:mouth", label: "Mouth" },
-        { id: "left:stomach", label: "Stomach" },
-        { id: "right:chewing", label: "Chewing" },
-        { id: "right:churning", label: "Churning" },
-      ],
-      prompt: "Match each digestive organ to its main action.",
-      topic: "Human body systems",
-      type: "matching",
-    },
-    {
-      answerKey: { value: ["mouth", "oesophagus", "stomach"] },
-      difficulty: "standard",
-      id: "question-digestion-order",
-      marks: 2,
-      options: [
-        { id: "stomach", label: "Stomach" },
-        { id: "mouth", label: "Mouth" },
-        { id: "oesophagus", label: "Oesophagus" },
-      ],
-      prompt: "Arrange the organs in the order food travels through them.",
-      topic: "Human body systems",
-      type: "ordering",
-    },
-    {
-      answerKey: {
-        rubric:
-          "Explains that villi provide a large surface area and a rich blood supply.",
-      },
-      difficulty: "challenge",
-      id: "question-villi-explanation",
-      marks: 3,
-      options: [],
-      prompt:
-        "Explain two ways the small intestine is adapted for nutrient absorption.",
-      topic: "Human body systems",
-      type: "essay",
-    },
-    {
-      answerKey: { value: ["protein", "vitamins"] },
-      difficulty: "standard",
-      id: "question-nutrients-multiple",
-      marks: 2,
-      options: [
-        { id: "protein", label: "Protein" },
-        { id: "vitamins", label: "Vitamins" },
-        { id: "water", label: "Water" },
-        { id: "roughage", label: "Roughage" },
-      ],
-      prompt:
-        "Select the two nutrient groups most associated with growth and protection.",
-      topic: "Food and nutrition",
-      type: "multiple-choice",
-    },
-    {
-      answerKey: { value: "amylase" },
-      difficulty: "standard",
-      id: "question-saliva-short-text",
-      marks: 1,
-      options: [],
-      prompt: "Name the enzyme in saliva that begins starch digestion.",
-      topic: "Human body systems",
-      type: "short-text",
-    },
-    {
-      answerKey: { value: 32, tolerance: 0 },
-      difficulty: "foundation",
-      id: "question-adult-teeth-numeric",
-      marks: 1,
-      options: [],
-      prompt: "How many permanent teeth does a typical adult have?",
-      topic: "Human body systems",
-      type: "numeric",
-    },
-    {
-      answerKey: {
-        rubric:
-          "Diagram labels the mouth, oesophagus, stomach, small intestine, and large intestine.",
-      },
-      difficulty: "challenge",
-      id: "question-digestion-file",
-      marks: 4,
-      options: [],
-      prompt: "Submit a clearly labelled digestive-system diagram.",
-      topic: "Human body systems",
-      type: "file-upload",
-    },
-    {
-      answerKey: { value: "zone-3" },
-      difficulty: "standard",
-      id: "question-stomach-hotspot",
-      marks: 1,
-      options: [],
-      prompt: "Select the area where the stomach is located.",
-      topic: "Human body systems",
-      type: "hotspot",
-    },
-    {
-      answerKey: {
-        rubric:
-          "Uses the meal scenario to identify nutrient groups and justify one improvement.",
-      },
-      difficulty: "challenge",
-      id: "question-meal-composite",
-      marks: 4,
-      options: [],
-      prompt:
-        "Read the meal scenario, identify its nutrient groups, and recommend one improvement.",
-      topic: "Food and nutrition",
-      type: "composite",
-    },
-  ];
+  /* The bank comes from the shared dataset, which also renders the paper a
+     learner sits. It used to be defined here as well, so the two could — and
+     did — drift: the fractions homework defined in the dataset never reached
+     the database at all. */
   const statements: SchoolStatement[] = [];
-  for (const question of definitions) {
+  for (const question of demoQuestionBank) {
+    const subject = demoSubjectByOffering(question.offeringId);
     statements.push(
       database
         .prepare(
           `INSERT OR IGNORE INTO question_bank_items
             (id, tenant_id, offering_id, author_person_id, type, status, difficulty, topic, tags, current_version)
-          VALUES (?, ?, ?, 'person-grace', ?, 'approved', ?, ?, '[]', 1)`,
+          VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, '[]', 1)`,
         )
         .bind(
           question.id,
           TENANT_ID,
-          SCIENCE_OFFERING_ID,
+          question.offeringId,
+          subject?.teacherPersonId ?? "person-grace",
           question.type,
           question.difficulty,
           question.topic,
@@ -1052,7 +931,7 @@ function seedQuestions(database: SchoolDatabase) {
         .prepare(
           `INSERT OR IGNORE INTO question_versions
             (id, tenant_id, question_id, version, prompt, options, answer_key, rationale, marks, status, created_by_person_id)
-          VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 'approved', 'person-grace')`,
+          VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 'approved', ?)`,
         )
         .bind(
           `${question.id}:v1`,
@@ -1061,100 +940,81 @@ function seedQuestions(database: SchoolDatabase) {
           question.prompt,
           JSON.stringify(question.options),
           JSON.stringify(question.answerKey),
-          "Review the linked lesson and explain your reasoning.",
+          question.rationale,
           question.marks,
+          subject?.teacherPersonId ?? "person-grace",
         ),
     );
   }
-  return {
-    snapshots: definitions.map((question, index) => ({
-      answerKey: question.answerKey,
-      id: question.id,
-      marks: question.marks,
-      options: question.options,
-      position: index + 1,
-      prompt: question.prompt,
-      questionVersion: 1,
-      type: question.type,
-    })) satisfies AssessmentQuestionSnapshot[],
-    statements,
-  };
+  return statements;
 }
 
-function seedAssessments(
-  database: SchoolDatabase,
-  questions: AssessmentQuestionSnapshot[],
-) {
-  return [
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO assessments
-          (id, tenant_id, offering_id, author_person_id, status, current_version)
-        VALUES (?, ?, ?, 'person-grace', 'published', 1)`,
-      )
-      .bind(DIGESTION_ASSESSMENT_ID, TENANT_ID, SCIENCE_OFFERING_ID),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO assessment_versions
-          (id, tenant_id, assessment_id, version, title, purpose, instructions, time_limit_minutes, pass_mark_percent, attempts_allowed, shuffle_questions, feedback_policy, status, published_at, created_by_person_id)
-        VALUES (?, ?, ?, 1, ?, 'formative', ?, 12, 60, 1, 0, 'after-release', 'published', ?, 'person-grace')`,
-      )
-      .bind(
-        `${DIGESTION_ASSESSMENT_ID}:v1`,
-        TENANT_ID,
-        DIGESTION_ASSESSMENT_ID,
-        "Digestive system knowledge check",
-        "Answer every question. You can flag an item and return to it before submitting.",
-        "2026-07-22T09:00:00Z",
-      ),
-    ...questions.map((question) =>
+function seedAssessments(database: SchoolDatabase) {
+  const statements: SchoolStatement[] = [];
+  for (const assessment of demoAssessments) {
+    const published = assessment.status === "published";
+    /* A published paper is version 1; a draft has not been versioned yet. */
+    const version = published ? 1 : 0;
+    const versionId = `${assessment.id}:v${version}`;
+    statements.push(
       database
         .prepare(
-          `INSERT OR IGNORE INTO assessment_questions
-            (id, tenant_id, assessment_version_id, question_version_id, position, marks, required, snapshot)
-          VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+          `INSERT OR IGNORE INTO assessments
+            (id, tenant_id, offering_id, author_person_id, status, current_version)
+          VALUES (?, ?, ?, ?, ?, ?)`,
         )
         .bind(
-          `assessment-question-${question.id}`,
+          assessment.id,
           TENANT_ID,
-          `${DIGESTION_ASSESSMENT_ID}:v1`,
-          questionVersionId(question),
-          question.position,
-          question.marks,
-          JSON.stringify(question),
+          assessment.offeringId,
+          assessment.authorPersonId,
+          assessment.status,
+          version,
         ),
-    ),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO assessments
-          (id, tenant_id, offering_id, author_person_id, status, current_version)
-        VALUES ('assessment-nutrition-exit-ticket', ?, ?, 'person-grace', 'draft', 0)`,
-      )
-      .bind(TENANT_ID, SCIENCE_OFFERING_ID),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO assessment_versions
-          (id, tenant_id, assessment_id, version, title, purpose, instructions, time_limit_minutes, pass_mark_percent, attempts_allowed, shuffle_questions, feedback_policy, status, created_by_person_id)
-        VALUES ('assessment-nutrition-exit-ticket:v0', ?, 'assessment-nutrition-exit-ticket', 0, ?, 'formative', ?, 8, 50, 1, 0, 'after-release', 'draft', 'person-grace')`,
-      )
-      .bind(
-        TENANT_ID,
-        "Balanced diet exit ticket",
-        "Complete this short check after the nutrition lesson.",
-      ),
-    database
-      .prepare(
-        `INSERT OR IGNORE INTO assessment_questions
-          (id, tenant_id, assessment_version_id, question_version_id, position, marks, required, snapshot)
-        VALUES ('assessment-question-nutrition-seed', ?, 'assessment-nutrition-exit-ticket:v0', ?, 1, ?, 1, ?)`,
-      )
-      .bind(
-        TENANT_ID,
-        questionVersionId(questions[1]),
-        questions[1].marks,
-        JSON.stringify({ ...questions[1], position: 1 }),
-      ),
-  ];
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO assessment_versions
+            (id, tenant_id, assessment_id, version, title, purpose, instructions,
+             time_limit_minutes, pass_mark_percent, attempts_allowed,
+             shuffle_questions, feedback_policy, status, published_at, created_by_person_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 'after-release', ?, ?, ?)`,
+        )
+        .bind(
+          versionId,
+          TENANT_ID,
+          assessment.id,
+          version,
+          assessment.title,
+          assessment.purpose,
+          assessment.instructions,
+          assessment.timeLimitMinutes,
+          assessment.passMarkPercent,
+          assessment.status,
+          assessment.publishedAt ?? null,
+          assessment.authorPersonId,
+        ),
+    );
+    assessmentSnapshots(assessment).forEach((question) => {
+      statements.push(
+        database
+          .prepare(
+            `INSERT OR IGNORE INTO assessment_questions
+              (id, tenant_id, assessment_version_id, question_version_id, position, marks, required, snapshot)
+            VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+          )
+          .bind(
+            `assessment-question-${assessment.id}-${question.id}`,
+            TENANT_ID,
+            versionId,
+            questionVersionId(question),
+            question.position,
+            question.marks,
+            JSON.stringify(question),
+          ),
+      );
+    });
+  }
+  return statements;
 }
 
 function seedReviewAttempt(
@@ -1874,13 +1734,3 @@ type AttemptRow = {
   tenant_id: string;
 };
 
-type SeedQuestion = {
-  answerKey: QuestionAnswerKey;
-  difficulty: QuestionBankSummary["difficulty"];
-  id: string;
-  marks: number;
-  options: QuestionOption[];
-  prompt: string;
-  topic: string;
-  type: QuestionType;
-};

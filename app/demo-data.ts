@@ -12,6 +12,7 @@ import type {
 import {
   DEMO_CLASS_NAME,
   demoAssessmentBySlug,
+  demoAssessmentQuestions,
   demoActivities,
   demoMediaAssets,
   demoPersonName,
@@ -200,12 +201,14 @@ export function demoLearnerAssessment(
     instructions: assessment.instructions,
     passMarkPercent: assessment.passMarkPercent,
     purpose: assessment.purpose,
-    questions: assessment.questions.map(
-      (question): LearnerQuestion => ({
+    /* Answer keys never leave the server side of this projection: a learner
+       is handed the paper, not the mark scheme. */
+    questions: demoAssessmentQuestions(assessment).map(
+      (question, index): LearnerQuestion => ({
         id: question.id,
         marks: question.marks,
         options: question.options,
-        position: question.position,
+        position: index + 1,
         prompt: question.prompt,
         questionVersion: 1,
         type: question.type,

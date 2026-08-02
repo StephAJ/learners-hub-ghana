@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { authClient } from "../auth-client";
 
-export function SignOutButton({ className }: { className?: string }) {
+export function SignOutButton({
+  children,
+  className,
+}: {
+  /* The sidebar passes an icon and a label it can hide when collapsed. Callers
+     that do not care get the plain wording. */
+  children?: ReactNode;
+  className?: string;
+}) {
   const [busy, setBusy] = useState(false);
 
   async function signOut() {
@@ -22,12 +30,13 @@ export function SignOutButton({ className }: { className?: string }) {
 
   return (
     <button
+      aria-label={busy ? "Signing out" : "Sign out"}
       className={className}
       disabled={busy}
       onClick={() => void signOut()}
       type="button"
     >
-      {busy ? "Signing out…" : "Sign out"}
+      {children ?? (busy ? "Signing out…" : "Sign out")}
     </button>
   );
 }

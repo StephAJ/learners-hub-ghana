@@ -28,6 +28,12 @@ import { ensureReportingFoundation } from "./reporting-repository";
 import { getSchoolDatabase } from "./index";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
 import { SCIENCE_OFFERING_ID } from "./learning-repository";
+import { ensurePeopleSeed } from "./people-repository";
+import {
+  demoLearners,
+  demoPeriods,
+  demoTimetable,
+} from "../domain/demo/greenfield";
 
 const TENANT_ID = "tenant-greenfield";
 const CLASS_GROUP_ID = "class-jhs2-gold";
@@ -770,6 +776,7 @@ export async function getGuardianSchoolDay(
 }
 
 export async function ensureOperationsFoundation() {
+  await ensurePeopleSeed();
   await ensureReportingFoundation();
   const database = await getSchoolDatabase();
   await database.batch([
@@ -933,59 +940,49 @@ function seedCriterionWithLevels(
 }
 
 function seedTimetablePeriods(database: SchoolDatabase) {
-  const periods = [
-    ["period-1", "Period 1", 1, "08:00", "09:00", "lesson"],
-    ["period-2", "Period 2", 2, "09:10", "10:10", "lesson"],
-    ["period-break", "Break", 3, "10:10", "10:35", "break"],
-    ["period-3", "Period 3", 4, "10:35", "11:35", "lesson"],
-    ["period-4", "Period 4", 5, "11:45", "12:45", "lesson"],
-  ] as const;
-  return periods.map(([id, name, position, startsAt, endsAt, kind]) =>
+  return demoPeriods.map((period) =>
     database
       .prepare(
         `INSERT OR IGNORE INTO timetable_periods
           (id, tenant_id, name, position, starts_at, ends_at, kind)
         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(id, TENANT_ID, name, position, startsAt, endsAt, kind),
+      .bind(
+        period.id,
+        TENANT_ID,
+        period.name,
+        period.position,
+        period.startsAt,
+        period.endsAt,
+        period.kind,
+      ),
   );
 }
 
 function seedTimetableEntries(database: SchoolDatabase) {
-  const lessons = [
-    ["Integrated Science", "Science Lab", "person-grace", SCIENCE_OFFERING_ID],
-    ["English Language", "Block A · Room 4", "person-mary", null],
-    ["Mathematics", "Block A · Room 4", "person-emmanuel", null],
-    ["Social Studies", "Block B · Room 2", "person-emmanuel", null],
-  ] as const;
-  const periodIds = ["period-1", "period-2", "period-3", "period-4"];
-  const statements: SchoolStatement[] = [];
-  for (let weekday = 1; weekday <= 5; weekday += 1) {
-    lessons.forEach((lesson, index) => {
-      const rotated = lessons[(index + weekday - 1) % lessons.length];
-      statements.push(
-        database
-          .prepare(
-            `INSERT OR IGNORE INTO timetable_entries
-              (id, tenant_id, period_id, weekday, class_group_id, offering_id,
-               teacher_person_id, subject_name, room, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')`,
-          )
-          .bind(
-            `timetable-${weekday}-${index + 1}`,
-            TENANT_ID,
-            periodIds[index],
-            weekday,
-            CLASS_GROUP_ID,
-            rotated[3],
-            rotated[2],
-            rotated[0],
-            rotated[1],
-          ),
-      );
-    });
-  }
-  return statements;
+  /* Every entry now carries the offering it belongs to, so a learner can open
+     the subject from their timetable — three of the four could not before —
+     and the teacher on it is the teacher who owns the subject. */
+  return demoTimetable.map((entry) =>
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO timetable_entries
+          (id, tenant_id, period_id, weekday, class_group_id, offering_id,
+           teacher_person_id, subject_name, room, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')`,
+      )
+      .bind(
+        entry.id,
+        TENANT_ID,
+        entry.periodId,
+        entry.weekday,
+        CLASS_GROUP_ID,
+        entry.offeringId,
+        entry.teacherPersonId,
+        entry.subjectName,
+        entry.room,
+      ),
+  );
 }
 
 function seedAttendance(database: SchoolDatabase) {
@@ -1016,7 +1013,7 @@ function seedAttendance(database: SchoolDatabase) {
       status: "draft",
     },
   ] as const;
-  const learnerIds = ["person-ama", "person-kwame", "person-kojo"];
+  const learnerIds = demoLearners.map((learner) => learner.id);
   sessions.forEach((session) => {
     statements.push(
       database

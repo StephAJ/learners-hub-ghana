@@ -1,11 +1,14 @@
-/* The learner's subject index. One card per subject, each carrying the two
-   things a learner opens this page to find: how far through they are, and what
-   to do next. */
+/* The learner's subject index.
+
+   Deliberately quiet: a flat card, one accent, and the two facts a learner
+   opens this page for — how far through they are, and what to do next. The
+   previous version leaned on shadows, a lift on hover and a filled code badge,
+   which made four subjects look like a busier page than it is. */
 
 .subject-card-grid {
   display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   list-style: none;
   margin: 0;
   padding: 0;
@@ -15,49 +18,53 @@
   background: var(--card);
   border: 1px solid var(--workspace-line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  display: grid;
-  gap: var(--space-3) var(--space-4);
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
   height: 100%;
   padding: var(--space-5);
   transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
+    border-color 160ms ease,
+    background 160ms ease;
 }
 
 .subject-card:hover,
 .subject-card:focus-visible {
   border-color: var(--workspace-accent);
-  box-shadow: var(--shadow-md);
   outline: none;
-  transform: translateY(-2px);
 }
 
+.subject-card-top {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+/* A tinted pill rather than a filled square: it reads as a label, which is
+   what a subject code is, instead of competing with the subject name. */
 .subject-card-code {
-  align-items: center;
-  background: var(--workspace-accent-soft);
-  border-radius: var(--radius-md);
+  background: var(--brand-soft);
+  border-radius: var(--radius-sm);
   color: var(--workspace-accent);
-  display: inline-flex;
-  font-family: var(--font-serif);
-  font-size: var(--fs-18);
-  height: 3rem;
-  justify-content: center;
-  width: 3rem;
+  flex: 0 0 auto;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  padding: var(--space-1) var(--space-2);
 }
 
 .subject-card-identity {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   min-width: 0;
 }
 
 .subject-card-identity strong {
   font-size: var(--fs-18);
   font-weight: var(--fw-semibold);
+  letter-spacing: -0.012em;
+  line-height: var(--lh-snug);
 }
 
 .subject-card-identity small {
@@ -66,73 +73,76 @@
   margin-top: var(--space-1);
 }
 
-/* The remaining rows span the full card width, under the code badge. */
-.subject-card-progress,
-.subject-card-next,
-.subject-card-meta {
-  grid-column: 1 / -1;
+.subject-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+.subject-card-next {
+  color: var(--ink-soft);
+  display: flex;
+  font-size: var(--fs-14);
+  gap: var(--space-2);
+  line-height: var(--lh-snug);
+  min-width: 0;
+}
+
+.subject-card-next svg {
+  color: var(--workspace-accent);
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.subject-card-next span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-card-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .subject-card-progress-head {
   align-items: baseline;
+  color: var(--workspace-muted);
   display: flex;
+  font-size: var(--fs-13);
+  gap: var(--space-2);
   justify-content: space-between;
 }
 
-.subject-card-progress-head small {
-  color: var(--workspace-muted);
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-}
-
 .subject-card-progress-head b {
-  font-family: var(--font-serif);
-  font-size: var(--fs-18);
-  font-weight: var(--fw-regular);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
 }
 
 .subject-card-track {
-  background: var(--workspace-line);
+  background: var(--line);
   border-radius: var(--radius-pill);
   display: block;
-  height: 6px;
-  margin-top: var(--space-2);
+  height: 4px;
   overflow: hidden;
 }
 
 .subject-card-track i {
   background: var(--workspace-accent);
+  border-radius: inherit;
   display: block;
   height: 100%;
   transition: width 420ms ease;
 }
 
-.subject-card-next {
-  border-top: 1px solid var(--workspace-line);
-  display: flex;
-  flex-direction: column;
-  padding-top: var(--space-3);
-}
-
-.subject-card-next small {
+/* Nothing started yet reads better as an empty rail than as a 0% bar with a
+   number attached to it. */
+.subject-card[data-progress="0"] .subject-card-progress-head b {
   color: var(--workspace-muted);
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-}
-
-.subject-card-next span {
-  font-size: var(--fs-16);
-  line-height: var(--lh-snug);
-  margin-top: var(--space-1);
-}
-
-.subject-card-meta {
-  color: var(--workspace-muted);
-  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
 }
 
 @media (max-width: 580px) {
