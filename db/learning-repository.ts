@@ -1,4 +1,5 @@
 import { canPerform, canTeachOffering, AuthorizationError } from "../domain/identity/authorization";
+import type { MediaKind } from "../domain/content/types";
 import type { AccessContext } from "../domain/identity/types";
 import {
   addLessonBlock,
@@ -1457,11 +1458,69 @@ async function loadVersionBlocks(
       title: string;
       type: LessonBlockType;
     }>();
-  return result.results.map((block) => ({
+  const blocks = result.results.map((block) => ({
     ...block,
     config: parseBlockConfiguration(block.config),
     ready: Boolean(block.ready),
   }));
+  return attachAssetMetadata(database, tenantId, blocks);
+}
+
+/**
+ * Resolves each block's attached asset id into what the file actually is.
+ *
+ * One query for the whole lesson rather than one per block: a lesson with six
+ * resources was six round trips for three columns each. Blocks whose asset has
+ * since been deleted come back without an attachment, which is what the player
+ * needs to distinguish "nothing attached" from "here is a file".
+ */
+async function attachAssetMetadata(
+  database: SchoolDatabase,
+  tenantId: string,
+  blocks: LessonBlock[],
+): Promise<LessonBlock[]> {
+  const assetIds = [
+    ...new Set(
+      blocks
+        .map((block) => block.config?.mediaAssetId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  if (assetIds.length === 0) return blocks;
+
+  const placeholders = assetIds.map(() => "?").join(", ");
+  const result = await database
+    .prepare(
+      `SELECT id, kind, original_filename, content_type, size_bytes
+      FROM media_assets
+      WHERE tenant_id = ? AND status = 'ready' AND id IN (${placeholders})`,
+    )
+    .bind(tenantId, ...assetIds)
+    .all<{
+      content_type: string;
+      id: string;
+      kind: MediaKind;
+      original_filename: string;
+      size_bytes: number;
+    }>();
+
+  const byId = new Map(
+    result.results.map((row) => [
+      row.id,
+      {
+        contentType: row.content_type,
+        filename: row.original_filename,
+        kind: row.kind,
+        sizeBytes: Number(row.size_bytes),
+      },
+    ]),
+  );
+
+  return blocks.map((block) => {
+    const assetId = block.config?.mediaAssetId;
+    const attachment = assetId ? byId.get(assetId) : undefined;
+    return attachment ? { ...block, attachment } : block;
+  });
 }
 
 function parseBlockConfiguration(value: string): LessonBlock["config"] {

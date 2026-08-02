@@ -254,11 +254,10 @@
    showing is more useful here than the subject/class/teacher line every
    other page leads with, and folding the old course-stage-head into this
    sticky rail means the preview chip and step controls travel with it
-   instead of scrolling away with the stage. */
-.lesson-shell {
-  --topbar-height: 4.25rem;
-}
+   instead of scrolling away with the stage.
 
+   Height comes from --topbar-height on the surrounding workspace shell, so
+   this rail and every other toprail in the app stay the same size. */
 .lesson-toprail {
   align-items: center;
   background: rgba(255, 255, 255, 0.82);
@@ -616,8 +615,19 @@
   width: 100%;
 }
 
-.video-poster {
+/* Scoped to the stage so it outweighs `.video-stage img` above, which would
+   otherwise letterbox a 4:3 YouTube thumbnail inside the 16:9 stage. A poster
+   is a backdrop for the play control, so it fills rather than fits. */
+.video-stage .video-poster {
   object-fit: cover;
+}
+
+/* Sits over the <video> rather than replacing it, so the element keeps loading
+   its metadata underneath and the play control still hands over to it. */
+.video-poster-overlay {
+  inset: 0;
+  position: absolute;
+  z-index: 1;
 }
 
 .block-copy a {
@@ -924,6 +934,45 @@
   margin-top: 8px;
 }
 
+/* Filename, format and size, so the learner knows what the download costs
+   before they start it. The name truncates and the other two never do — on a
+   narrow screen the size is the fact that decides it. */
+.resource-facts {
+  color: var(--workspace-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-13);
+  gap: var(--space-2) var(--space-3);
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+.resource-facts li {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.resource-facts li:first-child {
+  color: var(--ink);
+  font-weight: var(--fw-semibold);
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-facts li + li::before {
+  background: var(--line-strong);
+  border-radius: 50%;
+  content: "";
+  flex: 0 0 auto;
+  height: 3px;
+  width: 3px;
+}
+
 .resource-block > button,
 .resource-block > a {
   align-items: center;
@@ -934,9 +983,27 @@
   display: inline-flex;
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
+  gap: var(--space-2);
   justify-content: center;
   min-height: 38px;
-  padding: 0 12px;
+  padding: 0 var(--space-4);
+  transition: background 160ms ease;
+}
+
+.resource-block > a:hover {
+  background: var(--brand-strong);
+}
+
+@media (max-width: 680px) {
+  /* The glyph and the button drop below the copy rather than squeezing it. */
+  .resource-block {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .resource-facts li:first-child {
+    max-width: 100%;
+  }
 }
 
 .h5p-block {

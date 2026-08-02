@@ -9,7 +9,6 @@ export default async function GuardianHomePage() {
   return (
     <WorkspaceShell
       activeHref="/guardian"
-      description="3 pieces of work due this week and 2 new school notices."
       eyebrow={schoolDateLabel()}
       title="Kwame Agyeman · JHS 2 Gold"
       user={user}

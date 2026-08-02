@@ -10,7 +10,6 @@ export default async function TeacherSubjectsPage() {
   return (
     <WorkspaceShell
       activeHref="/teacher/subjects"
-      description="Curriculum units, lessons and the standards each one covers."
       eyebrow="Teaching"
       title="My subjects"
       user={user}

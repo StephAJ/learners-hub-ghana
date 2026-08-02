@@ -18,7 +18,6 @@ export default async function GuardianSchoolDayPage() {
   return (
     <WorkspaceShell
       activeHref="/guardian/school-day"
-      description="Attendance, due work, and timetable changes from the school's own records."
       eyebrow={schoolDateLabel()}
       title="Your child's school day"
       user={user}

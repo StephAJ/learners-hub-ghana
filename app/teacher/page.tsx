@@ -30,7 +30,6 @@ export default async function TeacherHomePage() {
   return (
     <WorkspaceShell
       activeHref="/teacher"
-      description="3 classes today, 12 submissions to review, and 1 register due."
       eyebrow={schoolDateLabel()}
       title={schoolGreeting(firstName(user.name))}
       user={user}

@@ -124,6 +124,16 @@ export function FileTextIcon(props: IconProps) {
   );
 }
 
+export function ImageIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect height="16" rx="2" width="18" x="3" y="4" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="m3 16 4.5-4.5L13 17l3-3 5 5" />
+    </Icon>
+  );
+}
+
 /* -- Lesson activities --------------------------------------------------- */
 
 export function PlayCircleIcon(props: IconProps) {

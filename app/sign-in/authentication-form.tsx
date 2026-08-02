@@ -1,6 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import gsap from "gsap";
 import { authClient } from "../auth-client";
 
 type Mode = "register" | "sign-in";
@@ -15,6 +18,32 @@ export function AuthenticationForm({
   const [mode, setMode] = useState(initialMode);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [revealed, setRevealed] = useState(false);
+
+  const columnRef = useRef<HTMLDivElement>(null);
+
+  /* Entrance. Runs once on mount rather than on every mode switch, so
+     toggling between sign-in and register does not replay the whole panel. */
+  useEffect(() => {
+    const root = columnRef.current;
+    if (!root) return;
+
+    const media = gsap.matchMedia();
+    media.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.fromTo(
+        root.querySelectorAll("[data-auth-line]"),
+        { autoAlpha: 0, y: 16 },
+        {
+          autoAlpha: 1,
+          duration: 0.55,
+          ease: "power3.out",
+          stagger: 0.06,
+          y: 0,
+        },
+      );
+    });
+    return () => media.revert();
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,6 +72,16 @@ export function AuthenticationForm({
     if (result.error) {
       setError(result.error.message ?? "Authentication failed.");
       setBusy(false);
+      /* A shake is the fastest way to say "look again at what you typed"
+         without moving focus away from the field they are already in. */
+      const root = columnRef.current;
+      if (root && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        gsap.fromTo(
+          root.querySelector(".auth-alert"),
+          { x: -6 },
+          { clearProps: "x", duration: 0.4, ease: "elastic.out(1, 0.4)", x: 0 },
+        );
+      }
       return;
     }
 
@@ -52,54 +91,114 @@ export function AuthenticationForm({
   function switchMode() {
     setMode((current) => (current === "sign-in" ? "register" : "sign-in"));
     setError("");
+    setRevealed(false);
   }
 
+  const registering = mode === "register";
+
   return (
-    <form className="authentication-form" onSubmit={submit}>
-      <header>
-        <h2>{mode === "sign-in" ? "Sign in" : "Create applicant account"}</h2>
+    <div className="auth-column" ref={columnRef}>
+      <header className="auth-heading" data-auth-line>
+        <h1>{registering ? "Create your account" : "Welcome back"}</h1>
         <p>
-          {mode === "sign-in"
-            ? "Use the email and password attached to your account."
-            : "Create an account so you can save and return to your application."}
+          {registering
+            ? "One account for the whole family. Save your application and come back to it whenever you like."
+            : "Sign in to your school workspace. Students, teachers, families and staff all start here."}
         </p>
       </header>
 
-      {error ? <p className="authentication-error" role="alert">{error}</p> : null}
+      <form className="auth-form" noValidate={false} onSubmit={submit}>
+        {error ? (
+          <p className="auth-alert" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-      {mode === "register" ? (
-        <label>
-          <span>Full name</span>
-          <input autoComplete="name" name="name" required type="text" />
+        {registering ? (
+          <label className="auth-field" data-auth-line>
+            <span className="auth-label">Full name</span>
+            <span className="auth-input">
+              <User aria-hidden="true" size={17} />
+              <input
+                autoComplete="name"
+                name="name"
+                placeholder="Ama Boateng"
+                required
+                type="text"
+              />
+            </span>
+          </label>
+        ) : null}
+
+        <label className="auth-field" data-auth-line>
+          <span className="auth-label">Email address</span>
+          <span className="auth-input">
+            <Mail aria-hidden="true" size={17} />
+            <input
+              autoComplete="email"
+              name="email"
+              placeholder="you@example.com"
+              required
+              type="email"
+            />
+          </span>
         </label>
-      ) : null}
-      <label>
-        <span>Email address</span>
-        <input autoComplete="email" name="email" required type="email" />
-      </label>
-      <label>
-        <span>Password</span>
-        <input
-          autoComplete={mode === "register" ? "new-password" : "current-password"}
-          minLength={10}
-          name="password"
-          required
-          type="password"
-        />
-        {mode === "register" ? <small>Use at least 10 characters.</small> : null}
-      </label>
-      <button className="public-primary-action" disabled={busy} type="submit">
-        {busy
-          ? "Please wait…"
-          : mode === "sign-in"
-            ? "Sign in"
-            : "Create account"}
-      </button>
-      <button className="authentication-switch" onClick={switchMode} type="button">
-        {mode === "sign-in"
-          ? "Applying for admission? Create an account"
-          : "Already have an account? Sign in"}
-      </button>
-    </form>
+
+        <label className="auth-field" data-auth-line>
+          <span className="auth-label">Password</span>
+          <span className="auth-input">
+            <Lock aria-hidden="true" size={17} />
+            <input
+              autoComplete={registering ? "new-password" : "current-password"}
+              minLength={registering ? 10 : undefined}
+              name="password"
+              placeholder={registering ? "At least 10 characters" : "Your password"}
+              required
+              type={revealed ? "text" : "password"}
+            />
+            {/* aria-pressed rather than a label swap: the control is the same
+                control either way, and its state is what changed. */}
+            <button
+              aria-label={revealed ? "Hide password" : "Show password"}
+              aria-pressed={revealed}
+              className="auth-reveal"
+              onClick={() => setRevealed((current) => !current)}
+              type="button"
+            >
+              {revealed ? (
+                <EyeOff aria-hidden="true" size={17} />
+              ) : (
+                <Eye aria-hidden="true" size={17} />
+              )}
+            </button>
+          </span>
+          {registering ? (
+            <small className="auth-hint">
+              Use at least 10 characters. A short phrase you will remember beats
+              a short password you will not.
+            </small>
+          ) : null}
+        </label>
+
+        <button className="auth-submit" data-auth-line disabled={busy} type="submit">
+          {busy ? "Please wait…" : registering ? "Create account" : "Sign in"}
+          {busy ? null : <ArrowRight aria-hidden="true" size={17} />}
+        </button>
+      </form>
+
+      <div className="auth-switch" data-auth-line>
+        <p>
+          {registering ? "Already have an account?" : "Applying for admission?"}
+        </p>
+        <button onClick={switchMode} type="button">
+          {registering ? "Sign in instead" : "Create an applicant account"}
+        </button>
+      </div>
+
+      <p className="auth-foot" data-auth-line>
+        Trouble signing in? Ask the school office to check your email address, or{" "}
+        <Link href="/">go back to the school home page</Link>.
+      </p>
+    </div>
   );
 }

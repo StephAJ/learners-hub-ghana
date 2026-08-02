@@ -677,6 +677,49 @@
   line-height: 1.5;
 }
 
+/* The marker's copy of the learner's attachments. Opens in a new tab so the
+   part-filled rubric below is not lost to a navigation. */
+.submission-files {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: var(--space-3) 0;
+  padding: 0;
+}
+
+.submission-files li {
+  align-items: center;
+  background: #f4f6f3;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.submission-files a {
+  color: var(--brand);
+  flex: 1;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-width: 0;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submission-files a:hover {
+  text-decoration: underline;
+}
+
+.submission-files span {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+}
+
 .rubric-score-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

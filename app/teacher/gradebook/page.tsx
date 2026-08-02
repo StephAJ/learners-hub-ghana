@@ -10,7 +10,6 @@ export default async function GradebookPage() {
   return (
     <WorkspaceShell
       activeHref="/teacher/gradebook"
-      description="Grades, weighting and end-of-term report progress."
       eyebrow="Teaching"
       title="Markbook"
       user={user}

@@ -1,11 +1,7 @@
 import { notFound } from "next/navigation";
 import { WorkspaceShell } from "../../../components/workspace-shell";
 import { demoLearnerAssessmentBySlug } from "../../../demo-data";
-import {
-  demoAssessmentBySlug,
-  demoAssessmentMarks,
-} from "../../../../domain/demo/greenfield";
-import { demoSubjectByOffering } from "../../../../domain/demo/greenfield";
+import { demoAssessmentBySlug } from "../../../../domain/demo/greenfield";
 import { requireWorkspaceUser } from "../../../../server/workspace-auth";
 import { AssessmentRunner } from "./assessment-runner";
 import "./quiz-runner.css";
@@ -35,13 +31,9 @@ export default async function AssessmentPage({
     "student",
     `/learn/assessments/${slug}`,
   );
-  const subject = demoSubjectByOffering(source.offeringId);
-  const totalMarks = demoAssessmentMarks(source);
-
   return (
     <WorkspaceShell
       activeHref="/learn/assessments"
-      description={`${subject?.subjectName ?? "Assessment"} · ${source.questionIds.length} questions · ${totalMarks} marks · ${source.timeLimitMinutes} minutes`}
       eyebrow="Assessment"
       title={assessment.title}
       user={user}

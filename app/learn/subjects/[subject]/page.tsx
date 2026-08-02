@@ -36,7 +36,6 @@ export default async function SubjectLessonPlayerPage({
     <WorkspaceShell
       activeHref="/learn/subjects"
       contentClassName="workspace-content-flush"
-      description={`${subject.className} · ${subject.teacherName}`}
       eyebrow="My subjects"
       hideTopbar
       title={subject.subjectName}

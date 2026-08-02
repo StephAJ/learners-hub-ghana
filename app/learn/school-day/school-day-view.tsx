@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LearnerSchoolDayWorkspace } from "../../../db/operations-repository";
 import { TimetableWeek } from "./timetable-week";
 import "../../school-day.css";
@@ -9,6 +9,7 @@ import "../../school-day.css";
 const previewWorkspace: LearnerSchoolDayWorkspace = {
   assignments: [
     {
+      attachments: [],
       dueAt: "2026-07-28T16:00:00Z",
       feedback: null,
       id: "assignment-body-systems",
@@ -17,6 +18,20 @@ const previewWorkspace: LearnerSchoolDayWorkspace = {
       status: "submitted",
       subjectName: "Integrated Science",
       title: "Body systems model",
+    },
+    /* One of each state. With only a submitted assignment here the preview
+       never showed the hand-in controls at all, which is the part of this
+       screen a learner spends any time in. */
+    {
+      attachments: [],
+      dueAt: "2026-07-31T16:00:00Z",
+      feedback: null,
+      id: "assignment-food-groups",
+      maximumPoints: 15,
+      score: null,
+      status: "not-started",
+      subjectName: "Integrated Science",
+      title: "Food groups field notes",
     },
   ],
   attendance: {
@@ -124,6 +139,51 @@ export function SchoolDayView() {
     setNotice("Assignment submitted to your teacher.");
   }
 
+  /* Attaching and removing both return the whole school day, so the list of
+     files on screen is always the list the server holds rather than an
+     optimistic guess that a failed upload would leave behind. */
+  async function attachFile(assignmentId: string, file: File) {
+    if (mode !== "protected") {
+      setNotice("Attachments need a signed-in school session.");
+      return;
+    }
+    const body = new FormData();
+    body.append("assignmentId", assignmentId);
+    body.append("file", file);
+    const response = await fetch("/api/learn/school-day", {
+      body,
+      method: "POST",
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      workspace?: LearnerSchoolDayWorkspace;
+    };
+    if (!response.ok || !payload.workspace) {
+      setNotice(payload.error ?? "That file could not be attached.");
+      return;
+    }
+    setWorkspace(payload.workspace);
+    setNotice(`${file.name} attached.`);
+  }
+
+  async function removeAttachment(attachmentId: string) {
+    if (mode !== "protected") return;
+    const response = await fetch("/api/learn/school-day", {
+      body: JSON.stringify({ action: "remove-attachment", attachmentId }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      workspace?: LearnerSchoolDayWorkspace;
+    };
+    if (!response.ok || !payload.workspace) {
+      setNotice(payload.error ?? "That file could not be removed.");
+      return;
+    }
+    setWorkspace(payload.workspace);
+  }
+
   return (
     <>
       <div className="school-day-page" id="today">
@@ -201,11 +261,41 @@ export function SchoolDayView() {
                       </strong>
                     ) : null}
                   </div>
+                  {/* Handed-in files stay visible after submitting: a learner
+                      asked whether their work arrived should be able to see
+                      what the teacher received. */}
+                  {assignment.attachments.length > 0 ? (
+                    <ul className="submission-files">
+                      {assignment.attachments.map((file) => (
+                        <li key={file.id}>
+                          <a
+                            download={file.filename}
+                            href={`/api/learn/submissions/attachment?attachmentId=${encodeURIComponent(file.id)}`}
+                          >
+                            {file.filename}
+                          </a>
+                          <span>{formatFileSize(file.sizeBytes)}</span>
+                          {assignment.status === "not-started" ? (
+                            <button
+                              aria-label={`Remove ${file.filename}`}
+                              onClick={() => void removeAttachment(file.id)}
+                              type="button"
+                            >
+                              ×
+                            </button>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+
                   {assignment.feedback ? (
                     <p>{assignment.feedback}</p>
                   ) : assignment.status === "not-started" ? (
                     <LearnerSubmission
                       assignmentId={assignment.id}
+                      attachFile={attachFile}
+                      hasAttachments={assignment.attachments.length > 0}
                       submitAssignment={submitAssignment}
                     />
                   ) : (
@@ -226,31 +316,78 @@ export function SchoolDayView() {
 
 function LearnerSubmission({
   assignmentId,
+  attachFile,
+  hasAttachments,
   submitAssignment,
 }: {
   assignmentId: string;
+  attachFile: (assignmentId: string, file: File) => Promise<void>;
+  hasAttachments: boolean;
   submitAssignment: (
     assignmentId: string,
     responseText: string,
   ) => Promise<void>;
 }) {
   const [responseText, setResponseText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function chooseFile(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    await attachFile(assignmentId, file);
+    setBusy(false);
+    /* Cleared so picking the same file again still fires a change event —
+       otherwise a learner who removed a file cannot re-add it. */
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
   return (
     <div className="learner-submission">
       <textarea
         onChange={(event) => setResponseText(event.target.value)}
-        placeholder="Write your assignment response"
+        placeholder="Write your answer, or attach your work as a file"
         value={responseText}
       />
-      <button
-        disabled={!responseText.trim()}
-        onClick={() => void submitAssignment(assignmentId, responseText)}
-        type="button"
-      >
-        Submit work
-      </button>
+      <div className="learner-submission-actions">
+        <label className="learner-attach">
+          <input
+            accept=".pdf,.doc,.docx,.odt,.txt,.rtf,.png,.jpg,.jpeg,.webp"
+            disabled={busy}
+            onChange={(event) => void chooseFile(event.target.files?.[0])}
+            ref={fileRef}
+            type="file"
+          />
+          <span>{busy ? "Attaching…" : "Attach a file"}</span>
+        </label>
+        {/* Either a written answer or an attached file counts as work — the
+            server applies the same rule, this only mirrors it. */}
+        <button
+          disabled={busy || (!responseText.trim() && !hasAttachments)}
+          onClick={() => void submitAssignment(assignmentId, responseText)}
+          type="button"
+        >
+          Submit work
+        </button>
+      </div>
+      <small>
+        PDF, Word, or a photograph of your written work. Up to 25 MB each.
+      </small>
     </div>
   );
+}
+
+/** Decimal units, so the page and the phone agree on the size of a file. */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const units = ["kB", "MB", "GB"];
+  let value = bytes / 1000;
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
 
 function period(

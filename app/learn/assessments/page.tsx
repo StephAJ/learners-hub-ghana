@@ -38,7 +38,6 @@ export default async function LearnerAssessmentsPage() {
   return (
     <WorkspaceShell
       activeHref="/learn/assessments"
-      description={`${assessments.length} assessments set for you`}
       eyebrow="Learning"
       title="Assessments"
       user={user}

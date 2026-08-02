@@ -1,9 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LearnerSubject } from "../../../../db/learning-repository";
-import type { LessonBlock } from "../../../../domain/learning/types";
+import type {
+  LessonAttachment,
+  LessonBlock,
+} from "../../../../domain/learning/types";
 import { resolveLessonVideo } from "../../../../domain/learning/video";
 import {
   ArrowLeftIcon,
@@ -11,6 +15,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DownloadIcon,
+  FileTextIcon,
+  ImageIcon,
   LockIcon,
   PencilIcon,
   PlayCircleIcon,
@@ -18,6 +24,7 @@ import {
   ReadIcon,
   SparkIcon,
 } from "../../../components/icons";
+import { LessonPoster } from "../../../components/lesson-poster";
 import { beginFocusMode, endFocusMode } from "../../../components/sidebar-state";
 import { demoActivityById } from "../../../../domain/demo/greenfield";
 import { previewLessonsFor, previewMediaUrl } from "../../../preview-workspace";
@@ -489,26 +496,43 @@ function LessonBlockView({
 
   if (block.type === "resource") {
     const resourceAssetId = block.config?.mediaAssetId;
-    const mediaUrl = resourceAssetId
-      ? (previewMediaUrl(resourceAssetId) ??
-        `/api/content/media?assetId=${encodeURIComponent(resourceAssetId)}`)
-      : undefined;
+    const mediaUrl = resourceAssetId ? mediaUrlFor(resourceAssetId) : undefined;
+    const attachment = block.attachment;
     return (
       <article className="lesson-block resource-block">
-        <span aria-hidden="true">↓</span>
+        <span aria-hidden="true">
+          <FileGlyph kind={attachment?.kind} />
+        </span>
         <div>
           <p className="lesson-eyebrow">Study resource</p>
           <h2>{block.title}</h2>
           <p>{block.content}</p>
+          {/* What the file is, before the learner spends the data on it. A
+              download offering no name, format or size is a guess on a metered
+              connection. */}
+          {attachment ? (
+            <ul className="resource-facts">
+              <li title={attachment.filename}>{attachment.filename}</li>
+              <li>{describeFileKind(attachment)}</li>
+              <li>{formatFileSize(attachment.sizeBytes)}</li>
+            </ul>
+          ) : null}
           <small>
-            {mediaUrl
-              ? "Downloads once, then works offline."
-              : "Your teacher has not attached the file yet."}
+            {!mediaUrl
+              ? "Your teacher has not attached the file yet."
+              : attachment
+                ? "Downloads once, then works offline."
+                : "This file is no longer available. Ask your teacher to attach it again."}
           </small>
         </div>
         {/* A download control with nothing to download used to render as an
             ordinary button that did nothing when pressed. */}
-        {mediaUrl ? <a href={mediaUrl}>Download resource</a> : null}
+        {mediaUrl && attachment ? (
+          <a download={attachment.filename} href={mediaUrl}>
+            <DownloadIcon size={16} />
+            Download
+          </a>
+        ) : null}
       </article>
     );
   }
@@ -555,11 +579,13 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
 
   /* A teacher working without a database uploads into the in-tab preview
      library, so that is tried before the authenticated media route. */
-  const source = resolveLessonVideo(block.config, (assetId) =>
-    previewMediaUrl(assetId) ??
-    `/api/content/media?assetId=${encodeURIComponent(assetId)}`,
-  );
+  const source = resolveLessonVideo(block.config, mediaUrlFor);
   const mediaUrl = source?.kind === "youtube" ? undefined : source?.url;
+
+  /* The teacher's own still, if they attached one. Everything below falls back
+     to generated artwork rather than to nothing. */
+  const posterAssetId = block.config?.posterAssetId;
+  const posterUrl = posterAssetId ? mediaUrlFor(posterAssetId) : undefined;
 
   async function play() {
     const video = videoRef.current;
@@ -606,12 +632,20 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
             />
           ) : (
             <>
-              <img
+              {/* The teacher's still wins over YouTube's own: they chose a
+                  frame that suits the lesson, and it is served from the
+                  school's origin rather than pinging Google before play. */}
+              <Image
                 alt=""
                 aria-hidden="true"
                 className="video-poster"
-                loading="lazy"
-                src={`https://i.ytimg.com/vi/${source.videoId}/hqdefault.jpg`}
+                fill
+                sizes="(max-width: 680px) 100vw, 55vw"
+                src={
+                  posterUrl ??
+                  `https://i.ytimg.com/vi/${source.videoId}/hqdefault.jpg`
+                }
+                unoptimized
               />
               {/* Deferring the iframe until this is pressed is what actually
                   holds off YouTube's cookies until playback — embedding it
@@ -679,6 +713,31 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
           Your browser cannot play this lesson video.
         </video>
 
+        {/* Covers the video element until playback starts. `preload="metadata"`
+            gives us a duration but not a frame, so without this the stage is a
+            black rectangle — indistinguishable from a video that failed. */}
+        {!started && !failed ? (
+          posterUrl ? (
+            /* unoptimized because the media route is access-checked: the image
+               optimizer would fetch it server-side with no learner session and
+               get a 401 back. */
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="video-poster video-poster-overlay"
+              fill
+              sizes="(max-width: 680px) 100vw, 55vw"
+              src={posterUrl}
+              unoptimized
+            />
+          ) : (
+            <LessonPoster
+              className="video-poster video-poster-overlay"
+              seed={block.id}
+            />
+          )
+        ) : null}
+
         {failed ? (
           <div className="video-stage-message">
             <strong>This video could not be loaded</strong>
@@ -715,6 +774,48 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
       </div>
       {copy}
     </article>
+  );
+}
+
+/** A glyph that tells a document apart from a picture at a glance. */
+function FileGlyph({ kind }: { kind?: LessonAttachment["kind"] }) {
+  if (kind === "image") return <ImageIcon size={18} />;
+  if (kind === "audio" || kind === "video") return <PlayCircleIcon size={18} />;
+  return <FileTextIcon size={18} />;
+}
+
+/** "PDF · 2 pages" is the teacher's job; this is only the format. */
+function describeFileKind(attachment: LessonAttachment): string {
+  const extension = attachment.filename.split(".").at(-1);
+  if (extension && extension !== attachment.filename) {
+    return extension.toUpperCase();
+  }
+  return attachment.kind === "document" ? "Document" : attachment.kind;
+}
+
+/**
+ * Bytes as a learner would say them.
+ *
+ * Decimal units, because a phone reporting a 4.2 MB download and a page
+ * claiming 4.0 MiB for the same file reads as one of them being wrong.
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const units = ["kB", "MB", "GB"];
+  let value = bytes / 1000;
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+/** Preview uploads win over the authenticated route — see LessonVideoBlock. */
+function mediaUrlFor(assetId: string): string {
+  return (
+    previewMediaUrl(assetId) ??
+    `/api/content/media?assetId=${encodeURIComponent(assetId)}`
   );
 }
 

@@ -10,7 +10,6 @@ export default async function ReportsPage() {
   return (
     <WorkspaceShell
       activeHref="/guardian/reports"
-      description="Released end-of-term reports for your child."
       eyebrow="Guardian"
       title="Reports"
       user={user}

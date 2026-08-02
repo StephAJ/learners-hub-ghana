@@ -11,14 +11,10 @@ export const dynamic = "force-dynamic";
 export default async function LearnerSubjectsPage() {
   const user = await requireWorkspaceUser("student", "/learn/subjects");
   const subjects = demoSubjectCards();
-  const inProgress = subjects.filter(
-    (subject) => subject.progressPercent > 0 && subject.progressPercent < 100,
-  ).length;
 
   return (
     <WorkspaceShell
       activeHref="/learn/subjects"
-      description={`${subjects.length} subjects this term · ${inProgress} in progress`}
       eyebrow="Learning"
       title="My subjects"
       user={user}

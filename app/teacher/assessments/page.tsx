@@ -10,7 +10,6 @@ export default async function TeacherAssessmentsPage() {
   return (
     <WorkspaceShell
       activeHref="/teacher/assessments"
-      description="Question bank, assessment papers and the marking queue."
       eyebrow="Teaching"
       title="Assessments"
       user={user}

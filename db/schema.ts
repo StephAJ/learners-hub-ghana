@@ -1312,6 +1312,44 @@ export const assignmentSubmissions = sqliteTable(
   ],
 );
 
+/**
+ * Files a learner attaches to their submission.
+ *
+ * A separate table rather than a column on the submission because handed-in
+ * work is rarely one file — a scanned exercise is several photographs, and a
+ * project is a document plus its data. The bytes live in media_assets like any
+ * other upload; this only records which of them belong to whose submission,
+ * which is also what makes the download check possible: an asset id alone
+ * cannot tell you whether the person asking is allowed to see it.
+ */
+export const submissionAttachments = sqliteTable(
+  "submission_attachments",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => assignmentSubmissions.id),
+    mediaAssetId: text("media_asset_id")
+      .notNull()
+      .references(() => mediaAssets.id),
+    uploadedAt: text("uploaded_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    /* Attaching the same file twice is a double-click, not an intention. */
+    uniqueIndex("submission_attachment_asset_idx").on(
+      table.submissionId,
+      table.mediaAssetId,
+    ),
+    index("submission_attachment_submission_idx").on(
+      table.tenantId,
+      table.submissionId,
+    ),
+  ],
+);
+
 export const rubricScores = sqliteTable(
   "rubric_scores",
   {

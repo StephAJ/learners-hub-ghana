@@ -18,6 +18,7 @@ const previewWorkspace: GuardianSchoolDayWorkspace = {
   ],
   assignments: [
     {
+      attachments: [],
       dueAt: "2026-07-28T16:00:00Z",
       feedback: null,
       id: "assignment-body-systems",

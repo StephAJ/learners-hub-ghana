@@ -1,3 +1,5 @@
+import type { MediaKind } from "../content/types";
+
 export type LessonStatus = "draft" | "published" | "archived";
 
 export type LessonBlockType =
@@ -7,7 +9,20 @@ export type LessonBlockType =
   | "practice"
   | "resource";
 
+/* What a block's attached file actually is. Filled in when a lesson is read,
+   never when it is authored — the block itself stores only an asset id, and a
+   learner deciding whether to spend data on a download needs to know the name,
+   the format and the size first. */
+export type LessonAttachment = {
+  contentType: string;
+  filename: string;
+  kind: MediaKind;
+  sizeBytes: number;
+};
+
 export type LessonBlock = {
+  /** Resolved from `config.mediaAssetId` on read. Absent while authoring. */
+  attachment?: LessonAttachment;
   config?: {
     activityId?: string;
     mediaAssetId?: string;
@@ -24,6 +39,11 @@ export type LessonBlock = {
        are first-class. When both are set the uploaded asset wins, because it is
        the copy the school controls. */
     videoUrl?: string;
+    /* The still a learner sees before pressing play. Optional on purpose: a
+       teacher who has not chosen one gets generated artwork rather than a
+       black rectangle, so the block never looks broken for want of a
+       thumbnail nobody had time to make. */
+    posterAssetId?: string;
   };
   content: string;
   id: string;
