@@ -245,6 +245,16 @@ export function ClockIcon(props: IconProps) {
   );
 }
 
+/** Marking a question to come back to, in the assessment runner. */
+export function FlagIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5.5 21V3.8" />
+      <path d="M5.5 4.4c3.6-1.6 6.4 1.6 10 0v8.4c-3.6 1.6-6.4-1.6-10 0z" />
+    </Icon>
+  );
+}
+
 export function SignOutIcon(props: IconProps) {
   return (
     <Icon {...props}>

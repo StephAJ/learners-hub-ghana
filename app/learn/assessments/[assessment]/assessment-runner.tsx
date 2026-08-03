@@ -2,7 +2,12 @@
 
 import confetti from "canvas-confetti";
 import Link from "next/link";
-import { ChevronRightIcon } from "../../../components/icons";
+import {
+  ChevronRightIcon,
+  ClockIcon,
+  FlagIcon,
+} from "../../../components/icons";
+import { ProgressDonut } from "../../../components/progress-donut";
 import {
   useEffect,
   useMemo,
@@ -377,132 +382,166 @@ export function AssessmentRunner({
 
   return (
     <>
-      <header className="quiz-runner-header">
-        <div>
-          <span>Question {activeIndex + 1} of {assessment.questions.length}</span>
-          <strong>
-            {answeredCount} answered · {flagged.size} flagged
-          </strong>
-        </div>
-        <div className={`quiz-timer ${remainingSeconds < 120 ? "urgent" : ""}`}>
-          <small>Time remaining</small>
-          <strong>{formatDuration(remainingSeconds)}</strong>
-        </div>
-      </header>
-
-      <div className="quiz-runner-layout">
-        <aside className="question-navigator">
-          <div>
-            <span>Progress</span>
-            <strong>
-              {answeredCount} of {assessment.questions.length} answered
-            </strong>
-            <div className="quiz-progress-track">
-              <span
-                style={{
-                  width: `${(answeredCount / assessment.questions.length) * 100}%`,
-                }}
-              />
-            </div>
+      <div className="runner">
+        <header className="runner-bar">
+          <div className="runner-bar-where">
+            <p className="runner-bar-position">
+              Question {activeIndex + 1} of {assessment.questions.length}
+            </p>
+            <p className="runner-bar-counts">
+              {answeredCount} answered
+              {flagged.size > 0 ? ` · ${flagged.size} flagged` : ""}
+            </p>
           </div>
-          <nav aria-label="Question navigator">
-            {assessment.questions.map((question, index) => (
-              <button
-                aria-label={`Question ${index + 1}`}
-                className={[
-                  index === activeIndex ? "is-active" : "",
-                  hasResponse(responses[question.id]) ? "is-answered" : "",
-                  flagged.has(question.id) ? "is-flagged" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                key={question.id}
-                onClick={() => setActiveIndex(index)}
-                type="button"
-              >
-                {index + 1}
-              </button>
-            ))}
-          </nav>
-          <div className="navigator-key">
-            <span><i className="answered-dot" /> Answered</span>
-            <span><i className="flagged-dot" /> Flagged</span>
-          </div>
-          <button
-            className="submit-assessment-button"
-            onClick={() => setConfirmSubmit(true)}
-            type="button"
-          >
-            Review and submit
-          </button>
-        </aside>
 
-        <section className="question-stage">
-          <div className="save-indicator">
-            <span className={saveState.includes("interrupted") ? "error" : ""}>
-              {saveState.includes("Saving") ? "◌" : "✓"}
+          {/* The save state belongs here rather than floating above the
+              question card, where it was the only thing in its row and pulled
+              the column out of alignment with this bar. */}
+          <div className="runner-bar-side">
+            <span
+              className={`runner-save${
+                saveState.includes("interrupted") ? " is-error" : ""
+              }${saveState.includes("Saving") ? " is-busy" : ""}`}
+              role="status"
+            >
+              <i aria-hidden="true" />
+              {saveState}
             </span>
-            {saveState}
-          </div>
-          <article className="question-paper">
-            <header>
-              <div>
-                <span>
-                  Question {activeIndex + 1} of {assessment.questions.length}
-                </span>
-                <small>{questionTypeLabel(activeQuestion.type)}</small>
-              </div>
-              <button
-                className={flagged.has(activeQuestion.id) ? "is-flagged" : ""}
-                onClick={toggleFlag}
-                type="button"
-              >
-                ⚑{" "}
-                {flagged.has(activeQuestion.id)
-                  ? "Flagged for review"
-                  : "Flag question"}
-              </button>
-            </header>
-            <div className="question-prompt">
-              <h1>{activeQuestion.prompt}</h1>
-              <span>
-                {activeQuestion.marks}{" "}
-                {activeQuestion.marks === 1 ? "mark" : "marks"}
+
+            <div
+              className={`runner-timer${
+                remainingSeconds < 120 ? " is-urgent" : ""
+              }`}
+            >
+              <ClockIcon size={15} />
+              <span className="runner-timer-value">
+                {formatDuration(remainingSeconds)}
               </span>
+              <span className="runner-timer-label">left</span>
             </div>
-            <QuestionInput
-              onChange={(value) => updateResponse(activeQuestion.id, value)}
-              question={activeQuestion}
-              value={responses[activeQuestion.id]?.value}
-            />
-          </article>
-          <footer className="question-actions">
+          </div>
+        </header>
+
+        <div className="runner-grid">
+          <aside className="runner-nav">
+            <div className="runner-nav-progress">
+              <ProgressDonut
+                percent={
+                  (answeredCount / Math.max(1, assessment.questions.length)) *
+                  100
+                }
+              />
+              <p>
+                <strong>
+                  {answeredCount} of {assessment.questions.length}
+                </strong>
+                answered
+              </p>
+            </div>
+
+            <nav aria-label="Question navigator" className="runner-nav-grid">
+              {assessment.questions.map((question, index) => {
+                const answered = hasResponse(responses[question.id]);
+                const isFlagged = flagged.has(question.id);
+                return (
+                  <button
+                    aria-current={index === activeIndex ? "step" : undefined}
+                    aria-label={`Question ${index + 1}${
+                      answered ? ", answered" : ", not answered"
+                    }${isFlagged ? ", flagged" : ""}`}
+                    className={[
+                      index === activeIndex ? "is-active" : "",
+                      answered ? "is-answered" : "",
+                      isFlagged ? "is-flagged" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    key={question.id}
+                    onClick={() => setActiveIndex(index)}
+                    type="button"
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </nav>
+
             <button
-              disabled={activeIndex === 0}
-              onClick={() => setActiveIndex((index) => index - 1)}
+              className="runner-submit"
+              onClick={() => setConfirmSubmit(true)}
               type="button"
             >
-              ← Previous
+              Review and submit
             </button>
-            {activeIndex < assessment.questions.length - 1 ? (
+          </aside>
+
+          <section className="runner-stage">
+            <article className="question-paper">
+              <header>
+                <div>
+                  <span>
+                    Question {activeIndex + 1} of{" "}
+                    {assessment.questions.length}
+                  </span>
+                  <small>{questionTypeLabel(activeQuestion.type)}</small>
+                </div>
+                <button
+                  className={
+                    flagged.has(activeQuestion.id) ? "is-flagged" : ""
+                  }
+                  onClick={toggleFlag}
+                  type="button"
+                >
+                  <FlagIcon size={14} />
+                  {flagged.has(activeQuestion.id)
+                    ? "Flagged"
+                    : "Flag question"}
+                </button>
+              </header>
+
+              <div className="question-prompt">
+                <h1>{activeQuestion.prompt}</h1>
+                <span className="question-marks">
+                  {activeQuestion.marks}{" "}
+                  {activeQuestion.marks === 1 ? "mark" : "marks"}
+                </span>
+              </div>
+
+              <QuestionInput
+                onChange={(value) => updateResponse(activeQuestion.id, value)}
+                question={activeQuestion}
+                value={responses[activeQuestion.id]?.value}
+              />
+            </article>
+
+            <footer className="question-actions">
               <button
-                className="next-question-button"
-                onClick={() => setActiveIndex((index) => index + 1)}
+                disabled={activeIndex === 0}
+                onClick={() => setActiveIndex((index) => index - 1)}
                 type="button"
               >
-                Next question →
+                &#8592; Previous
               </button>
-            ) : (
-              <button
-                className="next-question-button"
-                onClick={() => setConfirmSubmit(true)}
-                type="button"
-              >
-                Review attempt
-              </button>
-            )}
-          </footer>
-        </section>
+              {activeIndex < assessment.questions.length - 1 ? (
+                <button
+                  className="next-question-button"
+                  onClick={() => setActiveIndex((index) => index + 1)}
+                  type="button"
+                >
+                  Next question &#8594;
+                </button>
+              ) : (
+                <button
+                  className="next-question-button"
+                  onClick={() => setConfirmSubmit(true)}
+                  type="button"
+                >
+                  Review attempt
+                </button>
+              )}
+            </footer>
+          </section>
+        </div>
       </div>
 
       {confirmSubmit ? (

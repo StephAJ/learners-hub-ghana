@@ -12,7 +12,7 @@
 .quiz-result-shell,
 /* The runner sits in the workspace content column now, so it no longer paints
    a page background or claims the viewport height. */
-.quiz-runner-layout {
+.runner {
   color: var(--quiz-ink);
 }
 
@@ -219,207 +219,255 @@
   font-size: var(--fs-16);
 }
 
-.quiz-runner-header {
+/* ==========================================================================
+   The runner shell
+
+   One container, one width. The bar and the two columns under it were
+   previously separate elements with different widths — the bar filled the
+   workspace column while the grid was `min(1160px, …)` and centred — so they
+   could never line up, which is exactly how it looked.
+   ========================================================================== */
+
+.runner {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0 auto;
+  max-width: 68rem;
+  width: 100%;
+}
+
+.runner-bar {
   align-items: center;
   background: var(--card);
   border: 1px solid var(--quiz-line);
   border-radius: var(--radius-lg);
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-4);
-  grid-template-columns: minmax(0, 1fr) auto;
-  margin-bottom: var(--space-4);
+  justify-content: space-between;
   padding: var(--space-4) var(--space-5);
 }
 
-.quiz-runner-header > div:first-child {
+.runner-bar-where {
   display: grid;
+  gap: var(--space-1);
   min-width: 0;
 }
 
-.quiz-runner-header span {
-  color: var(--quiz-muted);
-  font-size: var(--fs-14);
-}
-
-.quiz-runner-header strong {
-  font-size: var(--fs-18);
-}
-
-.quiz-timer {
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  background: #eef7f3;
-  text-align: right;
-  display: grid;
-}
-
-.quiz-timer small {
+.runner-bar-position {
   color: var(--quiz-muted);
   font-size: var(--fs-13);
+  letter-spacing: var(--tracking-label);
+  margin: 0;
+  text-transform: uppercase;
 }
 
-.quiz-timer strong {
-  color: var(--quiz-green-dark);
-  font-variant-numeric: tabular-nums;
-}
-
-.quiz-timer.urgent {
-  background: #fff0ec;
-}
-
-.quiz-timer.urgent strong {
-  color: #ae3f2d;
-}
-
-.quiz-runner-layout {
-  width: min(1160px, calc(100% - 48px));
-  margin: 30px auto;
-  display: grid;
-  grid-template-columns: 245px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.question-navigator {
-  padding: 20px;
-  border: 1px solid var(--quiz-line);
-  border-radius: var(--radius-xl);
-  background: white;
-  position: sticky;
-  top: 24px;
-}
-
-.question-navigator > div:first-child {
-  display: grid;
-  gap: 4px;
-}
-
-.question-navigator span {
-  color: var(--quiz-muted);
-  font-size: var(--fs-14);
-}
-
-.question-navigator strong {
-  font-size: var(--fs-16);
-}
-
-.quiz-progress-track {
-  height: 5px;
-  margin-top: 8px;
-  border-radius: 999px;
-  background: #e9eeeb;
-  overflow: hidden;
-}
-
-.quiz-progress-track span {
-  display: block;
-  height: 100%;
-  background: var(--quiz-green);
-  transition: width 200ms ease;
-}
-
-.question-navigator nav {
-  margin: 20px 0;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-}
-
-.question-navigator nav button {
-  aspect-ratio: 1;
-  border: 1px solid #dbe1de;
-  border-radius: var(--radius-sm);
-  background: #fafbf9;
-  color: #5e6863;
+.runner-bar-counts {
+  font-size: var(--fs-18);
   font-weight: var(--fw-semibold);
-  cursor: pointer;
-  position: relative;
+  margin: 0;
 }
 
-.question-navigator nav button.is-active {
-  border-color: var(--quiz-green);
-  box-shadow: 0 0 0 2px #d7eee5;
-}
-
-.question-navigator nav button.is-answered {
-  background: var(--quiz-green);
-  color: white;
-  border-color: var(--quiz-green);
-}
-
-.question-navigator nav button.is-flagged::after {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #e5a82e;
-  position: absolute;
-  right: -2px;
-  top: -2px;
-}
-
-.navigator-key {
-  display: flex;
-  gap: 12px;
-}
-
-.navigator-key span {
-  display: flex;
+.runner-bar-side {
   align-items: center;
-  gap: 4px;
+  display: flex;
+  gap: var(--space-4);
 }
 
-.navigator-key i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
+/* -- Save state ----------------------------------------------------------- */
 
-.answered-dot {
-  background: var(--quiz-green);
-}
-
-.flagged-dot {
-  background: #e5a82e;
-}
-
-.submit-assessment-button {
-  width: 100%;
-  margin-top: 20px;
-  padding: 12px;
-  border: 1px solid var(--quiz-green);
-  border-radius: var(--radius-md);
-  background: white;
-  color: var(--quiz-green);
-  font-weight: var(--fw-semibold);
-  cursor: pointer;
-}
-
-.question-stage {
-  min-width: 0;
-}
-
-.save-indicator {
-  height: 28px;
+.runner-save {
+  align-items: center;
   color: var(--quiz-muted);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  font-size: var(--fs-14);
+  display: inline-flex;
+  font-size: var(--fs-13);
+  gap: var(--space-2);
 }
 
-.save-indicator span {
-  color: var(--quiz-green);
+.runner-save i {
+  background: var(--quiz-green);
+  border-radius: var(--radius-pill);
+  flex: none;
+  height: 0.5rem;
+  width: 0.5rem;
 }
 
-.save-indicator span.error {
+.runner-save.is-busy i {
+  animation: runner-save-pulse 1s ease-in-out infinite;
+}
+
+.runner-save.is-error {
   color: #b04a3b;
 }
 
+.runner-save.is-error i {
+  background: #b04a3b;
+}
+
+@keyframes runner-save-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* -- Timer ---------------------------------------------------------------- */
+
+.runner-timer {
+  align-items: baseline;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-pill);
+  color: var(--quiz-green);
+  display: inline-flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+}
+
+.runner-timer svg {
+  align-self: center;
+}
+
+.runner-timer-value {
+  font-size: var(--fs-22);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  /* Fixed advance so the countdown does not shuffle the bar every second. */
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.runner-timer-label {
+  font-size: var(--fs-13);
+}
+
+.runner-timer.is-urgent {
+  background: #fdece7;
+  border-color: #f2c3b6;
+  color: #ae3f2d;
+}
+
+/* -- Layout --------------------------------------------------------------- */
+
+.runner-grid {
+  align-items: start;
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 15rem minmax(0, 1fr);
+}
+
+/* -- Navigator ------------------------------------------------------------ */
+
+.runner-nav {
+  background: var(--card);
+  border: 1px solid var(--quiz-line);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  position: sticky;
+  top: var(--space-4);
+}
+
+.runner-nav-progress {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.runner-nav-progress .progress-donut {
+  font-size: 2.75rem;
+  flex: none;
+}
+
+.runner-nav-progress p {
+  color: var(--quiz-muted);
+  display: grid;
+  font-size: var(--fs-13);
+  margin: 0;
+}
+
+.runner-nav-progress strong {
+  color: var(--quiz-ink);
+  font-size: var(--fs-16);
+}
+
+.runner-nav-grid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.runner-nav-grid button {
+  aspect-ratio: 1;
+  background: var(--canvas);
+  border: 1px solid var(--quiz-line);
+  border-radius: var(--radius-sm);
+  color: var(--quiz-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  position: relative;
+}
+
+.runner-nav-grid button:hover {
+  border-color: var(--brand-line);
+}
+
+.runner-nav-grid button.is-answered {
+  background: var(--quiz-green);
+  border-color: var(--quiz-green);
+  color: #ffffff;
+}
+
+/* Outlined rather than filled, so "where I am" and "what I have answered"
+   are two readings of the same chip instead of competing for one. */
+.runner-nav-grid button.is-active {
+  box-shadow: 0 0 0 2px var(--brand-line);
+  border-color: var(--quiz-green);
+}
+
+.runner-nav-grid button.is-flagged::after {
+  background: var(--brand-accent);
+  border: 2px solid var(--card);
+  border-radius: var(--radius-pill);
+  content: "";
+  height: 0.625rem;
+  position: absolute;
+  right: -0.1875rem;
+  top: -0.1875rem;
+  width: 0.625rem;
+}
+
+.runner-submit {
+  background: transparent;
+  border: 1px solid var(--quiz-green);
+  border-radius: var(--radius-md);
+  color: var(--quiz-green);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-3);
+  width: 100%;
+}
+
+.runner-submit:hover {
+  background: var(--brand-tint);
+}
+
+.runner-stage {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
 .question-paper {
-  min-height: 540px;
-  padding: 36px 40px;
+  /* Content-driven, with a floor rather than a fixed height. At 540px a
+     one-line numeric question left a half-screen of blank card and pushed
+     the Next button away from the thing it follows. */
+  min-height: 20rem;
+  padding: var(--space-8) var(--space-10);
   border: 1px solid var(--quiz-line);
   border-radius: var(--radius-xl);
   background: var(--quiz-paper);
@@ -482,27 +530,37 @@
 }
 
 .question-prompt {
-  margin: 40px 0 28px;
-  display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: 24px;
+  display: flex;
+  gap: var(--space-5);
+  justify-content: space-between;
+  margin: var(--space-6) 0 var(--space-6);
 }
 
+/* Poppins, at a size proportional to the answers under it. This was the
+   display serif at --fs-page, which set a three-line maths question in
+   34px on a card whose options were 16px — the question shouted and the
+   thing being asked for whispered. Poppins is the reading face everywhere
+   else a learner reads a sentence, and a question is a sentence. */
 .question-prompt h1 {
+  font-family: var(--font-body);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-body);
+  line-height: var(--lh-snug);
   margin: 0;
-  max-width: 680px;
-  font-family: var(--font-serif);
-  font-size: var(--fs-page);
-  line-height: 1.35;
+  max-width: 42rem;
+  text-wrap: pretty;
 }
 
-.question-prompt > span {
-  padding: 8px 8px;
-  border-radius: var(--radius-sm);
-  background: #f1f3f0;
+.question-marks {
+  background: var(--canvas);
+  border: 1px solid var(--quiz-line);
+  border-radius: var(--radius-pill);
   color: var(--quiz-muted);
-  font-size: var(--fs-14);
+  flex: none;
+  font-size: var(--fs-13);
+  padding: var(--space-1) var(--space-3);
   white-space: nowrap;
 }
 
@@ -665,9 +723,9 @@
 }
 
 .question-actions {
-  padding: 16px 4px;
   display: flex;
   justify-content: space-between;
+  padding: 0;
 }
 
 .question-actions button {
@@ -849,16 +907,18 @@
     display: none;
   }
 
-  .quiz-runner-layout {
+  /* The navigator stops being a column and becomes a strip above the
+     question, so the paper gets the full width on a phone. */
+  .runner-grid {
     grid-template-columns: 1fr;
   }
 
-  .question-navigator {
+  .runner-nav {
     position: static;
   }
 
-  .question-navigator nav {
-    grid-template-columns: repeat(8, minmax(36px, 1fr));
+  .runner-nav-grid {
+    grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
   }
 }
 
@@ -880,37 +940,23 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .quiz-runner-header {
-    padding-inline: 16px;
-  }
-
-  .quiz-runner-header > div:nth-child(2) span {
+  /* The save state is the first thing to go: it is reassurance, and the
+     countdown and the question are not. */
+  .runner-save {
     display: none;
   }
 
-  .quiz-runner-header > div:nth-child(2) strong {
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .runner-bar {
+    padding: var(--space-4);
   }
 
-  .quiz-runner-layout {
-    width: min(100% - 24px, 1160px);
-    margin-top: 12px;
-  }
-
-  .question-navigator {
-    padding: 16px;
-  }
-
-  .question-navigator nav {
-    grid-template-columns: repeat(5, 1fr);
+  .runner-nav {
+    padding: var(--space-4);
   }
 
   .question-paper {
-    min-height: 470px;
-    padding: 24px 20px;
+    min-height: 0;
+    padding: var(--space-6) var(--space-5);
   }
 
   .question-prompt {
