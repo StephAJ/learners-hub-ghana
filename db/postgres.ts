@@ -1,5 +1,27 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
 import { learningSchema } from "./learning-schema";
+
+/* ==========================================================================
+   bigint comes back as a number
+
+   node-postgres hands int8 (OID 20) back as a *string* by default, because a
+   64-bit integer can exceed Number.MAX_SAFE_INTEGER and parsing it would lose
+   precision silently.
+
+   Every integer column in the generated schema is int8, because the generator
+   maps SQLite's 64-bit INTEGER onto it — so before this, every count, mark,
+   version, byte size and epoch value arrived as a string. Nothing failed
+   loudly. `questions.reduce((sum, q) => sum + q.marks, 0)` returned "011"
+   instead of 2, a learner's total marks read as concatenated digits, and
+   `score >= passMark` compared strings lexicographically, where "9" > "10".
+
+   The values this schema actually stores are marks, counts, percentages,
+   byte sizes and millisecond timestamps. The largest of those is a timestamp,
+   safe as a Number until the year 287396, and a byte size would have to reach
+   nine petabytes to matter. Parsing them as numbers is what the schema
+   generator's own comment already assumed was happening.
+   ========================================================================== */
+types.setTypeParser(types.builtins.INT8, (value) => Number(value));
 
 const globalDatabase = globalThis as typeof globalThis & {
   learnersHubPostgresPool?: Pool;

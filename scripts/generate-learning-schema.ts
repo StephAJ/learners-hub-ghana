@@ -60,9 +60,12 @@ function columnType(column: { getSQLType(): string; columnType: string }): strin
   if (sqliteType.startsWith("text")) return "text";
   if (sqliteType.startsWith("real")) return "double precision";
   if (sqliteType.startsWith("blob")) return "bytea";
-  /* SQLite INTEGER is 64-bit. bigint keeps byte counts and epoch values safe,
-     and node-postgres hands both back as JavaScript numbers for anything
-     inside the safe integer range, which every value here is. */
+  /* SQLite INTEGER is 64-bit, so bigint keeps byte counts and epoch values
+     safe. node-postgres does *not* hand these back as JavaScript numbers on
+     its own — int8 arrives as a string, to protect precision past
+     Number.MAX_SAFE_INTEGER. db/postgres.ts registers a type parser that
+     converts it, which every read site here depends on; see the note there
+     for why Number is the right choice for this schema. */
   return "bigint";
 }
 

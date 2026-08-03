@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import { WorkspaceShell } from "../../../components/workspace-shell";
 import { demoLearnerAssessmentBySlug } from "../../../demo-data";
+import {
+  getLearnerAssessment,
+  type LearnerAssessment,
+} from "../../../../db/assessment-repository";
 import { demoAssessmentBySlug } from "../../../../domain/demo/greenfield";
 import { requireWorkspaceUser } from "../../../../server/workspace-auth";
 import { AssessmentRunner } from "./assessment-runner";
@@ -22,15 +26,23 @@ export default async function AssessmentPage({
 }: {
   params: Promise<{ assessment: string }>;
 }) {
-  const { assessment: slug } = await params;
-  const assessment = demoLearnerAssessmentBySlug(slug);
-  const source = demoAssessmentBySlug(slug);
-  if (!assessment || !source) notFound();
-
+  const { assessment: key } = await params;
   const user = await requireWorkspaceUser(
     "student",
-    `/learn/assessments/${slug}`,
+    `/learn/assessments/${key}`,
   );
+
+  /* The segment is either a demo fixture's slug or the id of a paper a teacher
+     assembled in the app. Fixtures are tried first so the walkthrough links
+     keep working; anything else is looked up in the database. Before this, a
+     real assessment id fell straight through to notFound(), which is why a
+     published quiz could not be opened even once the index linked to it. */
+  const preview =
+    demoLearnerAssessmentBySlug(key) ??
+    (demoAssessmentBySlug(key) ? undefined : await loadAssessment(user, key));
+  if (!preview) notFound();
+
+  const assessment = preview;
   return (
     <WorkspaceShell
       activeHref="/learn/assessments"
@@ -42,4 +54,18 @@ export default async function AssessmentPage({
       <AssessmentRunner previewAssessment={assessment} />
     </WorkspaceShell>
   );
+}
+
+/** The paper as the learner may see it, or undefined if it is not theirs to sit. */
+async function loadAssessment(
+  user: Awaited<ReturnType<typeof requireWorkspaceUser>>,
+  assessmentId: string,
+): Promise<LearnerAssessment | undefined> {
+  try {
+    return await getLearnerAssessment(user.access, assessmentId);
+  } catch {
+    /* Unpublished, not this school's, or the tables are unreachable. All three
+       are a 404 to the learner rather than an error page. */
+    return undefined;
+  }
 }

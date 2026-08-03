@@ -484,6 +484,93 @@ export async function publishPersistentAssessment(
   };
 }
 
+export type LearnerAssessmentCard = {
+  id: string;
+  /** Which subject set it, so the card can say so. */
+  offeringId: string;
+  purpose: AssessmentPurpose;
+  questionCount: number;
+  status: AssessmentAttemptStatus | "not-started";
+  timeLimitMinutes: number;
+  title: string;
+  totalMarks: number;
+};
+
+/**
+ * Every published assessment this learner can sit.
+ *
+ * The learner's index had no such query behind it: it listed the two quizzes
+ * in the static demo dataset, so a paper a teacher actually built and
+ * published was invisible to the class it was published for. The only
+ * database-backed route in was the runner, and that defaulted to one
+ * hardcoded assessment id.
+ *
+ * Drafts are excluded — an unpublished paper is the teacher's business — and
+ * each card carries the learner's own attempt state so the index can say
+ * whether they have started, submitted, or had a result released.
+ */
+export async function listLearnerAssessments(
+  access: AccessContext,
+): Promise<LearnerAssessmentCard[]> {
+  requireActiveMembership(access);
+  await ensureAssessmentFoundation();
+  const database = await getSchoolDatabase();
+  const result = await database
+    .prepare(
+      `SELECT
+        a.id,
+        a.offering_id,
+        v.title,
+        v.purpose,
+        v.time_limit_minutes,
+        (
+          SELECT COUNT(*)
+          FROM assessment_questions aq
+          WHERE aq.assessment_version_id = v.id
+        ) AS question_count,
+        (
+          SELECT COALESCE(SUM(aq.marks), 0)
+          FROM assessment_questions aq
+          WHERE aq.assessment_version_id = v.id
+        ) AS total_marks,
+        (
+          SELECT at.status
+          FROM assessment_attempts at
+          WHERE at.assessment_id = a.id
+            AND at.learner_person_id = ?
+          ORDER BY at.started_at DESC
+          LIMIT 1
+        ) AS attempt_status
+      FROM assessments a
+      INNER JOIN assessment_versions v
+        ON v.assessment_id = a.id AND v.version = a.current_version
+      WHERE a.tenant_id = ? AND v.status = 'published'
+      ORDER BY a.updated_at DESC`,
+    )
+    .bind(access.actorPersonId, access.tenantId)
+    .all<{
+      attempt_status: AssessmentAttemptStatus | null;
+      id: string;
+      offering_id: string;
+      purpose: AssessmentPurpose;
+      question_count: number;
+      time_limit_minutes: number;
+      title: string;
+      total_marks: number;
+    }>();
+
+  return result.results.map((row) => ({
+    id: row.id,
+    offeringId: row.offering_id,
+    purpose: row.purpose,
+    questionCount: Number(row.question_count),
+    status: row.attempt_status ?? "not-started",
+    timeLimitMinutes: Number(row.time_limit_minutes),
+    title: row.title,
+    totalMarks: Number(row.total_marks),
+  }));
+}
+
 export async function getLearnerAssessment(
   access: AccessContext,
   assessmentId = DIGESTION_ASSESSMENT_ID,
@@ -1310,22 +1397,47 @@ async function loadAssessment(
     publishedAt: row.published_at ?? undefined,
     purpose: row.purpose,
     questions: questionsResult.results.map((question) =>
-      parseJson<AssessmentQuestionSnapshot>(question.snapshot, {
-        answerKey: {},
-        id: "",
-        marks: 0,
-        options: [],
-        position: 0,
-        prompt: "",
-        questionVersion: 0,
-        type: "single-choice",
-      }),
+      normaliseSnapshot(
+        parseJson<AssessmentQuestionSnapshot>(question.snapshot, {
+          answerKey: {},
+          id: "",
+          marks: 0,
+          options: [],
+          position: 0,
+          prompt: "",
+          questionVersion: 0,
+          type: "single-choice",
+        }),
+      ),
     ),
     status: row.status,
     tenantId: row.tenant_id,
     timeLimitMinutes: row.time_limit_minutes,
     title: row.title,
     version: row.current_version,
+  };
+}
+
+/**
+ * Repairs a snapshot written before int8 was parsed as a number.
+ *
+ * A question's marks are frozen into the snapshot JSON when a paper is
+ * assembled. Any paper assembled while node-postgres was still handing int8
+ * back as a string has `"marks": "2"` written into it permanently, and no
+ * amount of fixing the type parser changes rows that already exist — so
+ * `sum + question.marks` kept concatenating on exactly the deployments that
+ * had been used the longest. Coerced on the way out rather than migrated,
+ * because the snapshot is deliberately immutable: it is the record of what
+ * the paper said when it was published.
+ */
+function normaliseSnapshot(
+  question: AssessmentQuestionSnapshot,
+): AssessmentQuestionSnapshot {
+  return {
+    ...question,
+    marks: Number(question.marks) || 0,
+    position: Number(question.position) || 0,
+    questionVersion: Number(question.questionVersion) || 0,
   };
 }
 

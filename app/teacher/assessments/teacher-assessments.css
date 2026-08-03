@@ -180,15 +180,43 @@
   max-width: 620px;
 }
 
+/* Sits on the dark hero, so it is glass rather than a filled button.
+   `background` is the load-bearing declaration: this rule was written for an
+   anchor — hence the class name and the text-decoration reset — but the
+   element is a <button>, which carries the user agent's own light grey
+   background. With only `color: white` set, the label was white on #f0f0f0
+   and effectively invisible. */
 .learner-preview-link {
-  color: white;
-  text-decoration: none;
-  padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  align-items: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: var(--radius-md);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
   font-size: var(--fs-16);
   font-weight: var(--fw-semibold);
+  justify-content: center;
+  letter-spacing: var(--tracking-body);
+  padding: var(--space-3) var(--space-4);
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
   white-space: nowrap;
+}
+
+.learner-preview-link:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.learner-preview-link:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .assessment-notice {
