@@ -6,6 +6,7 @@ import type {
 import type {
   AssessmentPurpose,
   QuestionAnswerKey,
+  QuestionMedia,
   QuestionOption,
   QuestionType,
 } from "../assessment/types";
@@ -104,8 +105,12 @@ export type DemoQuestion = {
      `value` for auto-marked types, `rubric` for the ones a teacher reads. */
   answerKey: QuestionAnswerKey;
   difficulty: "foundation" | "standard" | "challenge";
+  /** Set as mathematics under the prompt. TeX for the subset the runner draws. */
+  formula?: string;
   id: string;
   marks: number;
+  /** A diagram or photograph the question is about. */
+  media?: QuestionMedia;
   offeringId: string;
   options: QuestionOption[];
   prompt: string;
@@ -1007,6 +1012,10 @@ export const demoQuestionBank: DemoQuestion[] = [
     difficulty: "foundation",
     id: "question-absorption-site",
     marks: 1,
+    media: {
+      alt: "A labelled diagram of the human digestive system, showing the mouth, oesophagus, stomach, liver, small intestine and large intestine.",
+      url: "/lesson-images/digestive-system-parts.jpg",
+    },
     offeringId: "offering-science-jhs2",
     options: [
       { id: "mouth", label: "Mouth" },
@@ -1204,6 +1213,9 @@ export const demoQuestionBank: DemoQuestion[] = [
   {
     answerKey: { tolerance: 0, value: 12 },
     difficulty: "foundation",
+    /* Written plainly rather than as TeX: the renderer reads both, and a
+       backslash in a TypeScript string is an escape sequence waiting to bite. */
+    formula: "1/3 and 1/4",
     id: "question-common-denominator",
     marks: 1,
     offeringId: "offering-maths-jhs2",
@@ -1217,6 +1229,7 @@ export const demoQuestionBank: DemoQuestion[] = [
   {
     answerKey: { value: "seven-twelfths" },
     difficulty: "standard",
+    formula: "1/3 + 1/4 = ?",
     id: "question-add-fractions",
     marks: 2,
     offeringId: "offering-maths-jhs2",

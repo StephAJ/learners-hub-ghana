@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS "question_versions" (
   "options" text NOT NULL DEFAULT '[]',
   "answer_key" text NOT NULL DEFAULT '{}',
   "rationale" text NOT NULL DEFAULT '',
+  "media" text,
+  "formula" text,
   "marks" bigint NOT NULL,
   "status" text NOT NULL DEFAULT 'draft',
   "created_by_person_id" text NOT NULL,

@@ -18,7 +18,11 @@ import type {
   LearnerAssessment,
   LearnerQuestion,
 } from "../../../../db/assessment-repository";
-import type { QuestionResponse } from "../../../../domain/assessment/types";
+import type {
+  QuestionMedia,
+  QuestionResponse,
+} from "../../../../domain/assessment/types";
+import { QuestionFigure, QuestionFormula } from "./question-media";
 
 export function AssessmentRunner({
   previewAssessment,
@@ -507,6 +511,13 @@ export function AssessmentRunner({
                 </span>
               </div>
 
+              {activeQuestion.formula ? (
+                <QuestionFormula formula={activeQuestion.formula} />
+              ) : null}
+              {activeQuestion.media ? (
+                <QuestionFigure media={activeQuestion.media} />
+              ) : null}
+
               <QuestionInput
                 onChange={(value) => updateResponse(activeQuestion.id, value)}
                 question={activeQuestion}
@@ -584,6 +595,29 @@ export function AssessmentRunner({
   );
 }
 
+/**
+ * What sits inside one choice tile.
+ *
+ * A picture option keeps its label as the accessible name rather than
+ * dropping it: "the diagram showing the small intestine" is what a learner
+ * using a screen reader needs, and it is also what shows if the image fails.
+ */
+function ChoiceBody({
+  option,
+}: {
+  option: { label: string; media?: QuestionMedia };
+}) {
+  if (option.media?.alt?.trim()) {
+    return (
+      <span className="choice-media">
+        <QuestionFigure media={option.media} variant="option" />
+        <strong>{option.label}</strong>
+      </span>
+    );
+  }
+  return <strong>{option.label}</strong>;
+}
+
 function QuestionInput({
   onChange,
   question,
@@ -617,7 +651,7 @@ function QuestionInput({
               type="radio"
             />
             <span>{String.fromCharCode(65 + index)}</span>
-            <strong>{option.label}</strong>
+            <ChoiceBody option={option} />
           </label>
         ))}
       </div>
@@ -649,7 +683,7 @@ function QuestionInput({
               type="checkbox"
             />
             <span>{String.fromCharCode(65 + index)}</span>
-            <strong>{option.label}</strong>
+            <ChoiceBody option={option} />
           </label>
         ))}
       </div>

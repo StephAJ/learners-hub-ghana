@@ -1129,3 +1129,117 @@
     gap: var(--space-5);
   }
 }
+
+/* ==========================================================================
+   Pictures and formulas
+
+   A question can be about a diagram, a chart or an equation, and a choice can
+   be a picture rather than a phrase. Both matter for a basic school: labelling
+   an organ, reading a graph and picking the right shape are things a paper
+   examines constantly and a text-only quiz cannot ask at all.
+   ========================================================================== */
+
+.question-figure {
+  margin: 0 0 var(--space-6);
+}
+
+.question-figure img {
+  border: 1px solid var(--quiz-line);
+  border-radius: var(--radius-lg);
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.question-figure-prompt img {
+  /* Capped so a tall diagram cannot push the answers below the fold; the
+     image is evidence for the question, not the whole screen. */
+  max-height: 22rem;
+  object-fit: contain;
+  width: auto;
+}
+
+/* -- Formulas ------------------------------------------------------------- */
+
+.question-formula {
+  align-items: center;
+  color: var(--quiz-ink);
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--font-serif);
+  font-size: var(--fs-28);
+  gap: 0.25em;
+  line-height: 1.4;
+  margin: 0 0 var(--space-6);
+}
+
+.formula-fraction {
+  display: inline-grid;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.formula-numerator {
+  border-bottom: 1.5px solid currentColor;
+  padding: 0 0.25em 0.08em;
+}
+
+.formula-denominator {
+  padding: 0.08em 0.25em 0;
+}
+
+.formula-root {
+  align-items: baseline;
+  display: inline-flex;
+}
+
+.formula-radicand {
+  border-top: 1.5px solid currentColor;
+  padding: 0.1em 0.15em 0;
+}
+
+.question-formula sup {
+  font-size: 0.62em;
+}
+
+/* -- Picture options ------------------------------------------------------ */
+
+.choice-media {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  min-width: 0;
+}
+
+.choice-media .question-figure {
+  margin: 0;
+}
+
+.choice-media img {
+  border-radius: var(--radius-md);
+  max-height: 8rem;
+  object-fit: contain;
+  width: auto;
+}
+
+/* With pictures in them the options stop being rows and become a gallery,
+   because a column of images is a lot of scrolling for four choices. */
+.choice-list:has(.choice-media) {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.choice-list:has(.choice-media) .choice-option {
+  align-items: start;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  padding: var(--space-4);
+}
+
+@media (max-width: 600px) {
+  .question-formula {
+    font-size: var(--fs-22);
+  }
+
+  .question-figure-prompt img {
+    max-height: 14rem;
+  }
+}

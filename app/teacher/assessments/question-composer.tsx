@@ -47,7 +47,9 @@ import "./question-composer.css";
 export type ComposedQuestion = {
   correctAnswer: string;
   difficulty: "foundation" | "standard" | "challenge";
+  formula?: string;
   marks: number;
+  media?: { alt: string; url: string };
   options: string[];
   prompt: string;
   rationale: string;
@@ -103,6 +105,9 @@ export function QuestionComposer({
     useState<ComposedQuestion["difficulty"]>("standard");
   const [marks, setMarks] = useState(1);
   const [rationale, setRationale] = useState("");
+  const [formula, setFormula] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageAlt, setImageAlt] = useState("");
 
   const [options, setOptions] = useState<OptionDraft[]>(() => blankOptions(4));
   const [booleanAnswer, setBooleanAnswer] = useState("true");
@@ -175,6 +180,9 @@ export function QuestionComposer({
       booleanAnswer,
       difficulty,
       exactAnswer,
+      formula,
+      imageAlt,
+      imageUrl,
       marks,
       options,
       pairs,
@@ -190,6 +198,9 @@ export function QuestionComposer({
       booleanAnswer,
       difficulty,
       exactAnswer,
+      formula,
+      imageAlt,
+      imageUrl,
       marks,
       options,
       pairs,
@@ -295,6 +306,52 @@ export function QuestionComposer({
               {unavailable}
             </p>
           ) : null}
+
+          <details className="composer-extras">
+            <summary>
+              Add a diagram or formula
+              {imageUrl.trim() || formula.trim() ? <em>added</em> : null}
+            </summary>
+            <div className="composer-extras-body">
+              <label className="composer-field">
+                <span>
+                  Formula <em>1/3 + 1/4, or TeX such as rac{"{1}{3}"}</em>
+                </span>
+                <input
+                  onChange={(event) => setFormula(event.target.value)}
+                  placeholder="1/3 + 1/4 = ?"
+                  value={formula}
+                />
+              </label>
+              <label className="composer-field">
+                <span>
+                  Image <em>a path under public/, or an uploaded media URL</em>
+                </span>
+                <input
+                  onChange={(event) => setImageUrl(event.target.value)}
+                  placeholder="/lesson-images/digestive-system-parts.jpg"
+                  value={imageUrl}
+                />
+              </label>
+              <label className="composer-field">
+                <span>
+                  Describe the image <em>read aloud in place of it</em>
+                </span>
+                <input
+                  onChange={(event) => setImageAlt(event.target.value)}
+                  placeholder="A labelled diagram of the digestive system."
+                  value={imageAlt}
+                />
+              </label>
+              {imageUrl.trim() && !imageAlt.trim() ? (
+                <p className="composer-warning">
+                  This image will not be saved until it has a description. A
+                  learner using a screen reader would otherwise meet a question
+                  they cannot answer, with nothing on screen to say why.
+                </p>
+              ) : null}
+            </div>
+          </details>
 
           <section className="composer-answer">
             <h3>Answer</h3>
@@ -710,6 +767,9 @@ type ComposeInput = {
   booleanAnswer: string;
   difficulty: ComposedQuestion["difficulty"];
   exactAnswer: string;
+  formula: string;
+  imageAlt: string;
+  imageUrl: string;
   marks: number;
   options: OptionDraft[];
   pairs: PairDraft[];
@@ -725,7 +785,15 @@ type ComposeInput = {
 export function compose(input: ComposeInput): ComposedQuestion {
   const base = {
     difficulty: input.difficulty,
+    formula: input.formula.trim() || undefined,
     marks: input.marks,
+    /* Only a described image is an image. An undescribed one is dropped here
+       rather than saved and hidden later, so the composer's warning is the
+       whole story. */
+    media:
+      input.imageUrl.trim() && input.imageAlt.trim()
+        ? { alt: input.imageAlt.trim(), url: input.imageUrl.trim() }
+        : undefined,
     prompt: input.prompt.trim(),
     rationale: input.rationale.trim(),
     topic: input.topic.trim(),

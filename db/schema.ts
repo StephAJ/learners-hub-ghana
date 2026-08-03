@@ -656,6 +656,13 @@ export const questionVersions = sqliteTable(
     options: text("options").notNull().default("[]"),
     answerKey: text("answer_key").notNull().default("{}"),
     rationale: text("rationale").notNull().default(""),
+    /* A diagram the question is about, as JSON {url, alt}. Stored on the
+       version rather than the bank item so editing a question's picture
+       creates a new version, the same way editing its wording does — a paper
+       already published keeps the image it was published with. */
+    media: text("media"),
+    /* A formula shown under the prompt, in the TeX subset the runner draws. */
+    formula: text("formula"),
     marks: integer("marks").notNull(),
     status: text("status", {
       enum: ["draft", "approved", "retired"],

@@ -185,6 +185,12 @@ const additiveMigrations = `
   ALTER TABLE people
     ADD COLUMN IF NOT EXISTS photo_url text;
 
+  /* A question's diagram and formula. On the version, so changing either
+     versions the question the way changing its wording does. */
+  ALTER TABLE question_versions
+    ADD COLUMN IF NOT EXISTS media text,
+    ADD COLUMN IF NOT EXISTS formula text;
+
   /* The reminder job scans for stale drafts; without this it is a sequential
      scan of every application the school has ever taken. */
   CREATE INDEX IF NOT EXISTS admission_records_draft_reminder_idx

@@ -15,6 +15,7 @@ import type {
   AssessmentQuestionSnapshot,
   MarkedQuestionResponse,
   QuestionAnswerKey,
+  QuestionMedia,
   QuestionOption,
   QuestionResponse,
   QuestionType,
@@ -122,7 +123,11 @@ export type LearnerAssessment = {
 export type CreateBankQuestionInput = {
   correctAnswer: string;
   difficulty: QuestionBankSummary["difficulty"];
+  /** TeX, in the subset the runner draws. */
+  formula?: string;
   marks: number;
+  /** A diagram the question is about. Both fields are required together. */
+  media?: QuestionMedia;
   options: string[];
   prompt: string;
   rationale: string;
@@ -206,8 +211,8 @@ export async function createBankQuestion(
     database
       .prepare(
         `INSERT INTO question_versions
-          (id, tenant_id, question_id, version, prompt, options, answer_key, rationale, marks, status, created_by_person_id)
-        VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 'approved', ?)`,
+          (id, tenant_id, question_id, version, prompt, options, answer_key, rationale, media, formula, marks, status, created_by_person_id)
+        VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 'approved', ?)`,
       )
       .bind(
         questionVersionId,
@@ -217,6 +222,12 @@ export async function createBankQuestion(
         JSON.stringify(options),
         JSON.stringify(answerKey),
         input.rationale.trim(),
+        /* An image without a description is refused rather than stored, so a
+           question can never reach a learner who cannot perceive it. */
+        input.media?.url && input.media.alt?.trim()
+          ? JSON.stringify(input.media)
+          : null,
+        input.formula?.trim() || null,
         input.marks,
         access.actorPersonId,
       ),
@@ -267,6 +278,8 @@ export async function createPersistentAssessmentDraft(
         v.prompt,
         v.options,
         v.answer_key,
+        v.media,
+        v.formula,
         v.marks
       FROM question_bank_items q
       INNER JOIN question_versions v
@@ -284,8 +297,10 @@ export async function createPersistentAssessmentDraft(
     .all<{
       answer_key: string;
       current_version: number;
+      formula: string | null;
       id: string;
       marks: number;
+      media: string | null;
       options: string;
       prompt: string;
       type: QuestionType;
@@ -314,8 +329,14 @@ export async function createPersistentAssessmentDraft(
     if (!row) continue;
     draft = addAssessmentQuestion(draft, {
       answerKey: parseJson<QuestionAnswerKey>(row.answer_key, {}),
+      formula: row.formula ?? undefined,
       id: row.id,
       marks: row.marks,
+      /* Frozen into the paper's snapshot with everything else, so a published
+         question keeps the diagram it was published with. */
+      media: row.media
+        ? parseJson<QuestionMedia | undefined>(row.media, undefined)
+        : undefined,
       options: parseJson<QuestionOption[]>(row.options, []),
       position: draft.questions.length + 1,
       prompt: row.prompt,
@@ -980,8 +1001,10 @@ function assessmentSnapshots(
 ): AssessmentQuestionSnapshot[] {
   return demoAssessmentQuestions(assessment).map((question, index) => ({
     answerKey: question.answerKey,
+    formula: question.formula,
     id: question.id,
     marks: question.marks,
+    media: question.media,
     options: question.options,
     position: index + 1,
     prompt: question.prompt,
@@ -1485,6 +1508,15 @@ async function loadAttemptResponseValues(
   );
 }
 
+/** A question as the learner may see it: everything but the answer key. */
+function toLearnerQuestion({
+  answerKey,
+  ...question
+}: AssessmentQuestionSnapshot): LearnerQuestion {
+  void answerKey;
+  return question;
+}
+
 function toLearnerAssessment(
   assessment: Assessment,
   attempt: AttemptRow | null,
@@ -1505,15 +1537,12 @@ function toLearnerAssessment(
     instructions: assessment.instructions,
     passMarkPercent: assessment.passMarkPercent,
     purpose: assessment.purpose,
-    questions: assessment.questions.map((question) => ({
-      id: question.id,
-      marks: question.marks,
-      options: question.options,
-      position: question.position,
-      prompt: question.prompt,
-      questionVersion: question.questionVersion,
-      type: question.type,
-    })),
+    /* Everything except the answer key. Written as a rest-destructure rather
+       than by listing the fields to keep: the field list silently dropped the
+       question's diagram and formula on the way out, and would drop whatever
+       is added next. The omission of answerKey is the point, so it is the only
+       thing stated. */
+    questions: assessment.questions.map(toLearnerQuestion),
     result:
       attempt && attempt.status !== "in-progress"
         ? {
