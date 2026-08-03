@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
-import "./public-site.css";
 import "./workspace.css";
 
 /* Self-hosted at build time rather than fetched from Google, so a learner on a

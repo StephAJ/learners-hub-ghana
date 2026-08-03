@@ -5,6 +5,7 @@ import {
   saveApplicantApplication,
   type SaveApplicantApplicationInput,
 } from "../../../../db/applicant-repository";
+import { sendSubmissionMail } from "../../../../server/mail/admissions-mail";
 
 export const dynamic = "force-dynamic";
 
@@ -43,11 +44,22 @@ export async function POST(request: Request) {
     const payload = (await request.json()) as SaveApplicantApplicationInput & {
       action?: "save" | "submit";
     };
+    const submitting = payload.action === "submit";
     const application = await saveApplicantApplication(
       user,
       payload,
-      payload.action === "submit",
+      submitting,
     );
+
+    /* Awaited rather than fired and forgotten: this runtime may freeze the
+       instance the moment the response is returned, which would cut a
+       background send off mid-flight. sendSubmissionMail never rejects, so a
+       mail outage delays this response but cannot fail a submission that is
+       already committed. */
+    if (submitting) {
+      await sendSubmissionMail(application);
+    }
+
     return Response.json({ application });
   } catch (error) {
     return applicationErrorResponse(error);

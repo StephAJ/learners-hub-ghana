@@ -1600,6 +1600,47 @@ export const admissionApplicationRecords = sqliteTable(
     previousSchool: text("previous_school").notNull().default(""),
     desiredClass: text("desired_class").notNull().default(""),
     supportNeeds: text("support_needs").notNull().default(""),
+
+    /* The rest of a standard basic-school application. Every one of these
+       defaults to empty rather than being nullable: a half-finished draft is
+       the normal state of this record for days at a time, and "not filled in
+       yet" and "left blank on purpose" are the same thing to the form. What
+       must be present before submitting is decided in
+       domain/admissions/application-form.ts, not by the column. */
+    applicantMiddleName: text("applicant_middle_name").notNull().default(""),
+    gender: text("gender").notNull().default(""),
+    nationality: text("nationality").notNull().default(""),
+    placeOfBirth: text("place_of_birth").notNull().default(""),
+    homeAddress: text("home_address").notNull().default(""),
+
+    previousSchoolLocation: text("previous_school_location")
+      .notNull()
+      .default(""),
+    lastClassCompleted: text("last_class_completed").notNull().default(""),
+    reasonForLeaving: text("reason_for_leaving").notNull().default(""),
+    entryTerm: text("entry_term").notNull().default(""),
+
+    guardianRelationship: text("guardian_relationship").notNull().default(""),
+    guardianOccupation: text("guardian_occupation").notNull().default(""),
+    guardianAddress: text("guardian_address").notNull().default(""),
+    secondGuardianName: text("second_guardian_name").notNull().default(""),
+    secondGuardianPhone: text("second_guardian_phone").notNull().default(""),
+
+    emergencyName: text("emergency_name").notNull().default(""),
+    emergencyPhone: text("emergency_phone").notNull().default(""),
+    emergencyRelationship: text("emergency_relationship")
+      .notNull()
+      .default(""),
+
+    allergies: text("allergies").notNull().default(""),
+    medicalConditions: text("medical_conditions").notNull().default(""),
+    medications: text("medications").notNull().default(""),
+
+    /* Set when the guardian ticks the declaration, so the school can show what
+       was agreed to and when if an application is ever disputed. */
+    declarationAcceptedAt: text("declaration_accepted_at"),
+    /* Stops the abandoned-draft reminder repeating every time the job runs. */
+    lastReminderAt: text("last_reminder_at"),
     status: text("status", {
       enum: [
         "draft",

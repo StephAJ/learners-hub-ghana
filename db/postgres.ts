@@ -22,6 +22,8 @@ export async function migrateLearnersHubSchema(): Promise<void> {
   /* The learning tables reference tenants and people, so they go second.
      Generated from db/schema.ts — see scripts/generate-learning-schema.ts. */
   await database.query(learningSchema);
+  /* Last, because these alter tables the two above have just guaranteed. */
+  await database.query(additiveMigrations);
 }
 
 const applicationSchema = `
@@ -118,4 +120,46 @@ const applicationSchema = `
 
   CREATE INDEX IF NOT EXISTS admission_records_tenant_status_idx
     ON admission_application_records (tenant_id, status);
+`;
+
+/* ==========================================================================
+   Additive migrations
+
+   Everything above is CREATE TABLE IF NOT EXISTS, which does nothing at all to
+   a table that already exists — so a column added to an existing deployment
+   has to be stated here as well. ADD COLUMN IF NOT EXISTS is idempotent, so
+   this runs on every boot like the rest of the schema.
+
+   Columns only. Anything that rewrites or drops data does not belong in a
+   migration that runs unattended on startup.
+   ========================================================================== */
+const additiveMigrations = `
+  ALTER TABLE admission_application_records
+    ADD COLUMN IF NOT EXISTS applicant_middle_name text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS gender text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS nationality text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS place_of_birth text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS home_address text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS previous_school_location text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS last_class_completed text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS reason_for_leaving text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS entry_term text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS guardian_relationship text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS guardian_occupation text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS guardian_address text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS second_guardian_name text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS second_guardian_phone text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS emergency_name text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS emergency_phone text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS emergency_relationship text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS allergies text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS medical_conditions text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS medications text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS declaration_accepted_at timestamptz,
+    ADD COLUMN IF NOT EXISTS last_reminder_at timestamptz;
+
+  /* The reminder job scans for stale drafts; without this it is a sequential
+     scan of every application the school has ever taken. */
+  CREATE INDEX IF NOT EXISTS admission_records_draft_reminder_idx
+    ON admission_application_records (tenant_id, status, updated_at);
 `;

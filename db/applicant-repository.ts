@@ -1,4 +1,10 @@
 import type { AuthenticatedUser } from "../app/auth";
+import {
+  emptyApplicationDraft,
+  isApplicationSubmittable,
+  validateApplication as validateApplicationDraft,
+  type ApplicationDraft,
+} from "../domain/admissions/application-form";
 import { AuthorizationError, canPerform } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
 import { ensurePlatformReady } from "../server/platform-ready";
@@ -7,17 +13,12 @@ import { getPostgresPool } from "./postgres";
 const GREENFIELD_TENANT_ID = "tenant-greenfield";
 const CURRENT_INTAKE_ID = "2026-2027";
 
-export type ApplicantApplication = {
+export type ApplicantApplication = ApplicationDraft & {
   applicantEmail: string;
-  applicantFirstName: string;
-  applicantLastName: string;
-  dateOfBirth: string;
-  desiredClass: string;
-  guardianEmail: string;
-  guardianName: string;
-  guardianPhone: string;
+  /** Set when the guardian ticked the declaration on the review step. */
+  declarationAcceptedAt?: string;
   id: string;
-  previousSchool: string;
+  lastReminderAt?: string;
   status:
     | "draft"
     | "submitted"
@@ -27,25 +28,94 @@ export type ApplicantApplication = {
     | "rejected"
     | "enrolled";
   submittedAt?: string;
-  supportNeeds: string;
   updatedAt: string;
 };
 
-export type SaveApplicantApplicationInput = Omit<
-  ApplicantApplication,
-  "applicantEmail" | "id" | "status" | "submittedAt" | "updatedAt"
->;
+/** What the form sends back. Exactly the draft — the rest is the server's. */
+export type SaveApplicantApplicationInput = ApplicationDraft;
 
 export type ManagedAdmissionStatus = Exclude<
   ApplicantApplication["status"],
   "draft" | "submitted"
 >;
 
+/** A draft that has gone quiet, for the reminder job. */
+export type AbandonedDraft = {
+  applicantFirstName: string;
+  daysSinceUpdate: number;
+  draft: ApplicationDraft;
+  guardianEmail: string;
+  guardianName: string;
+  id: string;
+};
+
+/* ==========================================================================
+   One list of columns
+
+   The draft's fields appear in the select list, the insert column list, the
+   insert placeholders, the upsert's SET clause and the row mapper. Written out
+   five times they drift, and the failure is silent: a column missing from the
+   SET clause simply never saves, and the guardian watches their answer
+   disappear on reload. Everything below is derived from this array.
+   ========================================================================== */
+const DRAFT_COLUMNS: ReadonlyArray<[keyof ApplicationDraft, string]> = [
+  ["applicantFirstName", "applicant_first_name"],
+  ["applicantMiddleName", "applicant_middle_name"],
+  ["applicantLastName", "applicant_last_name"],
+  ["dateOfBirth", "date_of_birth"],
+  ["gender", "gender"],
+  ["nationality", "nationality"],
+  ["placeOfBirth", "place_of_birth"],
+  ["homeAddress", "home_address"],
+  ["desiredClass", "desired_class"],
+  ["entryTerm", "entry_term"],
+  ["previousSchool", "previous_school"],
+  ["previousSchoolLocation", "previous_school_location"],
+  ["lastClassCompleted", "last_class_completed"],
+  ["reasonForLeaving", "reason_for_leaving"],
+  ["guardianName", "guardian_name"],
+  ["guardianRelationship", "guardian_relationship"],
+  ["guardianEmail", "guardian_email"],
+  ["guardianPhone", "guardian_phone"],
+  ["guardianOccupation", "guardian_occupation"],
+  ["guardianAddress", "guardian_address"],
+  ["secondGuardianName", "second_guardian_name"],
+  ["secondGuardianPhone", "second_guardian_phone"],
+  ["emergencyName", "emergency_name"],
+  ["emergencyRelationship", "emergency_relationship"],
+  ["emergencyPhone", "emergency_phone"],
+  ["allergies", "allergies"],
+  ["medicalConditions", "medical_conditions"],
+  ["medications", "medications"],
+  ["supportNeeds", "support_needs"],
+];
+
+/* Lower-cased as well as trimmed on the way in. */
+const LOWERCASED = new Set<keyof ApplicationDraft>(["guardianEmail"]);
+
+const draftColumnList = DRAFT_COLUMNS.map(([, column]) => column).join(
+  ",\n    ",
+);
+
+const applicationColumns = `
+    id,
+    applicant_email,
+    ${draftColumnList},
+    status,
+    submitted_at::text,
+    declaration_accepted_at::text,
+    last_reminder_at::text,
+    updated_at::text`;
+
+const applicationSelect = `
+  SELECT${applicationColumns}
+  FROM admission_application_records`;
+
 export async function getApplicantApplication(
   user: AuthenticatedUser,
 ): Promise<ApplicantApplication | null> {
   await ensurePlatformReady();
-  const result = await getPostgresPool().query<ApplicantApplicationRow>(
+  const result = await getPostgresPool().query<ApplicationRow>(
     `${applicationSelect}
      WHERE tenant_id = $1 AND intake_id = $2 AND applicant_email = $3
      LIMIT 1`,
@@ -69,7 +139,7 @@ export async function listApplicantApplications(
   }
 
   await ensurePlatformReady();
-  const result = await getPostgresPool().query<ApplicantApplicationRow>(
+  const result = await getPostgresPool().query<ApplicationRow>(
     `${applicationSelect}
      WHERE tenant_id = $1 AND intake_id = $2 AND status <> 'draft'
      ORDER BY COALESCE(submitted_at, updated_at) DESC`,
@@ -83,7 +153,16 @@ export async function saveApplicantApplication(
   input: SaveApplicantApplicationInput,
   submit: boolean,
 ): Promise<ApplicantApplication> {
-  validateApplication(input, submit);
+  /* The same check the wizard runs, so a client that skipped a step — or
+     posted straight at the API — cannot submit an incomplete application. */
+  if (submit && !isApplicationSubmittable(input)) {
+    const [first] = validateApplicationDraft(input);
+    throw new ApplicantApplicationError(
+      first?.message ??
+        "Complete every required section before submitting your application.",
+    );
+  }
+
   await ensurePlatformReady();
 
   const database = getPostgresPool();
@@ -108,50 +187,51 @@ export async function saveApplicantApplication(
 
   const applicationId = current?.id ?? crypto.randomUUID();
   const status = submit ? "submitted" : current?.status ?? "draft";
-  const submittedAt = submit ? new Date().toISOString() : null;
+  const now = new Date().toISOString();
+  const submittedAt = submit ? now : null;
+  const declarationAcceptedAt = submit ? now : null;
+
+  const values = [
+    applicationId,
+    GREENFIELD_TENANT_ID,
+    CURRENT_INTAKE_ID,
+    email,
+    ...DRAFT_COLUMNS.map(([field]) => normalise(field, input[field])),
+    status,
+    submittedAt,
+    declarationAcceptedAt,
+  ];
+
+  const insertColumns = [
+    "id",
+    "tenant_id",
+    "intake_id",
+    "applicant_email",
+    ...DRAFT_COLUMNS.map(([, column]) => column),
+    "status",
+    "submitted_at",
+    "declaration_accepted_at",
+  ].join(", ");
+  const placeholders = values.map((_, index) => `$${index + 1}`).join(", ");
+  const updateAssignments = [
+    ...DRAFT_COLUMNS.map(([, column]) => `${column} = EXCLUDED.${column}`),
+    "status = EXCLUDED.status",
+    /* COALESCE so re-saving never clears the original timestamps. */
+    "submitted_at = COALESCE(EXCLUDED.submitted_at, admission_application_records.submitted_at)",
+    "declaration_accepted_at = COALESCE(EXCLUDED.declaration_accepted_at, admission_application_records.declaration_accepted_at)",
+    /* Editing a draft makes it active again, so the reminder may fire once
+       more if it goes quiet a second time. */
+    "last_reminder_at = NULL",
+    "updated_at = CURRENT_TIMESTAMP",
+  ].join(",\n       ");
 
   await database.query(
-    `INSERT INTO admission_application_records
-      (
-        id, tenant_id, intake_id, applicant_email, applicant_first_name,
-        applicant_last_name, date_of_birth, guardian_name, guardian_email,
-        guardian_phone, previous_school, desired_class, support_needs,
-        status, submitted_at
-      )
-     VALUES (
-       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
-     )
+    `INSERT INTO admission_application_records (${insertColumns})
+     VALUES (${placeholders})
      ON CONFLICT (tenant_id, intake_id, applicant_email)
      DO UPDATE SET
-       applicant_first_name = EXCLUDED.applicant_first_name,
-       applicant_last_name = EXCLUDED.applicant_last_name,
-       date_of_birth = EXCLUDED.date_of_birth,
-       guardian_name = EXCLUDED.guardian_name,
-       guardian_email = EXCLUDED.guardian_email,
-       guardian_phone = EXCLUDED.guardian_phone,
-       previous_school = EXCLUDED.previous_school,
-       desired_class = EXCLUDED.desired_class,
-       support_needs = EXCLUDED.support_needs,
-       status = EXCLUDED.status,
-       submitted_at = COALESCE(EXCLUDED.submitted_at, admission_application_records.submitted_at),
-       updated_at = CURRENT_TIMESTAMP`,
-    [
-      applicationId,
-      GREENFIELD_TENANT_ID,
-      CURRENT_INTAKE_ID,
-      email,
-      input.applicantFirstName.trim(),
-      input.applicantLastName.trim(),
-      input.dateOfBirth,
-      input.guardianName.trim(),
-      input.guardianEmail.trim().toLowerCase(),
-      input.guardianPhone.trim(),
-      input.previousSchool.trim(),
-      input.desiredClass,
-      input.supportNeeds.trim(),
-      status,
-      submittedAt,
-    ],
+       ${updateAssignments}`,
+    values,
   );
 
   const saved = await getApplicantApplication(user);
@@ -176,7 +256,7 @@ export async function updateApplicantApplicationStatus(
 
   await ensurePlatformReady();
   const database = getPostgresPool();
-  const currentResult = await database.query<ApplicantApplicationRow>(
+  const currentResult = await database.query<ApplicationRow>(
     `${applicationSelect}
      WHERE tenant_id = $1 AND intake_id = $2 AND id = $3
      LIMIT 1`,
@@ -195,25 +275,11 @@ export async function updateApplicantApplicationStatus(
   const client = await database.connect();
   try {
     await client.query("BEGIN");
-    const updated = await client.query<ApplicantApplicationRow>(
+    const updated = await client.query<ApplicationRow>(
       `UPDATE admission_application_records
        SET status = $1, updated_at = CURRENT_TIMESTAMP
        WHERE tenant_id = $2 AND intake_id = $3 AND id = $4
-       RETURNING
-         id,
-         applicant_email,
-         applicant_first_name,
-         applicant_last_name,
-         date_of_birth,
-         guardian_name,
-         guardian_email,
-         guardian_phone,
-         previous_school,
-         desired_class,
-         support_needs,
-         status,
-         submitted_at::text,
-         updated_at::text`,
+       RETURNING${applicationColumns}`,
       [nextStatus, access.tenantId, CURRENT_INTAKE_ID, applicationId],
     );
     await client.query(
@@ -241,6 +307,58 @@ export async function updateApplicantApplicationStatus(
   }
 }
 
+/**
+ * Drafts nobody has touched for `quietDays`, that have not been reminded yet.
+ *
+ * Drafts only: a submitted application is the school's problem now, not the
+ * family's. `last_reminder_at IS NULL` is what makes this send once rather
+ * than on every run of the job.
+ */
+export async function listAbandonedDrafts(
+  quietDays: number,
+): Promise<AbandonedDraft[]> {
+  await ensurePlatformReady();
+  const result = await getPostgresPool().query<
+    ApplicationRow & { days_since_update: number }
+  >(
+    `SELECT${applicationColumns},
+      EXTRACT(DAY FROM (CURRENT_TIMESTAMP - updated_at))::int AS days_since_update
+     FROM admission_application_records
+     WHERE tenant_id = $1
+       AND intake_id = $2
+       AND status = 'draft'
+       AND last_reminder_at IS NULL
+       AND updated_at < CURRENT_TIMESTAMP - make_interval(days => $3::int)
+       AND guardian_email <> ''
+     ORDER BY updated_at`,
+    [GREENFIELD_TENANT_ID, CURRENT_INTAKE_ID, quietDays],
+  );
+
+  return result.rows.map((row) => {
+    const application = mapApplication(row);
+    return {
+      applicantFirstName: application.applicantFirstName,
+      daysSinceUpdate: Number(row.days_since_update),
+      draft: toDraft(application),
+      guardianEmail: application.guardianEmail,
+      guardianName: application.guardianName,
+      id: application.id,
+    };
+  });
+}
+
+/** Records that the one reminder has gone out. */
+export async function markDraftReminderSent(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await ensurePlatformReady();
+  await getPostgresPool().query(
+    `UPDATE admission_application_records
+     SET last_reminder_at = CURRENT_TIMESTAMP
+     WHERE tenant_id = $1 AND id = ANY($2::text[])`,
+    [GREENFIELD_TENANT_ID, ids],
+  );
+}
+
 export class ApplicantApplicationError extends Error {
   constructor(message: string) {
     super(message);
@@ -248,84 +366,42 @@ export class ApplicantApplicationError extends Error {
   }
 }
 
-type ApplicantApplicationRow = {
+type ApplicationRow = Record<string, string | null> & {
   applicant_email: string;
-  applicant_first_name: string;
-  applicant_last_name: string;
-  date_of_birth: string;
-  desired_class: string;
-  guardian_email: string;
-  guardian_name: string;
-  guardian_phone: string;
   id: string;
-  previous_school: string;
   status: ApplicantApplication["status"];
-  submitted_at: string | null;
-  support_needs: string;
   updated_at: string;
 };
 
-const applicationSelect = `
-  SELECT
-    id,
-    applicant_email,
-    applicant_first_name,
-    applicant_last_name,
-    date_of_birth,
-    guardian_name,
-    guardian_email,
-    guardian_phone,
-    previous_school,
-    desired_class,
-    support_needs,
-    status,
-    submitted_at::text,
-    updated_at::text
-  FROM admission_application_records`;
+function normalise(field: keyof ApplicationDraft, value: string): string {
+  const trimmed = (value ?? "").trim();
+  return LOWERCASED.has(field) ? trimmed.toLowerCase() : trimmed;
+}
 
-function mapApplication(row: ApplicantApplicationRow): ApplicantApplication {
+function mapApplication(row: ApplicationRow): ApplicantApplication {
+  const draft = emptyApplicationDraft();
+  for (const [field, column] of DRAFT_COLUMNS) {
+    draft[field] = row[column] ?? "";
+  }
   return {
+    ...draft,
     applicantEmail: row.applicant_email,
-    applicantFirstName: row.applicant_first_name,
-    applicantLastName: row.applicant_last_name,
-    dateOfBirth: row.date_of_birth,
-    desiredClass: row.desired_class,
-    guardianEmail: row.guardian_email,
-    guardianName: row.guardian_name,
-    guardianPhone: row.guardian_phone,
+    declarationAcceptedAt: row.declaration_accepted_at ?? undefined,
     id: row.id,
-    previousSchool: row.previous_school,
+    lastReminderAt: row.last_reminder_at ?? undefined,
     status: row.status,
     submittedAt: row.submitted_at ?? undefined,
-    supportNeeds: row.support_needs,
     updatedAt: row.updated_at,
   };
 }
 
-function validateApplication(
-  input: SaveApplicantApplicationInput,
-  submit: boolean,
-) {
-  if (!submit) return;
-  const requiredValues = [
-    input.applicantFirstName,
-    input.applicantLastName,
-    input.dateOfBirth,
-    input.guardianName,
-    input.guardianEmail,
-    input.guardianPhone,
-    input.desiredClass,
-  ];
-  if (requiredValues.some((value) => !value.trim())) {
-    throw new ApplicantApplicationError(
-      "Complete every required section before submitting your application.",
-    );
+/** Strips the server-owned fields back off, for the form and the templates. */
+export function toDraft(application: ApplicantApplication): ApplicationDraft {
+  const draft = emptyApplicationDraft();
+  for (const [field] of DRAFT_COLUMNS) {
+    draft[field] = application[field];
   }
-  if (!input.guardianEmail.includes("@")) {
-    throw new ApplicantApplicationError(
-      "Enter a valid guardian email address.",
-    );
-  }
+  return draft;
 }
 
 function isAllowedStatusChange(
