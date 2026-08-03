@@ -1,16 +1,14 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   QuestionBankSummary,
   ReviewAttempt,
   TeacherAssessmentWorkspace,
 } from "../../../db/assessment-repository";
-import type {
-  AssessmentPurpose,
-  QuestionType,
-} from "../../../domain/assessment/types";
+import type { QuestionType } from "../../../domain/assessment/types";
 import { QuestionComposer, type ComposedQuestion } from "./question-composer";
+import { QuizBuilder, type QuizDraft } from "./quiz-builder";
 import { QUESTION_TYPES } from "./question-types";
 import "../../admin/academic/academic.css";
 import "./teacher-assessments.css";
@@ -293,7 +291,7 @@ export function TeacherAssessmentsView() {
     setNotice("Quiz published. Learners can now start it.");
   }
 
-  async function createQuiz(input: CreateQuizFormInput) {
+  async function createQuiz(input: QuizDraft) {
     if (dataMode !== "protected") {
       setWorkspace((current) => ({
         ...current,
@@ -621,26 +619,10 @@ function QuizPanel({
 }: {
   assessments: TeacherAssessmentWorkspace["assessments"];
   bank: QuestionBankSummary[];
-  createQuiz: (input: CreateQuizFormInput) => Promise<void>;
+  createQuiz: (input: QuizDraft) => Promise<void>;
   publishQuiz: (assessmentId: string) => Promise<void>;
 }) {
-  const [showForm, setShowForm] = useState(false);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await createQuiz({
-      instructions: String(form.get("instructions") ?? ""),
-      passMarkPercent: Number(form.get("passMarkPercent") ?? 50),
-      purpose: String(
-        form.get("purpose") ?? "formative",
-      ) as AssessmentPurpose,
-      questionIds: form.getAll("questionIds").map(String),
-      timeLimitMinutes: Number(form.get("timeLimitMinutes") ?? 15),
-      title: String(form.get("title") ?? ""),
-    });
-    setShowForm(false);
-  }
+  const [showBuilder, setShowBuilder] = useState(false);
 
   return (
     <section className="assessment-panel">
@@ -651,106 +633,24 @@ function QuizPanel({
         </div>
         <button
           className="secondary-assessment-button"
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => setShowBuilder(true)}
           type="button"
         >
-          {showForm ? "Close builder" : "+ Assemble quiz"}
+          + Assemble quiz
         </button>
       </div>
-      {showForm ? (
-        <form className="quiz-builder" onSubmit={submit}>
-          <div className="quiz-builder-fields">
-            <label>
-              Quiz title
-              <input
-                defaultValue="Food and nutrition practice"
-                name="title"
-                required
-              />
-            </label>
-            <label>
-              Purpose
-              <select defaultValue="formative" name="purpose">
-                <option value="diagnostic">Diagnostic</option>
-                <option value="formative">Formative</option>
-                <option value="homework">Homework</option>
-                <option value="summative">Summative</option>
-                <option value="mock-examination">Mock examination</option>
-                <option value="timed-examination">Timed examination</option>
-                <option value="survey">Survey</option>
-              </select>
-            </label>
-            <label>
-              Time limit
-              <span>
-                <input
-                  defaultValue="15"
-                  max="600"
-                  min="1"
-                  name="timeLimitMinutes"
-                  type="number"
-                />
-                minutes
-              </span>
-            </label>
-            <label>
-              Pass mark
-              <span>
-                <input
-                  defaultValue="60"
-                  max="100"
-                  min="0"
-                  name="passMarkPercent"
-                  type="number"
-                />
-                %
-              </span>
-            </label>
-            <label className="wide-field">
-              Learner instructions
-              <input
-                defaultValue="Answer every question and review flagged items before submitting."
-                name="instructions"
-                required
-              />
-            </label>
-          </div>
-          <fieldset>
-            <legend>Select approved question versions</legend>
-            <div className="builder-question-list">
-              {bank.slice(0, 8).map((question, index) => (
-                <label key={question.id}>
-                  <input
-                    defaultChecked={index < 3}
-                    disabled={question.type === "file-upload"}
-                    name="questionIds"
-                    type="checkbox"
-                    value={question.id}
-                  />
-                  <span>
-                    <strong>{question.prompt}</strong>
-                    <small>
-                      {typeLabels[question.type]} · {question.marks} marks · v
-                      {question.version}
-                      {question.type === "file-upload"
-                        ? " · storage activation required"
-                        : ""}
-                    </small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <div className="question-form-actions">
-            <small>
-              The draft will pin the exact question versions selected here.
-            </small>
-            <button className="primary-assessment-button" type="submit">
-              Create quiz draft
-            </button>
-          </div>
-        </form>
+
+      {showBuilder ? (
+        <QuizBuilder
+          bank={bank}
+          onCancel={() => setShowBuilder(false)}
+          onSubmit={async (draft) => {
+            await createQuiz(draft);
+            setShowBuilder(false);
+          }}
+        />
       ) : null}
+
       <div className="quiz-grid">
         {assessments.map((assessment) => (
           <article className="quiz-card" key={assessment.id}>
@@ -788,6 +688,7 @@ function QuizPanel({
     </section>
   );
 }
+
 
 function ReviewPanel({
   attempts,
@@ -917,15 +818,6 @@ function ReviewPanel({
     </section>
   );
 }
-
-type CreateQuizFormInput = {
-  instructions: string;
-  passMarkPercent: number;
-  purpose: AssessmentPurpose;
-  questionIds: string[];
-  timeLimitMinutes: number;
-  title: string;
-};
 
 function question(
   id: string,

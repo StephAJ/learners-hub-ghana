@@ -1,147 +1,11 @@
 /* ==========================================================================
    Question composer
 
-   A full-height panel over the workspace: authoring a question is a task, not
-   a field, and the previous inline form pushed the question bank off screen
-   every time it opened.
-
-   Type, weight, radius, spacing and colour all come from the tokens in
-   globals.css. Literal values appear only for the scrim opacity and the two
-   control heights the token set does not describe.
+   The panel shell — scrim, head, body, foot, fields, buttons — lives in
+   composer-shell.css, shared with the quiz builder. What is here is the part
+   specific to authoring one question: the type picker, and the answer editor
+   that changes with it.
    ========================================================================== */
-
-.composer-scrim {
-  align-items: center;
-  background: rgba(16, 32, 29, 0.52);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  padding: var(--space-6);
-  position: fixed;
-  z-index: 60;
-}
-
-.composer {
-  background: var(--card);
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  flex-direction: column;
-  max-height: min(46rem, calc(100dvh - var(--space-12)));
-  max-width: 48rem;
-  overflow: hidden;
-  width: 100%;
-}
-
-/* -- Head ----------------------------------------------------------------- */
-
-.composer-head {
-  align-items: flex-start;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  gap: var(--space-4);
-  justify-content: space-between;
-  padding: var(--space-6);
-}
-
-.composer-eyebrow {
-  color: var(--brand);
-  font-size: var(--fs-12);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-label);
-  margin: 0 0 var(--space-1);
-  text-transform: uppercase;
-}
-
-.composer-head h2 {
-  font-size: var(--fs-22);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-display);
-  line-height: var(--lh-heading);
-  margin: 0;
-}
-
-.composer-close {
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  color: var(--muted);
-  cursor: pointer;
-  display: inline-flex;
-  flex: none;
-  height: 2.25rem;
-  justify-content: center;
-  transition: background 160ms ease, color 160ms ease;
-  width: 2.25rem;
-}
-
-.composer-close:hover {
-  background: var(--brand-tint);
-  color: var(--ink);
-}
-
-/* -- Body ----------------------------------------------------------------- */
-
-.composer-body {
-  display: grid;
-  gap: var(--space-6);
-  overflow-y: auto;
-  padding: var(--space-6);
-}
-
-.composer-field {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.composer-field > span {
-  align-items: baseline;
-  color: var(--ink);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  gap: var(--space-2);
-}
-
-.composer-field > span em {
-  color: var(--muted);
-  font-size: var(--fs-13);
-  font-style: normal;
-  font-weight: var(--fw-regular);
-}
-
-.composer-field input,
-.composer-field select,
-.composer-field textarea,
-.answer-option-label,
-.answer-pair input {
-  background: var(--card);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: var(--fs-14);
-  letter-spacing: var(--tracking-body);
-  padding: var(--space-3);
-  width: 100%;
-}
-
-.composer-field textarea {
-  line-height: var(--lh-body);
-  resize: vertical;
-}
-
-.composer-field input:focus-visible,
-.composer-field select:focus-visible,
-.composer-field textarea:focus-visible,
-.answer-option-label:focus-visible,
-.answer-pair input:focus-visible {
-  border-color: var(--brand);
-  outline: 2px solid var(--brand-line);
-  outline-offset: 1px;
-}
 
 .composer-prompt textarea {
   font-size: var(--fs-16);
@@ -234,17 +98,6 @@
   line-height: var(--lh-snug);
 }
 
-.composer-warning {
-  background: color-mix(in srgb, var(--brand-accent) 16%, #ffffff);
-  border: 1px solid color-mix(in srgb, var(--brand-accent) 44%, #ffffff);
-  border-radius: var(--radius-sm);
-  color: var(--brand-accent-ink);
-  font-size: var(--fs-13);
-  line-height: var(--lh-snug);
-  margin: 0;
-  padding: var(--space-3);
-}
-
 /* -- Answer editors ------------------------------------------------------- */
 
 .composer-answer h3 {
@@ -270,6 +123,26 @@
   align-items: center;
   display: flex;
   gap: var(--space-2);
+}
+
+.answer-option-label,
+.answer-pair input {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-14);
+  letter-spacing: var(--tracking-body);
+  padding: var(--space-3);
+  width: 100%;
+}
+
+.answer-option-label:focus-visible,
+.answer-pair input:focus-visible {
+  border-color: var(--brand);
+  outline: 2px solid var(--brand-line);
+  outline-offset: 1px;
 }
 
 .answer-option-mark {
@@ -399,100 +272,7 @@
   margin: 0;
 }
 
-/* -- Meta ----------------------------------------------------------------- */
-
-.composer-meta {
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.composer-field-wide {
-  grid-column: 1 / -1;
-}
-
-/* -- Foot ----------------------------------------------------------------- */
-
-.composer-foot {
-  align-items: center;
-  border-top: 1px solid var(--line);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  justify-content: space-between;
-  padding: var(--space-5) var(--space-6);
-}
-
-.composer-hint {
-  color: var(--muted);
-  font-size: var(--fs-13);
-  margin: 0;
-}
-
-.composer-error {
-  color: #96341f;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-medium);
-  margin: 0;
-}
-
-.composer-actions {
-  display: flex;
-  gap: var(--space-3);
-  margin-left: auto;
-}
-
-.composer-primary,
-.composer-quiet {
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  min-height: 2.5rem;
-  padding: 0 var(--space-6);
-}
-
-.composer-primary {
-  background: var(--brand);
-  border: 1px solid var(--brand);
-  color: #ffffff;
-}
-
-.composer-primary:hover:not(:disabled) {
-  background: var(--brand-strong);
-  border-color: var(--brand-strong);
-}
-
-.composer-primary:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.composer-quiet {
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  color: var(--ink);
-}
-
-.composer-quiet:hover {
-  background: var(--brand-tint);
-}
-
 @media (max-width: 720px) {
-  .composer-scrim {
-    padding: 0;
-  }
-
-  .composer {
-    border-radius: 0;
-    max-height: 100dvh;
-  }
-
-  .composer-meta {
-    grid-template-columns: 1fr;
-  }
-
   .answer-option,
   .answer-pair {
     flex-wrap: wrap;
