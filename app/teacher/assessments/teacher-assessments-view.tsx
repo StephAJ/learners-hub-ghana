@@ -10,22 +10,19 @@ import type {
   AssessmentPurpose,
   QuestionType,
 } from "../../../domain/assessment/types";
+import { QuestionComposer, type ComposedQuestion } from "./question-composer";
+import { QUESTION_TYPES } from "./question-types";
 import "../../admin/academic/academic.css";
 import "./teacher-assessments.css";
 
-const typeLabels: Record<QuestionType, string> = {
-  "single-choice": "Single choice",
-  "multiple-choice": "Multiple choice",
-  "true-false": "True / false",
-  "short-text": "Short text",
-  numeric: "Numeric",
-  matching: "Matching",
-  ordering: "Ordering",
-  essay: "Essay",
-  "file-upload": "File upload",
-  hotspot: "Hotspot",
-  composite: "Composite",
-};
+/* The one list of type names now lives with the composer, which also knows
+   what each type means and how it is answered. */
+const typeLabels = Object.fromEntries(
+  Object.entries(QUESTION_TYPES).map(([type, definition]) => [
+    type,
+    definition.label,
+  ]),
+) as Record<QuestionType, string>;
 
 const previewWorkspace: TeacherAssessmentWorkspace = {
   assessments: [
@@ -213,8 +210,11 @@ export function TeacherAssessmentsView() {
   const needsMarking = workspace.reviewQueue.filter(
     (attempt) => attempt.status === "needs-marking",
   ).length;
+  /* Most questions written in one sitting share a topic, so the composer
+     opens on the one the bank used last rather than empty. */
+  const topicSuggestion = workspace.bank[0]?.topic ?? "";
 
-  async function createQuestion(input: CreateQuestionFormInput) {
+  async function createQuestion(input: ComposedQuestion) {
     if (dataMode !== "protected") {
       const previewQuestion: QuestionBankSummary = {
         difficulty: input.difficulty,
@@ -496,6 +496,7 @@ export function TeacherAssessmentsView() {
               setShowForm={setShowQuestionForm}
               setTypeFilter={setTypeFilter}
               showForm={showQuestionForm}
+              topicSuggestion={topicSuggestion}
               typeFilter={typeFilter}
             />
           ) : null}
@@ -525,13 +526,15 @@ function QuestionBankPanel({
   setShowForm,
   setTypeFilter,
   showForm,
+  topicSuggestion,
   typeFilter,
 }: {
-  createQuestion: (input: CreateQuestionFormInput) => Promise<void>;
+  createQuestion: (input: ComposedQuestion) => Promise<void>;
   questions: QuestionBankSummary[];
   setShowForm: (value: boolean) => void;
   setTypeFilter: (value: QuestionType | "all") => void;
   showForm: boolean;
+  topicSuggestion: string;
   typeFilter: QuestionType | "all";
 }) {
   return (
@@ -550,7 +553,13 @@ function QuestionBankPanel({
         </button>
       </div>
 
-      {showForm ? <QuestionForm onSubmit={createQuestion} /> : null}
+      {showForm ? (
+        <QuestionComposer
+          onCancel={() => setShowForm(false)}
+          onSubmit={createQuestion}
+          topicSuggestion={topicSuggestion}
+        />
+      ) : null}
 
       <div className="question-filter-row">
         <label htmlFor="question-type-filter">Filter by item type</label>
@@ -909,17 +918,6 @@ function ReviewPanel({
   );
 }
 
-type CreateQuestionFormInput = {
-  correctAnswer: string;
-  difficulty: QuestionBankSummary["difficulty"];
-  marks: number;
-  options: string[];
-  prompt: string;
-  rationale: string;
-  topic: string;
-  type: QuestionType;
-};
-
 type CreateQuizFormInput = {
   instructions: string;
   passMarkPercent: number;
@@ -928,119 +926,6 @@ type CreateQuizFormInput = {
   timeLimitMinutes: number;
   title: string;
 };
-
-function QuestionForm({
-  onSubmit,
-}: {
-  onSubmit: (input: CreateQuestionFormInput) => Promise<void>;
-}) {
-  const [type, setType] = useState<QuestionType>("single-choice");
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    const form = new FormData(event.currentTarget);
-    await onSubmit({
-      correctAnswer: String(form.get("correctAnswer") ?? ""),
-      difficulty: String(
-        form.get("difficulty") ?? "standard",
-      ) as CreateQuestionFormInput["difficulty"],
-      marks: Number(form.get("marks") ?? 1),
-      options: String(form.get("options") ?? "").split("\n"),
-      prompt: String(form.get("prompt") ?? ""),
-      rationale: String(form.get("rationale") ?? ""),
-      topic: String(form.get("topic") ?? ""),
-      type,
-    });
-    setBusy(false);
-  }
-
-  return (
-    <form className="question-form" onSubmit={submit}>
-      <div className="form-section-title">
-        <span>New bank item</span>
-        <strong>Author the question and answer model</strong>
-      </div>
-      <div className="question-form-grid">
-        <label className="wide-field">
-          Question prompt
-          <textarea
-            defaultValue="Which organ stores and churns food during digestion?"
-            name="prompt"
-            required
-            rows={3}
-          />
-        </label>
-        <label>
-          Item type
-          <select
-            name="type"
-            onChange={(event) => setType(event.target.value as QuestionType)}
-            value={type}
-          >
-            {Object.entries(typeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Topic
-          <input
-            defaultValue="Human body systems"
-            name="topic"
-            required
-          />
-        </label>
-        <label>
-          Difficulty
-          <select defaultValue="standard" name="difficulty">
-            <option value="foundation">Foundation</option>
-            <option value="standard">Standard</option>
-            <option value="challenge">Challenge</option>
-          </select>
-        </label>
-        <label>
-          Marks
-          <input defaultValue="1" max="100" min="1" name="marks" type="number" />
-        </label>
-        <label className="wide-field">
-          Options, one per line
-          <textarea
-            defaultValue={"Mouth\nStomach\nSmall intestine\nLarge intestine"}
-            name="options"
-            rows={4}
-          />
-        </label>
-        <label>
-          Correct answer or rubric
-          <input defaultValue="Stomach" name="correctAnswer" />
-        </label>
-        <label>
-          Explanation
-          <input
-            defaultValue="The stomach stores food and churns it with digestive juices."
-            name="rationale"
-          />
-        </label>
-      </div>
-      <div className="question-form-actions">
-        <small>
-          New items are versioned and approved for this subject bank.
-        </small>
-        <button
-          className="primary-assessment-button"
-          disabled={busy}
-          type="submit"
-        >
-          {busy ? "Saving…" : "Save to question bank"}
-        </button>
-      </div>
-    </form>
-  );
-}
 
 function question(
   id: string,

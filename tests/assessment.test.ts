@@ -71,6 +71,40 @@ describe("assessment lifecycle", () => {
     ).toMatchObject({ awardedMarks: 2, markingStatus: "auto-marked" });
   });
 
+  it("marks a matching answer on its pairs, not the order they were made", () => {
+    /* The runner builds this object as the learner works the dropdowns, so its
+       key order is whatever order they happened to answer in. Comparing the
+       serialised object directly failed a fully correct answer whenever that
+       differed from the author's — the common case with more than one pair. */
+    expect(
+      evaluateQuestionResponse(matchingQuestion(), {
+        value: { stomach: "churning", mouth: "chewing" },
+      }),
+    ).toMatchObject({ awardedMarks: 2, markingStatus: "auto-marked" });
+
+    /* Still wrong when a pair is actually wrong. */
+    expect(
+      evaluateQuestionResponse(matchingQuestion(), {
+        value: { stomach: "chewing", mouth: "churning" },
+      }),
+    ).toMatchObject({ awardedMarks: 0 });
+
+    /* An unanswered dropdown is not an answer of "". */
+    expect(
+      evaluateQuestionResponse(matchingQuestion(), {
+        value: { mouth: "chewing", stomach: "" },
+      }),
+    ).toMatchObject({ awardedMarks: 0 });
+  });
+
+  it("keeps ordering answers order-sensitive", () => {
+    expect(
+      evaluateQuestionResponse(orderingQuestion(), {
+        value: ["oesophagus", "mouth", "stomach"],
+      }),
+    ).toMatchObject({ awardedMarks: 0 });
+  });
+
   it("queues constructed responses for manual marking", () => {
     const result = evaluateQuestionResponse(essayQuestion(), {
       value: "The small intestine has villi which increase surface area.",

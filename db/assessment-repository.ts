@@ -1581,6 +1581,41 @@ function validateQuestionInput(input: CreateBankQuestionInput) {
       "Choice questions need at least two options.",
     );
   }
+  /* Everything below stops a question being saved in a shape the marker
+     cannot evaluate. Without these a teacher could publish an ordering
+     question with no sequence, and every learner attempt would score zero
+     with nothing on screen explaining why. */
+  if (
+    ["single-choice", "multiple-choice", "true-false"].includes(input.type) &&
+    !input.correctAnswer.trim()
+  ) {
+    throw new AssessmentPolicyError(
+      "Mark which option is correct before saving.",
+    );
+  }
+  if (input.type === "numeric" && !Number.isFinite(Number(input.correctAnswer))) {
+    throw new AssessmentPolicyError(
+      "A numeric question needs a number as its answer.",
+    );
+  }
+  if (input.type === "ordering") {
+    const sequence = splitAuthoredList(input.correctAnswer);
+    if (sequence.length < 2) {
+      throw new AssessmentPolicyError(
+        "An ordering question needs at least two items in their correct order.",
+      );
+    }
+  }
+  if (input.type === "matching") {
+    const pairs = splitAuthoredList(input.correctAnswer).filter((pair) =>
+      pair.includes(PAIR_SEPARATOR),
+    );
+    if (pairs.length < 2) {
+      throw new AssessmentPolicyError(
+        "A matching question needs at least two complete pairs.",
+      );
+    }
+  }
 }
 
 function validateAssessmentInput(input: CreateAssessmentInput) {
@@ -1639,14 +1674,67 @@ function buildAnswerKey(
   if (input.type === "single-choice") {
     return { value: slugify(input.correctAnswer) };
   }
+  /* Ordering: the sequence is the answer, so the key is the option ids in the
+     order the author gave, and the learner's response is compared to it
+     exactly. The stored options stay in their presented order, which is not
+     the answer order — otherwise the question shows the learner the answer. */
+  if (input.type === "ordering") {
+    return {
+      value: splitAuthoredList(input.correctAnswer).map((label) =>
+        slugify(label),
+      ),
+    };
+  }
+  /* Matching: a map from left id to right id. Written the same way the runner
+     builds a learner's response, so the two are directly comparable. */
+  if (input.type === "matching") {
+    const pairs = splitAuthoredList(input.correctAnswer)
+      .map((pair) => pair.split(PAIR_SEPARATOR))
+      .filter((parts) => parts.length === 2);
+    return {
+      value: Object.fromEntries(
+        pairs.map(([left, right]) => [slugify(left), slugify(right)]),
+      ),
+    };
+  }
   return { value: input.correctAnswer.trim() };
 }
 
+/* Separates the two halves of an authored matching pair, and a side marker
+   from its label. Two colons because a single one appears in real question
+   text often enough to be a hazard. */
+const PAIR_SEPARATOR = "::";
+
+/**
+ * Option labels, as ids the runner understands.
+ *
+ * Matching is the one type whose ids are not derived from the label alone:
+ * the runner splits a matching question's options into two columns by a
+ * `left:` / `right:` prefix on the id, so the author has to be able to say
+ * which side an option belongs to. It does that by prefixing the entry
+ * `left::` or `right::`; everything else is a plain label.
+ */
 function toQuestionOptions(options: string[]) {
   return options
     .map((label) => label.trim())
     .filter(Boolean)
-    .map((label) => ({ id: slugify(label), label }));
+    .map((entry) => {
+      const separator = entry.indexOf(PAIR_SEPARATOR);
+      const side = separator === -1 ? "" : entry.slice(0, separator);
+      if (side !== "left" && side !== "right") {
+        return { id: slugify(entry), label: entry };
+      }
+      const label = entry.slice(separator + PAIR_SEPARATOR.length).trim();
+      return { id: `${side}:${slugify(label)}`, label };
+    });
+}
+
+/** Splits a comma-separated authored list, keeping only non-empty entries. */
+function splitAuthoredList(value: string): string[] {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 function slugify(value: string) {

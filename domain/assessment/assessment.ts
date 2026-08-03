@@ -210,6 +210,15 @@ function answersMatch(
   if (type === "multiple-choice") {
     return serialiseSortedArray(expected) === serialiseSortedArray(actual);
   }
+  /* A matching answer is a set of pairs, not a sequence of them. The learner's
+     object is built up in whichever order they worked the dropdowns, so
+     comparing it raw marked a completely correct answer wrong whenever that
+     order differed from the author's — which it usually did. */
+  if (type === "matching") {
+    return serialiseSortedEntries(expected) === serialiseSortedEntries(actual);
+  }
+  /* Ordering is the opposite case: the sequence is the answer, so this stays
+     an exact comparison. */
   return JSON.stringify(expected) === JSON.stringify(actual);
 }
 
@@ -240,6 +249,22 @@ function normaliseText(value: unknown) {
 function serialiseSortedArray(value: unknown) {
   return JSON.stringify(
     Array.isArray(value) ? value.map(String).sort() : [],
+  );
+}
+
+/** A matching answer, key-sorted so insertion order cannot affect the result. */
+function serialiseSortedEntries(value: unknown) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return JSON.stringify(null);
+  }
+  return JSON.stringify(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, entry]) => [key, String(entry)] as const)
+      /* Blank selections are "not answered yet", not an answer of "". Dropping
+         them keeps a half-filled attempt from accidentally matching a key that
+         happens to have the same filled pairs. */
+      .filter(([, entry]) => entry !== "")
+      .sort(([a], [b]) => a.localeCompare(b)),
   );
 }
 
