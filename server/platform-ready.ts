@@ -1,4 +1,5 @@
 import { getMigrations } from "better-auth/db/migration";
+import { seedSchoolPeople } from "../db/people-seed";
 import { migrateLearnersHubSchema, getPostgresPool } from "../db/postgres";
 import { auth } from "./auth-config";
 import { seedDemoAccounts } from "./demo-seed";
@@ -20,6 +21,9 @@ async function preparePlatform(): Promise<void> {
   await migrations.runMigrations();
   await migrateLearnersHubSchema();
   await bootstrapAdministrator();
+  /* Before the demo accounts, not after and not lazily: seedDemoAccounts()
+     attaches identities to these person rows by id, across a foreign key. */
+  await seedSchoolPeople(getPostgresPool());
   await seedDemoAccounts(getPostgresPool());
 }
 

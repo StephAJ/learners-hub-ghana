@@ -1,6 +1,5 @@
 import type { AuthenticatedUser } from "../app/auth";
 import { AuthorizationError, canPerform } from "../domain/identity/authorization";
-import { demoPeople } from "../domain/demo/greenfield";
 import type {
   AccessContext,
   DirectoryPerson,
@@ -9,8 +8,6 @@ import type {
 } from "../domain/identity/types";
 import { ensurePlatformReady } from "../server/platform-ready";
 import { getPostgresPool } from "./postgres";
-
-const GREENFIELD_TENANT_ID = "tenant-greenfield";
 
 export type AuthenticatedSchoolUser = {
   access: AccessContext;
@@ -54,7 +51,7 @@ export async function resolveAuthenticatedSchoolUser(
   user: AuthenticatedUser,
   preferredRoles: SchoolRole[] = [],
 ): Promise<AuthenticatedSchoolUser> {
-  await ensurePeopleSeed();
+  await ensurePlatformReady();
   const identities = await findIdentities(user.id);
 
   if (identities.length === 0) {
@@ -104,7 +101,7 @@ export async function listDirectoryPeople(
   access: AccessContext,
 ): Promise<DirectoryPerson[]> {
   requirePermission(access, "people:read");
-  await ensurePeopleSeed();
+  await ensurePlatformReady();
 
   const result = await getPostgresPool().query<{
     email: string | null;
@@ -159,7 +156,7 @@ export async function inviteDirectoryPerson(
 ): Promise<DirectoryPerson> {
   requirePermission(access, "people:invite");
   validateInvitation(input);
-  await ensurePeopleSeed();
+  await ensurePlatformReady();
 
   const personId = crypto.randomUUID();
   const membershipId = crypto.randomUUID();
@@ -232,90 +229,12 @@ export async function inviteDirectoryPerson(
   };
 }
 
-let peopleSeed: Promise<void> | undefined;
-
-/* Exported so the learning foundations can depend on it: their seed rows
-   carry foreign keys to tenants and people, which PostgreSQL enforces. */
-export function ensurePeopleSeed(): Promise<void> {
-  peopleSeed ??= seedPeople().catch((error) => {
-    peopleSeed = undefined;
-    throw error;
-  });
-  return peopleSeed;
-}
-
-async function seedPeople(): Promise<void> {
-  await ensurePlatformReady();
-  const database = getPostgresPool();
-
-  /* bootstrapAdministrator() creates the school, but only when
-     INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD are configured. Every row
-     below references the tenant, so a deployment without those variables would
-     otherwise fail its very first insert. */
-  await database.query(
-    `INSERT INTO tenants (id, name, slug)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
-    [GREENFIELD_TENANT_ID, "Greenfield Academy", "greenfield-academy"],
-  );
-
-  /* The cast comes from the shared demo dataset so the staff who own subjects
-     there are the same staff who exist here. When these were two lists they
-     disagreed: Mathematics and English had teachers in the UI who had no
-     person record at all. */
-  for (const person of demoPeople) {
-    await database.query(
-      /* photo_url is refreshed on every boot rather than left to the insert,
-         so a deployment seeded before photographs existed picks them up. */
-      `INSERT INTO people
-        (id, tenant_id, kind, first_name, last_name, email, phone, photo_url,
-         status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
-       ON CONFLICT (id) DO UPDATE SET photo_url = EXCLUDED.photo_url`,
-      [
-        person.id,
-        GREENFIELD_TENANT_ID,
-        person.kind,
-        person.firstName,
-        person.lastName,
-        person.email,
-        person.phone ?? null,
-        person.photoUrl ?? null,
-      ],
-    );
-  }
-
-  for (const person of demoPeople) {
-    await database.query(
-      `INSERT INTO tenant_memberships
-        (id, tenant_id, person_id, role, status, scope_type, scope_id, accepted_at)
-       VALUES ($1, $2, $3, $4, 'active', $5, $6, CURRENT_TIMESTAMP)
-       ON CONFLICT (id) DO NOTHING`,
-      [
-        `membership-${person.id.replace(/^person-/, "")}`,
-        GREENFIELD_TENANT_ID,
-        person.id,
-        person.role,
-        person.scopeType,
-        person.scopeId ?? null,
-      ],
-    );
-  }
-
-  await database.query(
-    `INSERT INTO guardian_relationships
-      (id, tenant_id, guardian_person_id, learner_person_id, relationship)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (id) DO NOTHING`,
-    [
-      "guardian-link-efua-kwame",
-      GREENFIELD_TENANT_ID,
-      "person-efua",
-      "person-kwame",
-      "Mother",
-    ],
-  );
-}
+/* The people seed now runs during startup, in order, so that the demo
+   identities attached to these rows have rows to attach to — see
+   db/people-seed.ts. Kept as a named export because four repositories call it
+   to say "the school's people must exist before my rows reference them", and
+   that is still exactly what it means. */
+export { ensurePlatformReady as ensurePeopleSeed };
 
 async function findIdentities(userId: string): Promise<IdentityRow[]> {
   const result = await getPostgresPool().query<IdentityRow>(
