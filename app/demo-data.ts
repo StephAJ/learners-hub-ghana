@@ -47,6 +47,8 @@ export type DemoSubjectCard = {
   progressPercent: number;
   slug: string;
   subjectName: string;
+  /** Cover photograph, when the subject has one. */
+  coverUrl?: string;
   teacherName: string;
   /** The year the subject is pitched at, without the stream. */
   yearGroup: string;
@@ -66,6 +68,7 @@ export function demoSubjectCards(): DemoSubjectCard[] {
     return {
       className: DEMO_CLASS_NAME,
       code: subject.code,
+      coverUrl: subject.coverUrl,
       lessonCount: published.length,
       nextLessonTitle: next?.title,
       offeringId: subject.offeringId,
@@ -127,6 +130,7 @@ function toLearnerLesson(lesson: DemoSubject["lessons"][number]): LearnerLesson 
     releaseHint: lesson.releaseHint,
     standardCodes: lesson.standardCodes,
     summary: lesson.summary,
+    thumbnailUrl: lesson.thumbnailUrl,
     title: lesson.title,
     unitTitle: lesson.unitTitle,
     version: lesson.version,

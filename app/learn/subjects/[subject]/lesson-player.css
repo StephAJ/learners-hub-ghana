@@ -554,6 +554,28 @@
   max-width: 700px;
 }
 
+/* A diagram inside a reading block. Sits at the text's full measure so a
+   labelled cross-section is legible on a phone without pinching, and keeps
+   its own caption rather than borrowing the block's body copy. */
+.lesson-figure {
+  margin: var(--space-6) 0 0;
+}
+
+.lesson-figure img {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.lesson-figure figcaption {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-snug);
+  margin-top: var(--space-3);
+}
+
 .science-note {
   align-items: center;
   background: #f7efd9;

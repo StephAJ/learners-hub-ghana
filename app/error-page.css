@@ -1,0 +1,125 @@
+/* ==========================================================================
+   Error boundary surface
+
+   Shared by app/error.tsx and app/global-error.tsx. The global boundary
+   replaces the root layout — including its <body> — so this sheet cannot
+   assume anything the layout normally sets up, and states its own background
+   and font stack rather than inheriting them.
+
+   Type, weight, radius and spacing come from the tokens in globals.css.
+   ========================================================================== */
+
+.error-page {
+  align-items: center;
+  background: var(--canvas);
+  color: var(--ink);
+  display: flex;
+  font-family: var(--font-sans);
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--space-6);
+}
+
+.error-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+  max-width: 32rem;
+  padding: var(--space-10);
+  width: 100%;
+}
+
+.error-eyebrow {
+  color: var(--brand);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.error-card h1 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-28);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--lh-heading);
+  margin: 0;
+}
+
+.error-body {
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.error-digest {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  margin: 0;
+}
+
+.error-digest code {
+  background: var(--brand-tint);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-xs);
+  color: var(--brand);
+  font-size: var(--fs-13);
+  padding: var(--space-1) var(--space-2);
+}
+
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.error-button {
+  align-items: center;
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  justify-content: center;
+  letter-spacing: var(--tracking-body);
+  min-height: 2.75rem;
+  padding: 0 var(--space-6);
+  text-decoration: none;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease;
+}
+
+.error-button:hover {
+  background: var(--brand-strong);
+  border-color: var(--brand-strong);
+}
+
+.error-button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.error-button-quiet {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.error-button-quiet:hover {
+  background: var(--brand-tint);
+  border-color: var(--brand-line);
+}

@@ -13,6 +13,15 @@
 .site {
   --site-gutter: clamp(var(--space-5), 5vw, var(--space-16));
   --site-max: 84rem;
+  /* The left edge of the content column, for full-bleed sections whose
+     background must reach the viewport edge but whose text must not.
+     Every ordinary section is `max-width: var(--site-max)` centred with
+     `padding: … var(--site-gutter)`, so its text sits at the centring offset
+     *plus* the gutter — both terms are needed here or the hero headline lands
+     a gutter to the left of every heading below it. */
+  --site-inset: calc(
+    max(0px, (100% - var(--site-max)) / 2) + var(--site-gutter)
+  );
   --site-header-height: 4.5rem;
   --site-gold: var(--brand-accent);
   background: var(--canvas);
@@ -292,6 +301,13 @@
   position: relative;
 }
 
+/* `width: 100%` is load-bearing, not decoration. On a display tall enough for
+   76vh to reach 44rem, min-height and max-height resolve to the same value,
+   the height becomes definite before layout, and an auto width against
+   `aspect-ratio` is then resolved *from that height* — so the stage came out
+   704 x 16/9 = 1252px wide and sat in the left of a 2185px viewport with the
+   rest of the page beside it. Stating the width keeps the ratio governing the
+   height only, which is the direction this was ever meant to work in. */
 .site-hero-stage {
   aspect-ratio: 16 / 9;
   isolation: isolate;
@@ -299,6 +315,7 @@
   min-height: clamp(30rem, 76vh, 44rem);
   overflow: hidden;
   position: relative;
+  width: 100%;
 }
 
 .site-hero-slide {
@@ -343,8 +360,8 @@
   display: grid;
   gap: var(--space-4);
   justify-items: start;
-  max-width: 40rem;
-  padding: var(--space-16) var(--site-gutter) var(--space-16);
+  max-width: calc(40rem + var(--site-inset));
+  padding: var(--space-16) var(--site-gutter) var(--space-16) var(--site-inset);
   position: absolute;
   top: 0;
   align-content: center;
@@ -396,7 +413,7 @@
   gap: var(--space-1);
   padding: var(--space-5) var(--space-6);
   position: absolute;
-  right: var(--site-gutter);
+  right: var(--site-inset);
   top: 50%;
   transform: translateY(-50%);
   width: 12.5rem;
@@ -421,9 +438,9 @@
   bottom: var(--space-6);
   display: flex;
   gap: var(--space-5);
-  left: var(--site-gutter);
+  left: var(--site-inset);
   position: absolute;
-  right: var(--site-gutter);
+  right: var(--site-inset);
   z-index: 2;
 }
 
@@ -1521,9 +1538,14 @@
     min-height: clamp(32rem, 86vh, 40rem);
   }
 
+  /* The copy is bottom-aligned here while the controls stay pinned to the
+     bottom of the stage, so the padding has to clear them rather than stop
+     where they start: at var(--space-16) the "Book a campus visit" button
+     finished on exactly the line the arrows began on. The reserve is the
+     control height plus its own offset plus a gap. */
   .site-hero-copy {
     align-content: end;
-    padding-bottom: var(--space-16);
+    padding-bottom: calc(2.5rem + var(--space-6) + var(--space-8));
     padding-top: var(--space-16);
   }
 

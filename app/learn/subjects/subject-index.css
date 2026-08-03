@@ -38,9 +38,13 @@
   width: 100%;
 }
 
-.subject-card-cover svg {
+/* Either child fills the 16/9 frame: the generated SVG stretches to it, and a
+   cover photograph is cropped to it rather than letterboxed. */
+.subject-card-cover svg,
+.subject-card-cover img {
   display: block;
   height: 100%;
+  object-fit: cover;
   width: 100%;
 }
 

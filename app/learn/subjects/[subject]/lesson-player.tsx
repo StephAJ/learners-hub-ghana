@@ -326,6 +326,7 @@ export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
           block={activeBlock}
           dataMode={dataMode}
           lessonId={selectedLesson.id}
+          lessonThumbnailUrl={selectedLesson.thumbnailUrl}
           lessonVersion={selectedLesson.version}
           onAnswer={setAnswer}
           onCheck={() => setAnswerChecked(true)}
@@ -448,6 +449,7 @@ function LessonBlockView({
   block,
   dataMode,
   lessonId,
+  lessonThumbnailUrl,
   lessonVersion,
   onAnswer,
   onCheck,
@@ -457,12 +459,15 @@ function LessonBlockView({
   block: LessonBlock;
   dataMode: "loading" | "protected" | "preview";
   lessonId: string;
+  lessonThumbnailUrl?: string;
   lessonVersion: number;
   onAnswer: (answer: string) => void;
   onCheck: () => void;
 }) {
   if (block.type === "video") {
-    return <LessonVideoBlock block={block} />;
+    return (
+      <LessonVideoBlock block={block} lessonThumbnailUrl={lessonThumbnailUrl} />
+    );
   }
 
   if (block.type === "interactive") {
@@ -542,6 +547,24 @@ function LessonBlockView({
       <p className="lesson-eyebrow">Read and explore</p>
       <h2>{block.title}</h2>
       <p>{block.content}</p>
+      {/* A diagram the learner reads in place, as opposed to the resource
+          block's attachment, which they download. Rendered only when the
+          author supplied alt text: an unlabelled cross-section is worse than
+          no diagram for anyone using a screen reader. */}
+      {block.config?.imageUrl && block.config.imageAlt ? (
+        <figure className="lesson-figure">
+          <Image
+            alt={block.config.imageAlt}
+            height={720}
+            sizes="(max-width: 900px) 100vw, 720px"
+            src={block.config.imageUrl}
+            width={1280}
+          />
+          {block.config.imageCaption ? (
+            <figcaption>{block.config.imageCaption}</figcaption>
+          ) : null}
+        </figure>
+      ) : null}
       {/* Previously a hardcoded note about chewing food, which rendered on
           every reading block in every subject — including a Social Studies
           lesson about the arms of government. */}
@@ -571,7 +594,13 @@ function LessonBlockView({
  * a real player when the lesson has a video attached, a clear explanation when
  * it does not, and a recoverable error when the stream fails.
  */
-function LessonVideoBlock({ block }: { block: LessonBlock }) {
+function LessonVideoBlock({
+  block,
+  lessonThumbnailUrl,
+}: {
+  block: LessonBlock;
+  lessonThumbnailUrl?: string;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [started, setStarted] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -586,6 +615,11 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
      to generated artwork rather than to nothing. */
   const posterAssetId = block.config?.posterAssetId;
   const posterUrl = posterAssetId ? mediaUrlFor(posterAssetId) : undefined;
+  /* Order of preference: the still this teacher chose for this block, then
+     the lesson's own cover, then generated artwork. The lesson cover is a
+     plain file under public/, so unlike posterUrl it is not access-checked
+     and the image optimizer can do its job. */
+  const stillUrl = posterUrl ?? lessonThumbnailUrl;
 
   async function play() {
     const video = videoRef.current;
@@ -642,10 +676,10 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
                 fill
                 sizes="(max-width: 680px) 100vw, 55vw"
                 src={
-                  posterUrl ??
+                  stillUrl ??
                   `https://i.ytimg.com/vi/${source.videoId}/hqdefault.jpg`
                 }
-                unoptimized
+                unoptimized={!stillUrl || Boolean(posterUrl)}
               />
               {/* Deferring the iframe until this is pressed is what actually
                   holds off YouTube's cookies until playback — embedding it
@@ -717,18 +751,19 @@ function LessonVideoBlock({ block }: { block: LessonBlock }) {
             gives us a duration but not a frame, so without this the stage is a
             black rectangle — indistinguishable from a video that failed. */}
         {!started && !failed ? (
-          posterUrl ? (
-            /* unoptimized because the media route is access-checked: the image
+          stillUrl ? (
+            /* The access-checked media route is unoptimized: the image
                optimizer would fetch it server-side with no learner session and
-               get a 401 back. */
+               get a 401 back. A lesson cover under public/ has no such
+               problem, so it is left optimizable. */
             <Image
               alt=""
               aria-hidden="true"
               className="video-poster video-poster-overlay"
               fill
               sizes="(max-width: 680px) 100vw, 55vw"
-              src={posterUrl}
-              unoptimized
+              src={stillUrl}
+              unoptimized={Boolean(posterUrl)}
             />
           ) : (
             <LessonPoster

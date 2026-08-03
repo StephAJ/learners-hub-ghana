@@ -29,7 +29,7 @@ export default async function LearnerSubjectsPage() {
               href={`/learn/subjects/${subject.slug}`}
             >
               <span className="subject-card-cover">
-                <SubjectCoverArt seed={subject.slug} />
+                <SubjectCoverArt imageUrl={subject.coverUrl} seed={subject.slug} />
                 {/* Which year the material is pitched at. The stream ("Gold")
                     is deliberately dropped: it says which room a learner sits
                     in, not what the subject is for. */}

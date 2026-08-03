@@ -1,9 +1,12 @@
+import Image from "next/image";
+
 /**
- * Every subject's cover art is generated on the fly from its slug — no image
- * field exists on the subject record, and until schools can upload their own
- * artwork, a deterministic gradient stands in for one. Same subject, same
- * seed, same art on every render, so it reads as a real cover rather than
- * something that reshuffles on refresh.
+ * A subject's cover: its photograph when the school has one, and generated
+ * artwork when it does not.
+ *
+ * The fallback is drawn from the subject's slug, so the same subject gets the
+ * same art on every render and it reads as a real cover rather than something
+ * that reshuffles on refresh.
  *
  * The artwork carries no lettering. The subject name sits directly beneath it
  * on the card, so a code drawn into the image only repeated it in a place a
@@ -30,11 +33,35 @@ function hashString(value: string): number {
 
 export function SubjectCoverArt({
   className,
+  imageUrl,
   seed,
 }: {
   className?: string;
+  /**
+   * The subject's own cover photograph, when the school has one.
+   *
+   * Given one, the generated art below is skipped entirely — a real
+   * photograph of a real classroom always beats a gradient, and the gradient
+   * exists only so a subject without artwork does not look broken.
+   */
+  imageUrl?: string | null;
   seed: string;
 }) {
+  if (imageUrl) {
+    return (
+      <Image
+        alt=""
+        className={className}
+        /* Intrinsic size only: the card sizes the box, and object-fit in
+           subject-card-cover does the cropping. */
+        height={360}
+        sizes="(max-width: 760px) 100vw, 33vw"
+        src={imageUrl}
+        width={640}
+      />
+    );
+  }
+
   const hash = hashString(seed);
   const [from, to] = PALETTES[hash % PALETTES.length];
   const gradientId = `subject-cover-${seed.replace(/[^a-z0-9-]/gi, "")}`;

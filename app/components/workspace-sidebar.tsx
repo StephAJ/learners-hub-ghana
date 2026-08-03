@@ -23,6 +23,7 @@ import {
   setSidebarCollapsed,
   subscribeToSidebar,
 } from "./sidebar-state";
+import { PersonAvatar } from "./person-avatar";
 import { SignOutButton } from "./sign-out-button";
 
 /* ==========================================================================
@@ -59,8 +60,8 @@ export function WorkspaceSidebar({
   activeHref,
   contextLabel,
   items,
-  personInitials,
   personName,
+  personPhotoUrl,
   personRole,
   schoolName,
   switcher,
@@ -69,8 +70,8 @@ export function WorkspaceSidebar({
   activeHref: string;
   contextLabel: string;
   items: SidebarNavItem[];
-  personInitials: string;
   personName: string;
+  personPhotoUrl?: string | null;
   personRole: string;
   schoolName: string;
   switcher: Array<{ href: string; label: string }>;
@@ -146,9 +147,12 @@ export function WorkspaceSidebar({
         ) : null}
 
         <div className="workspace-person" title={`${personName} · ${personRole}`}>
-          <span className="workspace-avatar" aria-hidden="true">
-            {personInitials}
-          </span>
+          <PersonAvatar
+            className="workspace-avatar"
+            name={personName}
+            photoUrl={personPhotoUrl}
+            size={36}
+          />
           <span className="workspace-nav-label">
             <strong>{personName}</strong>
             <small>{personRole}</small>

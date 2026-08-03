@@ -32,6 +32,14 @@ export type LessonBlock = {
        nothing when they are absent, rather than inventing a fact. */
     noteTitle?: string;
     noteBody?: string;
+    /* A diagram illustrating a reading block: a labelled cross-section, a
+       worked example, a map. Distinct from an attachment, which a learner
+       downloads — this is read in place, alongside the text it explains.
+       imageAlt is required in practice by the player, which will not render
+       a diagram it cannot describe to a screen reader. */
+    imageUrl?: string;
+    imageAlt?: string;
+    imageCaption?: string;
     /* A video block sources its footage one of two ways: mediaAssetId streams a
        file the school uploaded, and videoUrl points at something already
        published elsewhere. Schools without the bandwidth or rights to host

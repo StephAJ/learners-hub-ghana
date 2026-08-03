@@ -68,6 +68,8 @@ export type LearnerLesson = {
   releaseHint?: string;
   standardCodes: string[];
   summary: string;
+  /** Card artwork. Absent lessons fall back to generated art. */
+  thumbnailUrl?: string;
   title: string;
   unitTitle: string;
   version: number;

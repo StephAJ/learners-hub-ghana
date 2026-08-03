@@ -313,28 +313,12 @@
   gap: 8px;
 }
 
-.person-avatar {
-  align-items: center;
-  background: #dcebe5;
+/* The box, the initials colours and the staff/learner/guardian variants now
+   all live with PersonAvatar. What is left is the one thing local to this
+   table: the directory shows a person's photograph as a rounded square rather
+   than a circle, which reads as a record rather than a chat participant. */
+.person-photo.person-avatar {
   border-radius: var(--radius-md);
-  color: var(--primary);
-  display: flex;
-  flex: 0 0 auto;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  height: 35px;
-  justify-content: center;
-  width: 35px;
-}
-
-.person-avatar.avatar-learner {
-  background: #e2e8f4;
-  color: #52678a;
-}
-
-.person-avatar.avatar-guardian {
-  background: #f2e7d1;
-  color: #8a6722;
 }
 
 .people-table td strong,

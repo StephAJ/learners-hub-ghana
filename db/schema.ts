@@ -26,6 +26,10 @@ export const people = sqliteTable(
     lastName: text("last_name").notNull(),
     email: text("email"),
     phone: text("phone"),
+    /* Passport photograph. A path under public/ for the demo cast; an uploaded
+       media path once schools bring their own. Nullable because a school will
+       always be part-way through collecting them. */
+    photoUrl: text("photo_url"),
     status: text("status", {
       enum: ["active", "invited", "inactive", "alumni"],
     })

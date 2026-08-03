@@ -89,13 +89,31 @@ async function bootstrapAdministrator(): Promise<void> {
        ON CONFLICT (provider, provider_subject) DO NOTHING`,
       [identityId, personId, userId, email],
     );
-    await client.query(
-      `INSERT INTO tenant_memberships
-        (id, tenant_id, person_id, role, status, scope_type, accepted_at)
-       VALUES ($1, $2, $3, 'school-admin', 'active', 'tenant', CURRENT_TIMESTAMP)
-       ON CONFLICT (tenant_id, person_id, role) DO NOTHING`,
-      [membershipId, GREENFIELD_TENANT_ID, personId],
+    /* Looked up rather than upserted. ON CONFLICT has to name a constraint
+       that exists exactly, and this table's is
+       (tenant_id, person_id, role, scope_type, scope_id) — five columns, the
+       last of them nullable, so PostgreSQL would not treat two tenant-scoped
+       rows as conflicting anyway. Naming three of those columns raised "there
+       is no unique or exclusion constraint matching the ON CONFLICT
+       specification" out of bootstrapAdministrator(), which every request
+       waits on through ensurePlatformReady(), so the whole authenticated app
+       returned 500. Selecting first depends on no constraint at all, and
+       matches how the person row above is handled. */
+    const existingMembership = await client.query<{ id: string }>(
+      `SELECT id
+       FROM tenant_memberships
+       WHERE tenant_id = $1 AND person_id = $2 AND role = 'school-admin'
+       LIMIT 1`,
+      [GREENFIELD_TENANT_ID, personId],
     );
+    if (existingMembership.rowCount === 0) {
+      await client.query(
+        `INSERT INTO tenant_memberships
+          (id, tenant_id, person_id, role, status, scope_type, accepted_at)
+         VALUES ($1, $2, $3, 'school-admin', 'active', 'tenant', CURRENT_TIMESTAMP)`,
+        [membershipId, GREENFIELD_TENANT_ID, personId],
+      );
+    }
     await client.query(
       `INSERT INTO tenant_bootstrap (tenant_id, claimed_by_identity_id)
        VALUES ($1, $2)

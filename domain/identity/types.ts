@@ -50,6 +50,8 @@ export type DirectoryPerson = {
   kind: "staff" | "learner" | "guardian";
   name: string;
   phone: string | null;
+  /** Passport photograph. Null until the school has taken one. */
+  photoUrl: string | null;
   role: SchoolRole;
   scopeLabel: string;
   status: MembershipStatus;

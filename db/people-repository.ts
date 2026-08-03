@@ -21,6 +21,8 @@ export type AuthenticatedSchoolUser = {
   brand?: SchoolBrand;
   email: string;
   name: string;
+  /** Passport photograph, for the signed-in person's own sidebar chip. */
+  photoUrl: string | null;
   primaryRole: SchoolRole;
   schoolName: string;
 };
@@ -42,6 +44,7 @@ type IdentityRow = {
   last_name: string;
   membership_status: AccessContext["membershipStatus"];
   person_id: string;
+  photo_url: string | null;
   role: SchoolRole;
   school_name: string;
   tenant_id: string;
@@ -91,6 +94,7 @@ export async function resolveAuthenticatedSchoolUser(
       user.fullName ||
       `${identity.first_name} ${identity.last_name}`.trim() ||
       identity.email,
+    photoUrl: identity.photo_url,
     primaryRole: primaryIdentity.role,
     schoolName: identity.school_name,
   };
@@ -108,6 +112,7 @@ export async function listDirectoryPeople(
     kind: DirectoryPerson["kind"];
     name: string;
     phone: string | null;
+    photo_url: string | null;
     role: SchoolRole;
     scope_id: string | null;
     scope_type: string;
@@ -119,6 +124,7 @@ export async function listDirectoryPeople(
        p.first_name || ' ' || p.last_name AS name,
        p.email,
        p.phone,
+       p.photo_url,
        m.role,
        m.status,
        m.scope_type,
@@ -140,6 +146,7 @@ export async function listDirectoryPeople(
     kind: person.kind,
     name: person.name,
     phone: person.phone,
+    photoUrl: person.photo_url,
     role: person.role,
     scopeLabel: formatScope(person.scope_type, person.scope_id),
     status: person.status,
@@ -216,6 +223,9 @@ export async function inviteDirectoryPerson(
     kind: input.kind,
     name: `${input.firstName.trim()} ${input.lastName.trim()}`,
     phone: input.phone?.trim() || null,
+    /* An invited person has not been photographed yet, so every surface shows
+       their initials until the school uploads one. */
+    photoUrl: null,
     role: input.role,
     scopeLabel: formatScope(scopeType, scopeId),
     status: "invited",
@@ -255,10 +265,13 @@ async function seedPeople(): Promise<void> {
      person record at all. */
   for (const person of demoPeople) {
     await database.query(
+      /* photo_url is refreshed on every boot rather than left to the insert,
+         so a deployment seeded before photographs existed picks them up. */
       `INSERT INTO people
-        (id, tenant_id, kind, first_name, last_name, email, phone, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-       ON CONFLICT (id) DO NOTHING`,
+        (id, tenant_id, kind, first_name, last_name, email, phone, photo_url,
+         status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
+       ON CONFLICT (id) DO UPDATE SET photo_url = EXCLUDED.photo_url`,
       [
         person.id,
         GREENFIELD_TENANT_ID,
@@ -267,6 +280,7 @@ async function seedPeople(): Promise<void> {
         person.lastName,
         person.email,
         person.phone ?? null,
+        person.photoUrl ?? null,
       ],
     );
   }
@@ -310,6 +324,7 @@ async function findIdentities(userId: string): Promise<IdentityRow[]> {
        p.first_name,
        p.last_name,
        p.id AS person_id,
+       p.photo_url,
        m.tenant_id,
        m.role,
        m.status AS membership_status,

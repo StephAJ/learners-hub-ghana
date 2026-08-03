@@ -104,8 +104,8 @@ export function WorkspaceShell({
             : workspaceLabelForRole(user.access.role)
         }
         items={items}
-        personInitials={initials(user.name)}
         personName={user.name}
+        personPhotoUrl={user.photoUrl}
         personRole={humaniseRole(user.access.role)}
         schoolName={user.schoolName}
         switcher={roleWorkspaces.map((role) => ({
@@ -166,11 +166,3 @@ function humaniseRole(role: SchoolRole): string {
     .join(" ");
 }
 
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}

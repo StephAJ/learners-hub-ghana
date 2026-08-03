@@ -1,0 +1,56 @@
+/* ==========================================================================
+   Person avatar
+
+   Sized entirely from --person-photo-size, which PersonAvatar sets inline, so
+   a call site changes one number rather than three rules. Colours, radii and
+   type come from the tokens in globals.css.
+   ========================================================================== */
+
+.person-photo {
+  align-items: center;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+  color: var(--brand);
+  display: inline-flex;
+  flex: none;
+  font-size: var(--person-photo-type, var(--fs-14));
+  font-weight: var(--fw-semibold);
+  height: var(--person-photo-size, 2.5rem);
+  justify-content: center;
+  letter-spacing: 0;
+  line-height: 1;
+  overflow: hidden;
+  position: relative;
+  /* Photographs are portraits of children and staff; a hairline keeps them
+     from bleeding into a white card without framing them like a button. */
+  box-shadow: inset 0 0 0 1px rgba(20, 45, 41, 0.08);
+  text-transform: uppercase;
+  user-select: none;
+  width: var(--person-photo-size, 2.5rem);
+}
+
+.person-photo-image {
+  height: 100%;
+  object-fit: cover;
+  /* Passport photographs put the face in the upper half of the frame, so a
+     square crop of a portrait should keep the top rather than the middle. */
+  object-position: center top;
+  width: 100%;
+}
+
+/* Initials only. Once a photograph loads none of this is visible, so these
+   exist to keep an un-photographed register readable rather than pretty. */
+.person-photo-learner {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.person-photo-staff {
+  background: color-mix(in srgb, var(--brand-accent) 22%, #ffffff);
+  color: var(--brand-accent-ink);
+}
+
+.person-photo-guardian {
+  background: color-mix(in srgb, var(--brand) 8%, #ffffff);
+  color: var(--brand-deep);
+}

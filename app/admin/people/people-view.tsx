@@ -6,10 +6,12 @@ import {
   useMemo,
   useState,
 } from "react";
+import { demoDirectoryPeople } from "../../../domain/demo/greenfield";
 import type {
   DirectoryPerson,
   SchoolRole,
 } from "../../../domain/identity/types";
+import { PersonAvatar } from "../../components/person-avatar";
 import "../academic/academic.css";
 import "./people.css";
 
@@ -23,78 +25,10 @@ const roleLabels: Record<SchoolRole, string> = {
   learner: "Learner",
 };
 
-const previewPeople: DirectoryPerson[] = [
-  {
-    id: "person-preview-admin",
-    name: "Stephen Arthur",
-    email: "stephen@greenfield.edu.gh",
-    phone: "+233 24 100 2003",
-    kind: "staff",
-    role: "school-admin",
-    scopeLabel: "Whole school",
-    status: "active",
-  },
-  {
-    id: "person-mary",
-    name: "Mary Asante",
-    email: "mary.asante@greenfield.edu.gh",
-    phone: "+233 24 401 2278",
-    kind: "staff",
-    role: "academic-admin",
-    scopeLabel: "Whole school",
-    status: "active",
-  },
-  {
-    id: "person-joseph",
-    name: "Joseph Kumi",
-    email: "joseph.kumi@greenfield.edu.gh",
-    phone: "+233 20 785 4301",
-    kind: "staff",
-    role: "admissions-officer",
-    scopeLabel: "Whole school",
-    status: "active",
-  },
-  {
-    id: "person-grace",
-    name: "Grace Mensah",
-    email: "grace.mensah@greenfield.edu.gh",
-    phone: "+233 27 330 1842",
-    kind: "staff",
-    role: "teacher",
-    scopeLabel: "Subject · Integrated Science",
-    status: "active",
-  },
-  {
-    id: "person-emmanuel",
-    name: "Emmanuel Ofori",
-    email: "emmanuel.ofori@greenfield.edu.gh",
-    phone: "+233 55 681 0913",
-    kind: "staff",
-    role: "class-teacher",
-    scopeLabel: "Class · JHS 2 Gold",
-    status: "active",
-  },
-  {
-    id: "person-kwame",
-    name: "Kwame Agyeman",
-    email: "kwame.agyeman@student.greenfield.edu.gh",
-    phone: null,
-    kind: "learner",
-    role: "learner",
-    scopeLabel: "Class · JHS 2 Gold",
-    status: "active",
-  },
-  {
-    id: "person-efua",
-    name: "Efua Agyeman",
-    email: "efua.agyeman@example.com",
-    phone: "+233 24 665 8031",
-    kind: "guardian",
-    role: "guardian",
-    scopeLabel: "Learner · Kwame Agyeman",
-    status: "active",
-  },
-];
+/* Projected from the shared demo dataset rather than written out again
+   here: the hand-kept copy this replaces had drifted to five of the nine
+   people and none of the photographs. */
+const previewPeople: DirectoryPerson[] = demoDirectoryPeople;
 
 type DirectoryResponse = {
   actor: { email: string; name: string; role: SchoolRole };
@@ -280,7 +214,13 @@ export function PeopleView() {
                         onClick={() => setSelectedId(person.id)}
                       >
                         <td>
-                          <span className={`person-avatar avatar-${person.kind}`}>{initials(person.name)}</span>
+                          <PersonAvatar
+                            className="person-avatar"
+                            kind={person.kind}
+                            name={person.name}
+                            photoUrl={person.photoUrl}
+                            size={36}
+                          />
                           <span><strong>{person.name}</strong><small>{person.email ?? "No email on record"}</small></span>
                         </td>
                         <td><strong>{roleLabels[person.role]}</strong><small>{person.kind}</small></td>
@@ -322,7 +262,13 @@ function PersonAccessCard({ person }: { person: DirectoryPerson }) {
   return (
     <section className="person-access-card" aria-labelledby="person-access-title">
       <div className="person-access-head">
-        <span className={`person-avatar avatar-${person.kind}`}>{initials(person.name)}</span>
+        <PersonAvatar
+          className="person-avatar"
+          kind={person.kind}
+          name={person.name}
+          photoUrl={person.photoUrl}
+          size={52}
+        />
         <div><p>{person.kind}</p><h2 id="person-access-title">{person.name}</h2><small>{roleLabels[person.role]}</small></div>
       </div>
       <dl>
@@ -461,9 +407,6 @@ function kindForRole(role: SchoolRole): DirectoryPerson["kind"] {
   return "staff";
 }
 
-function initials(name: string) {
-  return name.split(" ").map((part) => part[0]).slice(0, 2).join("");
-}
 
 function pluralKind(kind: DirectoryPerson["kind"]) {
   if (kind === "staff") return "Staff";

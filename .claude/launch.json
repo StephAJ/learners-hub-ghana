@@ -6,6 +6,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "harness",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["outputs/harness/server.mjs"],
+      "port": 4321,
+      "url": "http://localhost:4321"
     }
   ]
 }

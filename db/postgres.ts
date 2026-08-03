@@ -158,6 +158,11 @@ const additiveMigrations = `
     ADD COLUMN IF NOT EXISTS declaration_accepted_at timestamptz,
     ADD COLUMN IF NOT EXISTS last_reminder_at timestamptz;
 
+  /* Passport photographs. Nullable: every surface falls back to initials, so
+     a school part-way through collecting them still reads correctly. */
+  ALTER TABLE people
+    ADD COLUMN IF NOT EXISTS photo_url text;
+
   /* The reminder job scans for stale drafts; without this it is a sequential
      scan of every application the school has ever taken. */
   CREATE INDEX IF NOT EXISTS admission_records_draft_reminder_idx

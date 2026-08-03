@@ -9,6 +9,7 @@ import type {
   QuestionOption,
   QuestionType,
 } from "../assessment/types";
+import type { DirectoryPerson } from "../identity/types";
 
 /* ==========================================================================
    Greenfield Academy demo
@@ -40,6 +41,16 @@ export type DemoPerson = {
   kind: "staff" | "learner" | "guardian";
   lastName: string;
   phone?: string;
+  /**
+   * Passport photograph, served from public/.
+   *
+   * A school directory of coloured initials tells a form tutor nothing; the
+   * register, the markbook and the marking queue are all lists a teacher scans
+   * by face. Every demo person has one so no surface has to be designed around
+   * the photo sometimes being absent — though PersonAvatar still falls back to
+   * initials, because a real school will always have a few.
+   */
+  photoUrl?: string;
   role:
     | "school-admin"
     | "academic-admin"
@@ -66,6 +77,8 @@ export type DemoLesson = {
   standardCodes: string[];
   status: "draft" | "published";
   summary: string;
+  /** Card artwork. Falls back to generated art when a lesson has none. */
+  thumbnailUrl?: string;
   title: string;
   unitId: string;
   unitTitle: string;
@@ -74,6 +87,8 @@ export type DemoLesson = {
 
 export type DemoSubject = {
   code: string;
+  /** Cover photograph. Falls back to generated art when a subject has none. */
+  coverUrl?: string;
   lessons: DemoLesson[];
   offeringId: string;
   /* URL segment under /learn/subjects. */
@@ -128,6 +143,7 @@ export const demoPeople: DemoPerson[] = [
     kind: "staff",
     lastName: "Asante",
     phone: "+233 24 401 2278",
+    photoUrl: "/teachers-profile/photo_11.jpeg",
     role: "academic-admin",
     scopeType: "tenant",
   },
@@ -138,6 +154,7 @@ export const demoPeople: DemoPerson[] = [
     kind: "staff",
     lastName: "Kumi",
     phone: "+233 20 785 4301",
+    photoUrl: "/teachers-profile/photo_10.jpeg",
     role: "admissions-officer",
     scopeType: "tenant",
   },
@@ -148,6 +165,7 @@ export const demoPeople: DemoPerson[] = [
     kind: "staff",
     lastName: "Mensah",
     phone: "+233 27 330 1842",
+    photoUrl: "/teachers-profile/photo_09.jpeg",
     role: "teacher",
     scopeId: "Integrated Science",
     scopeType: "subject",
@@ -159,6 +177,7 @@ export const demoPeople: DemoPerson[] = [
     kind: "staff",
     lastName: "Boateng",
     phone: "+233 24 118 9042",
+    photoUrl: "/teachers-profile/photo_01.jpeg",
     role: "teacher",
     scopeId: "Mathematics",
     scopeType: "subject",
@@ -170,6 +189,7 @@ export const demoPeople: DemoPerson[] = [
     kind: "staff",
     lastName: "Owusu",
     phone: "+233 20 553 7716",
+    photoUrl: "/teachers-profile/photo_06.jpeg",
     role: "teacher",
     scopeId: "English Language",
     scopeType: "subject",
@@ -181,6 +201,7 @@ export const demoPeople: DemoPerson[] = [
     kind: "staff",
     lastName: "Ofori",
     phone: "+233 55 681 0913",
+    photoUrl: "/teachers-profile/photo_05.jpeg",
     /* Emmanuel is the form tutor for JHS 2 Gold and also teaches them Social
        Studies, which is why he holds a class scope rather than a subject one. */
     role: "class-teacher",
@@ -197,6 +218,7 @@ export const demoPeople: DemoPerson[] = [
     id: "person-ama",
     kind: "learner",
     lastName: "Serwaa",
+    photoUrl: "/students-profile/photo_08.jpeg",
     role: "learner",
     scopeId: DEMO_CLASS_NAME,
     scopeType: "class",
@@ -207,6 +229,7 @@ export const demoPeople: DemoPerson[] = [
     id: "person-kojo",
     kind: "learner",
     lastName: "Antwi",
+    photoUrl: "/students-profile/photo_07.jpeg",
     role: "learner",
     scopeId: DEMO_CLASS_NAME,
     scopeType: "class",
@@ -217,6 +240,7 @@ export const demoPeople: DemoPerson[] = [
     id: DEMO_LEARNER_PERSON_ID,
     kind: "learner",
     lastName: "Agyeman",
+    photoUrl: "/students-profile/photo_15.jpeg",
     role: "learner",
     scopeId: DEMO_CLASS_NAME,
     scopeType: "class",
@@ -228,6 +252,7 @@ export const demoPeople: DemoPerson[] = [
     kind: "guardian",
     lastName: "Agyeman",
     phone: "+233 24 665 8031",
+    photoUrl: "/teachers-profile/photo_03.jpeg",
     role: "guardian",
     scopeId: "Kwame Agyeman",
     scopeType: "learner",
@@ -257,6 +282,40 @@ export function demoPersonName(personId: string): string {
   return person ? `${person.firstName} ${person.lastName}` : "Greenfield staff";
 }
 
+export function demoPersonPhoto(personId: string): string | undefined {
+  return demoPeople.find((item) => item.id === personId)?.photoUrl;
+}
+
+/**
+ * The demo cast as the People directory would return it.
+ *
+ * The admin directory used to carry its own hand-written copy of this list,
+ * which is the drift this module exists to prevent — it had already lost two
+ * of the learners and all of the photographs. Projected here so the preview
+ * and the seeded database show the same school.
+ */
+export const demoDirectoryPeople: DirectoryPerson[] = demoPeople.map(
+  (person) => ({
+    email: person.email,
+    id: person.id,
+    kind: person.kind,
+    name: `${person.firstName} ${person.lastName}`,
+    phone: person.phone ?? null,
+    photoUrl: person.photoUrl ?? null,
+    role: person.role,
+    scopeLabel: demoScopeLabel(person),
+    status: "active",
+  }),
+);
+
+/** Mirrors formatScope() in db/people-repository.ts. */
+function demoScopeLabel(person: DemoPerson): string {
+  if (person.scopeType === "tenant") return "Whole school";
+  const label =
+    person.scopeType.charAt(0).toUpperCase() + person.scopeType.slice(1);
+  return person.scopeId ? `${label} · ${person.scopeId}` : label;
+}
+
 /* -------------------------------------------------------------------------
    Subjects
 
@@ -278,6 +337,7 @@ function block(
 const integratedScience: DemoSubject = {
   code: "IS",
   offeringId: "offering-science-jhs2",
+  coverUrl: "/subject-covers/integrated-science.jpg",
   slug: "integrated-science",
   subjectName: "Integrated Science",
   teacherPersonId: "person-grace",
@@ -324,6 +384,11 @@ const integratedScience: DemoSubject = {
           "Your body's food-processing journey",
           "Digestion turns the food you eat into nutrients small enough to pass into the blood, where they support growth, repair, and energy. The journey from a mouthful of banku to absorbed nutrients takes about a day, and every organ along the way has one job to do.",
           {
+            imageAlt:
+              "A labelled diagram of the human digestive system, showing the mouth, oesophagus, stomach, liver, small intestine and large intestine.",
+            imageCaption:
+              "The organs food passes through, in order. Refer back to this while you work through the activities below.",
+            imageUrl: "/lesson-images/digestive-system-parts.jpg",
             noteBody:
               "Chewing well increases the surface area of food, so enzymes can begin their work more effectively.",
             noteTitle: "Science in daily life",
@@ -381,6 +446,7 @@ const integratedScience: DemoSubject = {
       status: "published",
       summary:
         "Follow food through the body and discover how nutrients reach your cells.",
+      thumbnailUrl: "/lesson-thumbnails/digestive-system.jpg",
       title: "The human digestive system",
       unitId: "unit-human-systems",
       unitTitle: "Human body systems",
@@ -496,6 +562,7 @@ const integratedScience: DemoSubject = {
 const mathematics: DemoSubject = {
   code: "MA",
   offeringId: "offering-maths-jhs2",
+  coverUrl: "/subject-covers/mathematics.jpg",
   slug: "mathematics",
   subjectName: "Mathematics",
   teacherPersonId: "person-kofi",
@@ -569,6 +636,7 @@ const mathematics: DemoSubject = {
       status: "published",
       summary:
         "Rewrite fractions with a common denominator, then add and subtract with confidence.",
+      thumbnailUrl: "/lesson-thumbnails/fractions.jpg",
       title: "Adding and subtracting fractions",
       unitId: "unit-fractions",
       unitTitle: "Fractions",
@@ -623,6 +691,7 @@ const mathematics: DemoSubject = {
 const englishLanguage: DemoSubject = {
   code: "EN",
   offeringId: "offering-english-jhs2",
+  coverUrl: "/subject-covers/english-language.jpg",
   slug: "english-language",
   subjectName: "English Language",
   teacherPersonId: "person-abena",
@@ -697,6 +766,7 @@ const englishLanguage: DemoSubject = {
       status: "published",
       summary:
         "Learn the structure and register of a formal letter, then write one of your own.",
+      thumbnailUrl: "/lesson-thumbnails/english-lesson.jpg",
       title: "Writing a formal letter",
       unitId: "unit-writing",
       unitTitle: "Writing for a purpose",
@@ -734,6 +804,7 @@ const englishLanguage: DemoSubject = {
 const socialStudies: DemoSubject = {
   code: "SO",
   offeringId: "offering-social-jhs2",
+  coverUrl: "/subject-covers/social-studies.jpg",
   slug: "social-studies",
   subjectName: "Social Studies",
   teacherPersonId: "person-emmanuel",
