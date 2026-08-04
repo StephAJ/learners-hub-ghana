@@ -710,12 +710,20 @@ function QuestionInput({
               <strong>{item.label}</strong>
               <span>matches with</span>
               <select
+                aria-label={`What ${item.label} matches with`}
                 onChange={(event) =>
                   onChange({ ...matches, [key]: event.target.value })
                 }
                 value={matches[key] ?? ""}
               >
-                <option value="">Choose an action</option>
+                {/* Not "Choose an action". These placeholders were written
+                    against the one demo question in front of the developer at
+                    the time — a matching question about digestive organs and
+                    their actions — so every matching question in every subject
+                    asked the learner to choose an action, and every ordering
+                    question asked them to select an organ. The select cannot
+                    know what its options are, so it says what it is for. */}
+                <option value="">Choose a match</option>
                 {right.map((option) => (
                   <option
                     key={option.id}
@@ -742,6 +750,7 @@ function QuestionInput({
           <label key={index}>
             <span>{index + 1}</span>
             <select
+              aria-label={`Position ${index + 1}`}
               onChange={(event) => {
                 const next = [...order];
                 next[index] = event.target.value;
@@ -749,7 +758,7 @@ function QuestionInput({
               }}
               value={order[index] ?? ""}
             >
-              <option value="">Select organ</option>
+              <option value="">Choose an item</option>
               {question.options.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.label}
