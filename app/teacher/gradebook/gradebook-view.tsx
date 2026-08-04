@@ -27,11 +27,15 @@ import "./gradebook.css";
    reason the server gave, and the markbook itself.
    ========================================================================== */
 
-async function fetchWorkspace(): Promise<
-  { error: string } | { workspace: TeacherGradebookWorkspace }
-> {
+async function fetchWorkspace(
+  offeringId?: string,
+): Promise<{ error: string } | { workspace: TeacherGradebookWorkspace }> {
   try {
-    const response = await fetch("/api/teacher/gradebook");
+    const response = await fetch(
+      offeringId
+        ? `/api/teacher/gradebook?offeringId=${encodeURIComponent(offeringId)}`
+        : "/api/teacher/gradebook",
+    );
     const payload = (await response.json()) as {
       error?: string;
       workspace?: TeacherGradebookWorkspace;
@@ -60,9 +64,9 @@ export function GradebookView() {
   /* Used by the Try again button. The mount path below repeats it rather than
      depending on it, so an in-flight load from a unmounting view cannot land
      on state that no longer exists. */
-  const load = useCallback(async () => {
+  const load = useCallback(async (offeringId?: string) => {
     setState("loading");
-    const result = await fetchWorkspace();
+    const result = await fetchWorkspace(offeringId);
     if ("error" in result) {
       setProblem(result.error);
       setState("error");
@@ -118,6 +122,7 @@ export function GradebookView() {
       setTab={setTab}
       setWorkspace={setWorkspace}
       tab={tab}
+      selectOffering={(offeringId) => void load(offeringId)}
       workspace={workspace}
     />
   );
@@ -128,6 +133,7 @@ export function GradebookView() {
 function LoadedGradebook({
   busyAction,
   notice,
+  selectOffering,
   setBusyAction,
   setNotice,
   setTab,
@@ -137,6 +143,7 @@ function LoadedGradebook({
 }: {
   busyAction: string;
   notice: string;
+  selectOffering: (offeringId: string) => void;
   setBusyAction: (value: string) => void;
   setNotice: (value: string) => void;
   setTab: (value: GradebookTab) => void;
@@ -190,9 +197,29 @@ function LoadedGradebook({
               Friday afternoon is not reading a pitch; they want to know which
               subject and term they are in, whether it is still open, and how
               many marks are missing. All of that is here, in two lines. */}
+          {/* The subject name was a heading, and the only one a teacher could
+              ever reach. It is the switch now: a teacher holding four subjects
+              picks between them here. One subject keeps the heading, because a
+              select holding a single option is a control that does nothing. */}
           <header className="gradebook-context">
             <div className="gradebook-identity">
-              <h2>{workspace.subjectName}</h2>
+              {workspace.offerings.length > 1 ? (
+                <label className="gradebook-subject-switch">
+                  <span className="sr-only">Subject markbook</span>
+                  <select
+                    onChange={(event) => selectOffering(event.target.value)}
+                    value={workspace.offeringId}
+                  >
+                    {workspace.offerings.map((offering) => (
+                      <option key={offering.id} value={offering.id}>
+                        {offering.subjectName} · {offering.className}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <h2>{workspace.subjectName}</h2>
+              )}
               <p>
                 {workspace.className} · {workspace.period.name} ·{" "}
                 {workspace.period.academicYear}
@@ -220,11 +247,17 @@ function LoadedGradebook({
                 ? "No missing marks"
                 : `${missingCount} missing ${missingCount === 1 ? "mark" : "marks"}`}
             </span>
-            <span>
-              {workspace.categories
-                .map((category) => `${category.weightPercent}% ${category.name.toLowerCase()}`)
-                .join(" · ")}
-            </span>
+            {/* A subject staffed but not yet set up has no categories, and an
+                empty span rendered as a stray separator. */}
+            {workspace.categories.length > 0 ? (
+              <span>
+                {workspace.categories
+                  .map((category) => `${category.weightPercent}% ${category.name.toLowerCase()}`)
+                  .join(" · ")}
+              </span>
+            ) : (
+              <span>No weighting set</span>
+            )}
             <span>
               {workspace.reports.filter((item) => item.status === "released").length}{" "}
               of {workspace.reports.length} reports released
@@ -311,6 +344,18 @@ function MarksPanel({
           <p>
             Marks appear once learners have been placed into{" "}
             {workspace.className}.
+          </p>
+        </div>
+      ) : workspace.items.length === 0 ? (
+        /* The state a subject is in the day it is staffed: a real class, and
+           nothing yet to mark them on. */
+        <div className="workspace-empty">
+          <strong>Nothing to mark yet</strong>
+          <p>
+            {workspace.className} has {workspace.learners.length}{" "}
+            {workspace.learners.length === 1 ? "learner" : "learners"}, but{" "}
+            {workspace.subjectName} has no assessments or weighting set up for{" "}
+            {workspace.period.name}.
           </p>
         </div>
       ) : null}
@@ -409,7 +454,10 @@ function MarksPanel({
             workspace.period.submissionStatus !== "open"
           }
           onClick={() =>
-            void runAction({ action: "submit-gradebook" })
+            void runAction({
+              action: "submit-gradebook",
+              offeringId: workspace.offeringId,
+            })
           }
           type="button"
         >
@@ -526,6 +574,7 @@ function ReportsPanel({
                   onClick={() =>
                     void runAction({
                       action: "approve-report",
+                      offeringId: workspace.offeringId,
                       reportId: reportItem.id,
                     })
                   }
@@ -540,6 +589,7 @@ function ReportsPanel({
                   onClick={() =>
                     void runAction({
                       action: "release-report",
+                      offeringId: workspace.offeringId,
                       reportId: reportItem.id,
                     })
                   }

@@ -70,12 +70,25 @@ export type GradebookReportSummary = {
   version: number;
 };
 
+/* One entry per subject the teacher holds. The markbook carried a single
+   offeringId and no way to change it, so a teacher of four subjects could
+   reach exactly one markbook and was told nothing about the other three. */
+export type TeacherGradebookOffering = {
+  classGroupId: string;
+  className: string;
+  id: string;
+  subjectCode: string;
+  subjectName: string;
+};
+
 export type TeacherGradebookWorkspace = {
   categories: GradeCategory[];
   className: string;
   items: Array<GradeItem & { categoryName: string }>;
   learners: GradebookLearner[];
   offeringId: string;
+  /* Every markbook this teacher can open, the selected one included. */
+  offerings: TeacherGradebookOffering[];
   period: {
     academicYear: string;
     id: string;
@@ -132,40 +145,107 @@ export type SaveGradeEntryInput = {
   status?: GradeEntryStatus;
 };
 
+/* Every offering this person can open a markbook for. A teacher's own
+   subjects; for an administrator, the school's, because the role already
+   passes canTeachOffering() and a head of department opening one markbook
+   should not be told they teach nothing. */
+async function loadTeacherOfferings(
+  database: SchoolDatabase,
+  access: AccessContext,
+): Promise<TeacherGradebookOffering[]> {
+  const scopedToSelf =
+    access.role !== "school-admin" && access.role !== "academic-admin";
+  if (scopedToSelf && access.subjectOfferingIds.length === 0) return [];
+
+  /* The id list is interpolated rather than bound because the driver takes a
+     fixed parameter list, and these are ids this process just read out of
+     teacher_assignments — not input. */
+  const ownFilter = scopedToSelf
+    ? `AND offering.id IN (${access.subjectOfferingIds
+        .map((id) => `'${id.replace(/'/g, "''")}'`)
+        .join(", ")})`
+    : "";
+
+  const result = await database
+    .prepare(
+      `SELECT
+        offering.id,
+        offering.class_group_id,
+        offering.class_name,
+        subject.code AS subject_code,
+        subject.name AS subject_name
+      FROM subject_offerings AS offering
+      INNER JOIN subjects AS subject ON subject.id = offering.subject_id
+      WHERE offering.tenant_id = ? AND offering.status = 'active'
+        ${ownFilter}
+      ORDER BY offering.class_name, subject.name`,
+    )
+    .bind(access.tenantId)
+    .all<{
+      class_group_id: string;
+      class_name: string;
+      id: string;
+      subject_code: string;
+      subject_name: string;
+    }>();
+
+  return result.results.map((row) => ({
+    classGroupId: row.class_group_id,
+    className: row.class_name,
+    id: row.id,
+    subjectCode: row.subject_code,
+    subjectName: row.subject_name,
+  }));
+}
+
 export async function listTeacherGradebookWorkspace(
   access: AccessContext,
+  requestedOfferingId?: string,
 ): Promise<TeacherGradebookWorkspace> {
   requireGradebookPermission(access);
   await ensureReportingFoundation();
-  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
+  const database = await getSchoolDatabase();
+
+  const offerings = await loadTeacherOfferings(database, access);
+  if (offerings.length === 0) {
+    throw new AuthorizationError(
+      "No subject offering is assigned to your account. An administrator assigns subjects on the Academics screen.",
+    );
+  }
+  /* A requested offering the teacher does not hold is a refusal, not a quiet
+     fall back to their first subject: the id came from a URL. */
+  if (requestedOfferingId && !canTeachOffering(access, requestedOfferingId)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
   }
-  const database = await getSchoolDatabase();
-  const [categories, items, scale, period, submission, reports] =
-    await Promise.all([
-      loadCategories(database, access.tenantId),
-      loadItems(database, access.tenantId),
-      loadScale(database, access.tenantId),
-      loadPeriod(database, access.tenantId),
-      loadSubmission(database, access.tenantId),
-      loadReportQueue(database, access.tenantId),
-    ]);
+  const offering =
+    offerings.find((item) => item.id === requestedOfferingId) ?? offerings[0];
+
+  const [categories, items, scale, period, submission] = await Promise.all([
+    loadCategories(database, access.tenantId, offering.id),
+    loadItems(database, access.tenantId, offering.id),
+    loadScale(database, access.tenantId),
+    loadPeriod(database, access.tenantId),
+    loadSubmission(database, access.tenantId, offering.id),
+  ]);
   const learners = await loadGradebookLearners(
     database,
     access.tenantId,
+    offering,
     categories,
     items,
     scale,
   );
+  const reports = await loadReportQueue(database, access.tenantId, offering);
 
   return {
     categories,
-    className: "JHS 2 Gold",
+    className: offering.className,
     items,
     learners,
-    offeringId: SCIENCE_OFFERING_ID,
+    offeringId: offering.id,
+    offerings,
     period: {
       academicYear: period.academic_year_id,
       id: period.id,
@@ -175,7 +255,7 @@ export async function listTeacherGradebookWorkspace(
     },
     reports,
     scale,
-    subjectName: "Integrated Science",
+    subjectName: offering.subjectName,
   };
 }
 
@@ -293,16 +373,26 @@ export async function savePersistentGradeEntry(
       },
     ),
   ]);
-  return listTeacherGradebookWorkspace(access);
+  /* Back to the markbook the mark was written in, not to whichever one sorts
+     first. */
+  return listTeacherGradebookWorkspace(access, row.offering_id);
 }
 
 export async function submitPersistentGradebook(
   access: AccessContext,
+  offeringId?: string,
 ): Promise<TeacherGradebookWorkspace> {
   await ensureReportingFoundation();
-  const workspace = await listTeacherGradebookWorkspace(access);
+  const workspace = await listTeacherGradebookWorkspace(access, offeringId);
+  const offering = workspace.offerings.find(
+    (item) => item.id === workspace.offeringId,
+  )!;
   const database = await getSchoolDatabase();
-  const entries = await loadAllEntries(database, access.tenantId);
+  const entries = await loadAllEntries(
+    database,
+    access.tenantId,
+    workspace.offeringId,
+  );
   submitGradebook(entries, new Date().toISOString());
   const reportUpdateStatements = workspace.learners.map((learner) => {
     const scale = learner.totalPercent === null
@@ -310,10 +400,13 @@ export async function submitPersistentGradebook(
       : gradeFromScale(learner.totalPercent, workspace.scale);
     return database
       .prepare(
+        /* The subject code was the literal 'IS'. Submitting a Mathematics
+           markbook therefore wrote its marks into the Integrated Science row
+           of every learner's report card. */
         `UPDATE report_subject_results
         SET score_tenths = ?, grade = ?, remark = ?
         WHERE report_version_id = ?
-          AND subject_code = 'IS'
+          AND subject_code = ?
           AND tenant_id = ?`,
       )
       .bind(
@@ -321,6 +414,7 @@ export async function submitPersistentGradebook(
         scale.grade,
         scale.remark,
         `report-${learner.id}-term1:v0`,
+        offering.subjectCode,
         access.tenantId,
       );
   });
@@ -356,7 +450,7 @@ export async function submitPersistentGradebook(
         access.actorPersonId,
         access.tenantId,
         CURRENT_PERIOD_ID,
-        SCIENCE_OFFERING_ID,
+        workspace.offeringId,
       ),
     database
       .prepare(
@@ -381,16 +475,17 @@ export async function submitPersistentGradebook(
       access,
       "gradebook.submitted",
       "subject-offering",
-      SCIENCE_OFFERING_ID,
+      workspace.offeringId,
       { periodId: CURRENT_PERIOD_ID },
     ),
   ]);
-  return listTeacherGradebookWorkspace(access);
+  return listTeacherGradebookWorkspace(access, workspace.offeringId);
 }
 
 export async function approvePersistentReport(
   access: AccessContext,
   reportId: string,
+  offeringId?: string,
 ): Promise<TeacherGradebookWorkspace> {
   if (!canPerform(access, "report:approve")) {
     throw new AuthorizationError(
@@ -431,12 +526,13 @@ export async function approvePersistentReport(
       { version: approved.version },
     ),
   ]);
-  return listTeacherGradebookWorkspace(access);
+  return listTeacherGradebookWorkspace(access, offeringId);
 }
 
 export async function releasePersistentReport(
   access: AccessContext,
   reportId: string,
+  offeringId?: string,
 ): Promise<TeacherGradebookWorkspace> {
   if (!canPerform(access, "report:release")) {
     throw new AuthorizationError(
@@ -528,7 +624,7 @@ export async function releasePersistentReport(
       { version: released.version },
     ),
   ]);
-  return listTeacherGradebookWorkspace(access);
+  return listTeacherGradebookWorkspace(access, offeringId);
 }
 
 export async function getGuardianReportWorkspace(
@@ -936,7 +1032,11 @@ function seedGrade(score: number) {
   return { grade: "F", remark: "Needs support" };
 }
 
-async function loadCategories(database: SchoolDatabase, tenantId: string) {
+async function loadCategories(
+  database: SchoolDatabase,
+  tenantId: string,
+  offeringId: string,
+) {
   const result = await database
     .prepare(
       `SELECT id, name, weight_percent
@@ -944,7 +1044,7 @@ async function loadCategories(database: SchoolDatabase, tenantId: string) {
       WHERE tenant_id = ? AND period_id = ? AND offering_id = ?
       ORDER BY position`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID, SCIENCE_OFFERING_ID)
+    .bind(tenantId, CURRENT_PERIOD_ID, offeringId)
     .all<{ id: string; name: string; weight_percent: number }>();
   return result.results.map((row) => ({
     id: row.id,
@@ -953,7 +1053,11 @@ async function loadCategories(database: SchoolDatabase, tenantId: string) {
   }));
 }
 
-async function loadItems(database: SchoolDatabase, tenantId: string) {
+async function loadItems(
+  database: SchoolDatabase,
+  tenantId: string,
+  offeringId: string,
+) {
   const result = await database
     .prepare(
       `SELECT i.id, i.category_id, i.title, i.maximum_marks, c.name AS category_name
@@ -963,7 +1067,7 @@ async function loadItems(database: SchoolDatabase, tenantId: string) {
         AND i.status != 'excluded'
       ORDER BY i.position`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID, SCIENCE_OFFERING_ID)
+    .bind(tenantId, CURRENT_PERIOD_ID, offeringId)
     .all<{
       category_id: string;
       category_name: string;
@@ -1022,7 +1126,11 @@ async function loadPeriod(database: SchoolDatabase, tenantId: string) {
   return period;
 }
 
-async function loadSubmission(database: SchoolDatabase, tenantId: string) {
+async function loadSubmission(
+  database: SchoolDatabase,
+  tenantId: string,
+  offeringId: string,
+) {
   const submission = await database
     .prepare(
       `SELECT status
@@ -1030,31 +1138,47 @@ async function loadSubmission(database: SchoolDatabase, tenantId: string) {
       WHERE tenant_id = ? AND period_id = ? AND offering_id = ?
       LIMIT 1`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID, SCIENCE_OFFERING_ID)
+    .bind(tenantId, CURRENT_PERIOD_ID, offeringId)
     .first<{
       status: TeacherGradebookWorkspace["period"]["submissionStatus"];
     }>();
-  if (!submission) {
-    throw new ReportingPolicyError("Gradebook submission was not found.");
-  }
-  return submission;
+  /* A subject staffed this morning has no submission row, and that is not an
+     error — it is a markbook nobody has submitted. Throwing here is what made
+     every offering except the seeded one unopenable. */
+  return submission ?? { status: "open" as const };
 }
 
 async function loadGradebookLearners(
   database: SchoolDatabase,
   tenantId: string,
+  offering: TeacherGradebookOffering,
   categories: GradeCategory[],
   items: Array<GradeItem & { categoryName: string }>,
   scale: GradeScaleBand[],
 ) {
+  /* The roster was the literal list ('person-kwame', 'person-ama',
+     'person-kojo') — the three learners in the demo school. Every markbook,
+     for every class, showed those three.
+
+     A membership's scope_id holds a class name or a class group id depending
+     on how the learner was placed, so both are matched. See loadAccessScopes()
+     in db/people-repository.ts, which resolves the same ambiguity. */
   const learners = await database
     .prepare(
-      `SELECT id, first_name || ' ' || last_name AS name
-      FROM people
-      WHERE tenant_id = ? AND id IN ('person-kwame', 'person-ama', 'person-kojo')
-      ORDER BY first_name, last_name`,
+      `SELECT DISTINCT person.id,
+        person.first_name || ' ' || person.last_name AS name,
+        person.first_name,
+        person.last_name
+      FROM people AS person
+      INNER JOIN tenant_memberships AS membership
+        ON membership.person_id = person.id
+      WHERE person.tenant_id = ? AND person.kind = 'learner'
+        AND membership.status = 'active'
+        AND membership.scope_type = 'class'
+        AND (membership.scope_id = ? OR membership.scope_id = ?)
+      ORDER BY person.first_name, person.last_name`,
     )
-    .bind(tenantId)
+    .bind(tenantId, offering.classGroupId, offering.className)
     .all<{ id: string; name: string }>();
   const result: GradebookLearner[] = [];
   for (const learner of learners.results) {
@@ -1073,12 +1197,7 @@ async function loadGradebookLearners(
           AND i.period_id = ? AND i.offering_id = ?
         ORDER BY i.position`,
       )
-      .bind(
-        tenantId,
-        learner.id,
-        CURRENT_PERIOD_ID,
-        SCIENCE_OFFERING_ID,
-      )
+      .bind(tenantId, learner.id, CURRENT_PERIOD_ID, offering.id)
       .all<{
         adjusted_marks: number | null;
         id: string;
@@ -1128,7 +1247,11 @@ async function loadGradebookLearners(
   return result;
 }
 
-async function loadAllEntries(database: SchoolDatabase, tenantId: string) {
+async function loadAllEntries(
+  database: SchoolDatabase,
+  tenantId: string,
+  offeringId: string,
+) {
   const result = await database
     .prepare(
       `SELECT
@@ -1142,7 +1265,7 @@ async function loadAllEntries(database: SchoolDatabase, tenantId: string) {
       INNER JOIN grade_items i ON i.id = e.item_id
       WHERE e.tenant_id = ? AND i.period_id = ? AND i.offering_id = ?`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID, SCIENCE_OFFERING_ID)
+    .bind(tenantId, CURRENT_PERIOD_ID, offeringId)
     .all<{
       adjusted_marks: number | null;
       id: string;
@@ -1161,7 +1284,15 @@ async function loadAllEntries(database: SchoolDatabase, tenantId: string) {
   }));
 }
 
-async function loadReportQueue(database: SchoolDatabase, tenantId: string) {
+/* Scoped to the class the selected offering is taught to. A report card is a
+   whole-year document rather than a subject one, but a teacher switching from
+   JHS 2 Gold to JHS 1 Blue should not keep looking at the first class's
+   reports. */
+async function loadReportQueue(
+  database: SchoolDatabase,
+  tenantId: string,
+  offering: TeacherGradebookOffering,
+) {
   const result = await database
     .prepare(
       `SELECT
@@ -1175,10 +1306,19 @@ async function loadReportQueue(database: SchoolDatabase, tenantId: string) {
       INNER JOIN people p ON p.id = r.learner_person_id
       INNER JOIN report_card_versions v
         ON v.report_card_id = r.id AND v.version = r.current_version
+      INNER JOIN tenant_memberships m
+        ON m.person_id = p.id AND m.status = 'active'
+          AND m.scope_type = 'class'
+          AND (m.scope_id = ? OR m.scope_id = ?)
       WHERE r.tenant_id = ? AND r.period_id = ?
       ORDER BY p.first_name, p.last_name`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID)
+    .bind(
+      offering.classGroupId,
+      offering.className,
+      tenantId,
+      CURRENT_PERIOD_ID,
+    )
     .all<{
       current_version: number;
       id: string;
