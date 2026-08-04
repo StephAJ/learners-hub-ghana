@@ -40,6 +40,8 @@ import { SignOutButton } from "./sign-out-button";
    ========================================================================== */
 
 export type SidebarNavItem = {
+  /** Unread items behind this link. Omitted or 0 renders no badge. */
+  badge?: number;
   href: string;
   icon: string;
   label: string;
@@ -122,8 +124,20 @@ export function WorkspaceSidebar({
             >
               <span className="workspace-nav-icon" aria-hidden="true">
                 <IconComponent size={20} />
+                {/* Repeated on the icon so the count survives the collapsed
+                    rail, where the label is not rendered at all. */}
+                {item.badge ? <i className="workspace-nav-pip" /> : null}
               </span>
               <span className="workspace-nav-label">{item.label}</span>
+              {item.badge ? (
+                <span
+                  aria-label={`${item.badge} unread`}
+                  className="workspace-nav-badge"
+                  role="status"
+                >
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}

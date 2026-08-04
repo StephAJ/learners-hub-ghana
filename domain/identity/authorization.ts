@@ -21,6 +21,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
     "report:approve",
     "report:release",
     "report:read",
+    "messages:moderate",
   ]),
   "academic-admin": new Set([
     "people:read",
@@ -36,6 +37,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
     "report:approve",
     "report:release",
     "report:read",
+    "messages:moderate",
   ]),
   "admissions-officer": new Set([
     "people:read",

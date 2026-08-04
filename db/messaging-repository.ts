@@ -10,7 +10,9 @@ import type {
   MessageRecipient,
   MessageThread,
   MessageThreadDetail,
+  ReportedThread,
 } from "../domain/messaging/types";
+import { AuthorizationError, canPerform } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
 import { ensureLearningFoundation } from "./learning-repository";
 import { getSchoolDatabase } from "./index";
@@ -397,3 +399,194 @@ function toThread(row: ThreadRow): MessageThread {
 }
 
 export { MessagingError };
+
+/* ==========================================================================
+   Reporting a conversation
+
+   Either party can ask the school to look at a thread. That is the whole of
+   moderation here, and it is deliberately not deletion: a learner who is
+   being spoken to badly needs the messages to still exist when an
+   administrator opens them, and a teacher who is being accused needs the same.
+   Nothing in this feature removes a message.
+
+   Reading a reported conversation is the power to read messages you are not a
+   party to, so it sits behind its own permission rather than behind "is an
+   administrator" — see messages:moderate in domain/identity/authorization.ts.
+   ========================================================================== */
+
+export async function reportMessageThread(
+  access: AccessContext,
+  threadId: string,
+  reason: string,
+): Promise<void> {
+  requireActiveMessagingMembership(access);
+  await ensureLearningFoundation();
+  const database = await getSchoolDatabase();
+
+  /* Only a participant may report, and listMessageThreads already scopes to
+     the caller's own threads — so this both finds it and proves standing. */
+  const threads = await listMessageThreads(access);
+  const thread = threads.find((candidate) => candidate.id === threadId);
+  if (!thread) throw new MessagingError("This conversation was not found.");
+  requireThreadParticipant(access, thread);
+
+  const existing = await database
+    .prepare(
+      `SELECT id FROM message_reports
+      WHERE thread_id = ? AND reported_by_person_id = ? AND status = 'open'
+      LIMIT 1`,
+    )
+    .bind(threadId, access.actorPersonId)
+    .all<{ id: string }>();
+  if (existing.results.length > 0) {
+    throw new MessagingError(
+      "You have already reported this conversation. The school will look at it.",
+    );
+  }
+
+  await database
+    .prepare(
+      `INSERT INTO message_reports
+        (id, tenant_id, thread_id, reported_by_person_id, reason)
+      VALUES (?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      access.tenantId,
+      threadId,
+      access.actorPersonId,
+      reason.trim().slice(0, 500),
+    )
+    .run();
+}
+
+export async function listReportedThreads(
+  access: AccessContext,
+): Promise<ReportedThread[]> {
+  if (!canPerform(access, "messages:moderate")) {
+    throw new AuthorizationError(
+      "You do not have permission to review reported conversations.",
+    );
+  }
+  await ensureLearningFoundation();
+  const database = await getSchoolDatabase();
+
+  const reports = await database
+    .prepare(
+      `SELECT
+        r.id,
+        r.created_at,
+        r.reason,
+        r.review_note,
+        r.reviewed_at,
+        r.status,
+        r.thread_id,
+        t.learner_person_id,
+        lp.first_name || ' ' || lp.last_name AS learner_name,
+        tp.first_name || ' ' || tp.last_name AS teacher_name,
+        rp.first_name || ' ' || rp.last_name AS reported_by_name,
+        r.reported_by_person_id,
+        vp.first_name || ' ' || vp.last_name AS reviewed_by_name
+      FROM message_reports r
+      INNER JOIN message_threads t ON t.id = r.thread_id
+      INNER JOIN people lp ON lp.id = t.learner_person_id
+      INNER JOIN people tp ON tp.id = t.teacher_person_id
+      INNER JOIN people rp ON rp.id = r.reported_by_person_id
+      LEFT JOIN people vp ON vp.id = r.reviewed_by_person_id
+      WHERE r.tenant_id = ?
+      ORDER BY
+        CASE r.status WHEN 'open' THEN 0 ELSE 1 END,
+        r.created_at DESC`,
+    )
+    .bind(access.tenantId)
+    .all<{
+      created_at: string;
+      id: string;
+      learner_name: string;
+      learner_person_id: string;
+      reason: string;
+      reported_by_name: string;
+      reported_by_person_id: string;
+      review_note: string | null;
+      reviewed_at: string | null;
+      reviewed_by_name: string | null;
+      status: "open" | "reviewed";
+      teacher_name: string;
+      thread_id: string;
+    }>();
+
+  const detailed: ReportedThread[] = [];
+  for (const report of reports.results) {
+    const transcript = await database
+      .prepare(
+        `SELECT m.id, m.body, m.sent_at, m.sender_person_id
+        FROM messages m
+        WHERE m.thread_id = ? AND m.tenant_id = ?
+        ORDER BY m.sent_at ASC`,
+      )
+      .bind(report.thread_id, access.tenantId)
+      .all<{
+        body: string;
+        id: string;
+        sender_person_id: string;
+        sent_at: string;
+      }>();
+
+    detailed.push({
+      id: report.id,
+      learnerName: report.learner_name,
+      messages: transcript.results.map((row) => ({
+        body: row.body,
+        id: row.id,
+        senderPersonId: row.sender_person_id,
+        senderRole:
+          row.sender_person_id === report.learner_person_id
+            ? "learner"
+            : "teacher",
+        sentAt: row.sent_at,
+      })),
+      reason: report.reason,
+      reportedAt: report.created_at,
+      reportedByName: report.reported_by_name,
+      reportedByRole:
+        report.reported_by_person_id === report.learner_person_id
+          ? "learner"
+          : "teacher",
+      reviewNote: report.review_note ?? undefined,
+      reviewedAt: report.reviewed_at ?? undefined,
+      reviewedByName: report.reviewed_by_name ?? undefined,
+      status: report.status,
+      teacherName: report.teacher_name,
+      threadId: report.thread_id,
+    });
+  }
+  return detailed;
+}
+
+export async function reviewMessageReport(
+  access: AccessContext,
+  reportId: string,
+  note: string,
+): Promise<ReportedThread[]> {
+  if (!canPerform(access, "messages:moderate")) {
+    throw new AuthorizationError(
+      "You do not have permission to review reported conversations.",
+    );
+  }
+  await ensureLearningFoundation();
+  const database = await getSchoolDatabase();
+
+  await database
+    .prepare(
+      `UPDATE message_reports
+      SET status = 'reviewed',
+          reviewed_by_person_id = ?,
+          reviewed_at = CURRENT_TIMESTAMP,
+          review_note = ?
+      WHERE id = ? AND tenant_id = ? AND status = 'open'`,
+    )
+    .bind(access.actorPersonId, note.trim().slice(0, 500), reportId, access.tenantId)
+    .run();
+
+  return listReportedThreads(access);
+}

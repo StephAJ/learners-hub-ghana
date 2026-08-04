@@ -9,7 +9,7 @@ import {
   requireThreadParticipant,
   validateMessageBody,
 } from "../domain/messaging/messaging";
-import { AuthorizationError } from "../domain/identity/authorization";
+import { AuthorizationError, canPerform } from "../domain/identity/authorization";
 import type { AccessContext, SchoolRole } from "../domain/identity/types";
 
 function access(
@@ -128,5 +128,34 @@ describe("the thread list preview", () => {
 
   it("leaves a short message alone", () => {
     expect(messagePreview("Thank you sir")).toBe("Thank you sir");
+  });
+});
+
+describe("who may read a reported conversation", () => {
+  it("is the school's administrators, and nobody who teaches", () => {
+    /* messages:moderate is the power to read messages you are not a party to.
+       A teacher holding it would be able to read every conversation in the
+       school by reporting it themselves. */
+    for (const role of ["school-admin", "academic-admin"] as SchoolRole[]) {
+      expect(canPerform(access(role), "messages:moderate")).toBe(true);
+    }
+    for (const role of [
+      "teacher",
+      "class-teacher",
+      "admissions-officer",
+      "guardian",
+      "learner",
+    ] as SchoolRole[]) {
+      expect(canPerform(access(role), "messages:moderate")).toBe(false);
+    }
+  });
+
+  it("is refused to an administrator whose membership is not active", () => {
+    expect(
+      canPerform(
+        access("school-admin", "person-admin", "invited"),
+        "messages:moderate",
+      ),
+    ).toBe(false);
   });
 });

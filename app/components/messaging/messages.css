@@ -381,3 +381,97 @@
     min-height: 26rem;
   }
 }
+
+/* -- Reporting a conversation --------------------------------------------- */
+
+.report-open {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+}
+
+.report-open:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.report-done {
+  color: var(--muted);
+  flex: none;
+  font-size: var(--fs-13);
+}
+
+.report-form {
+  background: var(--canvas);
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.report-form p {
+  color: var(--ink-soft);
+  font-size: var(--fs-13);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.report-form textarea {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-14);
+  padding: var(--space-3);
+  resize: vertical;
+  width: 100%;
+}
+
+.report-form em {
+  color: #96341f;
+  font-size: var(--fs-13);
+  font-style: normal;
+}
+
+.report-form div {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.report-form button {
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+}
+
+.report-form button[type="button"] {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+
+.report-form button[type="submit"] {
+  background: #96341f;
+  border: 1px solid #96341f;
+  color: #ffffff;
+}
+
+.report-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

@@ -24,7 +24,11 @@ export type Permission =
   | "gradebook:manage"
   | "report:approve"
   | "report:release"
-  | "report:read";
+  | "report:read"
+  /* Reading conversations someone has reported, and closing the report. Held
+     by the school's administrators only: it is the power to read messages the
+     holder is not a party to, so it is deliberately not part of teaching. */
+  | "messages:moderate";
 
 /* A school's colour. Two values only: everything else in the palette is
    derived from these in CSS, so a school cannot end up half-branded. See

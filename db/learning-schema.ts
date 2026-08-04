@@ -570,6 +570,23 @@ CREATE TABLE IF NOT EXISTS "message_threads" (
   FOREIGN KEY ("started_by_person_id") REFERENCES "people" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "message_reports" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "thread_id" text NOT NULL,
+  "reported_by_person_id" text NOT NULL,
+  "reason" text NOT NULL DEFAULT '',
+  "status" text NOT NULL DEFAULT 'open',
+  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  "reviewed_by_person_id" text,
+  "reviewed_at" text,
+  "review_note" text,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("thread_id") REFERENCES "message_threads" ("id"),
+  FOREIGN KEY ("reported_by_person_id") REFERENCES "people" ("id"),
+  FOREIGN KEY ("reviewed_by_person_id") REFERENCES "people" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "messages" (
   "id" text PRIMARY KEY,
   "tenant_id" text NOT NULL,
@@ -843,6 +860,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS "media_object_key_idx"
 
 CREATE INDEX IF NOT EXISTS "media_tenant_offering_idx"
   ON "media_assets" ("tenant_id", "offering_id", "status");
+
+CREATE INDEX IF NOT EXISTS "reports_tenant_status_idx"
+  ON "message_reports" ("tenant_id", "status");
+
+CREATE INDEX IF NOT EXISTS "reports_thread_idx"
+  ON "message_reports" ("thread_id");
 
 CREATE INDEX IF NOT EXISTS "threads_learner_recent_idx"
   ON "message_threads" ("tenant_id", "learner_person_id", "last_message_at");

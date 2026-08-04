@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { countUnreadMessages } from "../../db/messaging-repository";
 import type { AuthenticatedSchoolUser } from "../../db/people-repository";
 import type { SchoolRole } from "../../domain/identity/types";
 import { BrandMark } from "./brand-mark";
@@ -18,6 +19,7 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
     { href: "/admin/admissions", icon: "admissions", label: "Admissions" },
     { href: "/admin/people", icon: "classes", label: "People" },
     { href: "/admin/academic", icon: "academics", label: "Academics" },
+    { href: "/admin/messages", icon: "messages", label: "Reported" },
   ],
   applicant: [
     { href: "/applicant", icon: "home", label: "Overview" },
@@ -59,7 +61,7 @@ const restoreSidebarState = `try{if(localStorage.getItem(${JSON.stringify(
   SIDEBAR_STORAGE_KEY,
 )})==="true"){document.documentElement.dataset.sidebar="collapsed"}}catch(e){}`;
 
-export function WorkspaceShell({
+export async function WorkspaceShell({
   activeHref,
   children,
   contentClassName,
@@ -86,7 +88,7 @@ export function WorkspaceShell({
   workspace: WorkspaceKind | "applicant";
 }) {
   const roleWorkspaces = uniqueWorkspaces(user.availableRoles);
-  const items = navigation[workspace];
+  const items = await withUnreadBadges(navigation[workspace], user, workspace);
 
   return (
     <div
@@ -148,6 +150,35 @@ export function WorkspaceShell({
         ))}
       </nav>
     </div>
+  );
+}
+
+/**
+ * Hangs the unread-message count off the Messages link.
+ *
+ * Done here rather than in each page so a learner sees the same badge from
+ * wherever they are, which is the only thing that makes it useful — a count
+ * that only appears once you are already in the inbox tells you nothing.
+ *
+ * One indexed query per workspace render, and only for the two workspaces
+ * that have an inbox at all. A failure is swallowed: an unavailable count is
+ * a missing badge, never a page that will not render.
+ */
+async function withUnreadBadges(
+  items: SidebarNavItem[],
+  user: AuthenticatedSchoolUser,
+  workspace: WorkspaceKind | "applicant",
+): Promise<SidebarNavItem[]> {
+  if (workspace !== "student" && workspace !== "teacher") return items;
+  let unread = 0;
+  try {
+    unread = await countUnreadMessages(user.access);
+  } catch {
+    return items;
+  }
+  if (unread === 0) return items;
+  return items.map((item) =>
+    item.href.endsWith("/messages") ? { ...item, badge: unread } : item,
   );
 }
 

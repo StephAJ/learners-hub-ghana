@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Send, X } from "lucide-react";
+import { Flag, Plus, Send, X } from "lucide-react";
 import type {
   MessageRecipient,
   MessageThread,
@@ -249,6 +249,21 @@ export function MessagesView({
             busy={busy}
             draft={draft}
             onDraft={setDraft}
+            onReport={async (reason) => {
+              const response = await fetch("/api/messages", {
+                body: JSON.stringify({
+                  action: "report",
+                  reason,
+                  threadId: openThread.id,
+                }),
+                headers: { "content-type": "application/json" },
+                method: "POST",
+              });
+              const result = (await response.json()) as { error?: string };
+              if (!response.ok) {
+                throw new Error(result.error ?? "The report could not be sent.");
+              }
+            }}
             onSend={() =>
               post({ action: "send", body: draft, threadId: openThread.id })
             }
@@ -270,6 +285,7 @@ function Conversation({
   busy,
   draft,
   onDraft,
+  onReport,
   onSend,
   thread,
   transcriptRef,
@@ -278,11 +294,18 @@ function Conversation({
   busy: boolean;
   draft: string;
   onDraft: (value: string) => void;
+  onReport: (reason: string) => Promise<void>;
   onSend: () => void;
   thread: MessageThreadDetail;
   transcriptRef: React.RefObject<HTMLDivElement | null>;
   viewerRole: "learner" | "teacher";
 }) {
+  const [reporting, setReporting] = useState(false);
+  const [reason, setReason] = useState("");
+  const [reportState, setReportState] = useState<"idle" | "sending" | "sent">(
+    "idle",
+  );
+  const [reportError, setReportError] = useState("");
   const otherName =
     viewerRole === "learner" ? thread.teacherName : thread.learnerName;
   const otherPhotoUrl =
@@ -301,7 +324,63 @@ function Conversation({
           <strong>{otherName}</strong>
           {thread.subjectName ? <small>{thread.subjectName}</small> : null}
         </div>
+        {reportState === "sent" ? (
+          <span className="report-done">Reported to the school</span>
+        ) : (
+          <button
+            className="report-open"
+            onClick={() => setReporting((current) => !current)}
+            type="button"
+          >
+            <Flag aria-hidden="true" size={14} />
+            Report
+          </button>
+        )}
       </header>
+
+      {reporting && reportState !== "sent" ? (
+        <form
+          className="report-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setReportState("sending");
+            setReportError("");
+            try {
+              await onReport(reason);
+              setReportState("sent");
+              setReporting(false);
+            } catch (thrown) {
+              setReportState("idle");
+              setReportError(
+                thrown instanceof Error
+                  ? thrown.message
+                  : "The report could not be sent.",
+              );
+            }
+          }}
+        >
+          <p>
+            A member of school staff will read this conversation. Nothing is
+            deleted, and {otherName} is not told you reported it.
+          </p>
+          <textarea
+            aria-label="Why you are reporting this conversation"
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="What is wrong? (optional)"
+            rows={2}
+            value={reason}
+          />
+          {reportError ? <em role="alert">{reportError}</em> : null}
+          <div>
+            <button onClick={() => setReporting(false)} type="button">
+              Cancel
+            </button>
+            <button disabled={reportState === "sending"} type="submit">
+              {reportState === "sending" ? "Sending…" : "Report conversation"}
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       <div className="conversation-transcript" ref={transcriptRef}>
         {thread.messages.map((message) => (

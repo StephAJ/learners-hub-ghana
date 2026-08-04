@@ -40,3 +40,20 @@ export type MessageRecipient = {
   offeringId?: string;
   photoUrl?: string | null;
 };
+
+export type ReportedThread = {
+  id: string;
+  learnerName: string;
+  messages: Message[];
+  reason: string;
+  reportedAt: string;
+  reportedByName: string;
+  /** Which side raised it, so an administrator reads it in context. */
+  reportedByRole: MessageAuthorRole;
+  reviewNote?: string;
+  reviewedAt?: string;
+  reviewedByName?: string;
+  status: "open" | "reviewed";
+  teacherName: string;
+  threadId: string;
+};

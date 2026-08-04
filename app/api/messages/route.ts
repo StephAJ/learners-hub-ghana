@@ -2,6 +2,7 @@ import {
   getMessageThread,
   listMessageRecipients,
   listMessageThreads,
+  reportMessageThread,
   sendMessage,
   startMessageThread,
 } from "../../../db/messaging-repository";
@@ -46,7 +47,8 @@ export async function POST(request: Request) {
           body: string;
           offeringId?: string;
           recipientPersonId: string;
-        };
+        }
+      | { action: "report"; reason: string; threadId: string };
 
     if (payload.action === "send") {
       const thread = await sendMessage(
@@ -64,6 +66,14 @@ export async function POST(request: Request) {
         payload.offeringId,
       );
       return Response.json({ thread }, { status: 201 });
+    }
+    if (payload.action === "report") {
+      await reportMessageThread(
+        schoolUser.access,
+        payload.threadId,
+        payload.reason,
+      );
+      return Response.json({ reported: true });
     }
     return Response.json({ error: "Unknown message action." }, { status: 400 });
   } catch (error) {

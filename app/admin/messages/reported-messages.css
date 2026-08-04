@@ -1,0 +1,222 @@
+/* ==========================================================================
+   Reported conversations
+
+   The one screen where someone reads messages they are not a party to. The
+   transcript is folded away behind a summary rather than shown by default —
+   an administrator scanning the queue should decide to open a conversation,
+   not have four of them already open on the page.
+   ========================================================================== */
+
+.reports {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 56rem;
+}
+
+.reports-summary {
+  color: var(--ink-soft);
+  font-size: var(--fs-16);
+  margin: 0;
+}
+
+.reports-empty {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.reports-error {
+  background: #f6e3de;
+  border-radius: var(--radius-sm);
+  color: #96341f;
+  font-size: var(--fs-13);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.reports-list {
+  display: grid;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reports-list > li {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+/* An unreviewed report carries the accent down its edge, so the queue reads
+   at a glance without a filter. */
+.reports-list > li.is-open {
+  border-left: 3px solid var(--brand-accent);
+}
+
+.reports-list > li.is-reviewed {
+  opacity: 0.78;
+}
+
+.reports-list header {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+
+.reports-who {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  margin: 0;
+}
+
+.reports-meta {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  margin: var(--space-1) 0 0;
+}
+
+.reports-state {
+  border-radius: var(--radius-pill);
+  flex: none;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-1) var(--space-3);
+}
+
+.reports-state.state-open {
+  background: color-mix(in srgb, var(--brand-accent) 24%, #ffffff);
+  color: var(--brand-accent-ink);
+}
+
+.reports-state.state-reviewed {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.reports-reason {
+  background: var(--canvas);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.reports-reason-empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.reports summary {
+  color: var(--brand);
+  cursor: pointer;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.reports-transcript {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.reports-transcript article {
+  border-left: 2px solid var(--line-strong);
+  padding-left: var(--space-4);
+}
+
+.reports-transcript article p {
+  font-family: var(--font-body);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.reports-transcript-who {
+  align-items: baseline;
+  color: var(--muted);
+  display: flex;
+  font-size: var(--fs-13) !important;
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  margin-bottom: var(--space-1) !important;
+}
+
+.reports-transcript-who time {
+  font-weight: var(--fw-regular);
+}
+
+.reports-review {
+  align-items: flex-end;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+}
+
+.reports-review label {
+  display: grid;
+  flex: 1;
+  gap: var(--space-2);
+}
+
+.reports-review span {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.reports-review input {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-14);
+  padding: var(--space-3);
+  width: 100%;
+}
+
+.reports-review button {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  cursor: pointer;
+  flex: none;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+}
+
+.reports-review button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.reports-outcome {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-body);
+  margin: 0;
+  padding-top: var(--space-3);
+}
+
+@media (max-width: 680px) {
+  .reports-review {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

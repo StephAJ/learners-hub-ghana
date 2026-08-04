@@ -1755,3 +1755,36 @@ export const messages = sqliteTable(
   },
   (table) => [index("messages_thread_sent_idx").on(table.threadId, table.sentAt)],
 );
+
+/* A conversation someone has asked the school to look at.
+
+   The report is a row of its own rather than a flag on the thread because it
+   is a record of a decision: who raised it, when, what they said, and what an
+   administrator did about it. Clearing a flag would erase that. */
+export const messageReports = sqliteTable(
+  "message_reports",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => messageThreads.id),
+    reportedByPersonId: text("reported_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    reason: text("reason").notNull().default(""),
+    status: text("status", { enum: ["open", "reviewed"] })
+      .notNull()
+      .default("open"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    reviewedByPersonId: text("reviewed_by_person_id").references(() => people.id),
+    reviewedAt: text("reviewed_at"),
+    reviewNote: text("review_note"),
+  },
+  (table) => [
+    index("reports_tenant_status_idx").on(table.tenantId, table.status),
+    index("reports_thread_idx").on(table.threadId),
+  ],
+);
