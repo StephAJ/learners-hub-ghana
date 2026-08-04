@@ -31,6 +31,11 @@ import { ensureReportingFoundation } from "./reporting-repository";
 import { getMediaStore, getSchoolDatabase } from "./index";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
 import { SCIENCE_OFFERING_ID } from "./learning-repository";
+import {
+  loadTeachingOfferings,
+  selectOffering,
+  type TeachingOffering,
+} from "./teaching-offerings";
 import { ensurePeopleSeed } from "./people-repository";
 import {
   demoLearners,
@@ -117,9 +122,28 @@ export type TeacherOperationsWorkspace = {
   className: string;
   currentDate: string;
   markingQueue: MarkingSubmission[];
+  /* Every subject this teacher holds, the selected one included. The screen
+     was gated on SCIENCE_OFFERING_ID and its register on one class group, so
+     it showed JHS 2 Gold's Integrated Science to whoever could open it and
+     refused everybody else. */
+  offeringId: string | null;
+  offerings: TeachingOffering[];
   periods: TimetablePeriodView[];
   subjectName: string;
   timetable: TimetableEntryView[];
+};
+
+/* What one request to this workspace is about: a class, and the subject being
+   taught to it. The two are separate because the screen serves two roles —
+   assignments and marking belong to a subject, the register and the timetable
+   belong to the class.
+
+   A class teacher may hold no subject at all and must still take their
+   register, which is why the offering is nullable. */
+type OperationsScope = {
+  classGroupId: string;
+  className: string;
+  offering: TeachingOffering | null;
 };
 
 /** One handed-in file, as both the learner and the marker see it. */
@@ -174,6 +198,9 @@ export type GuardianSchoolDayWorkspace = LearnerSchoolDayWorkspace & {
 };
 
 export type CreateAssignmentInput = {
+  /* Which of the teacher's subjects the assignment is for. Absent means the
+     one they are looking at, which the repository resolves. */
+  offeringId?: string;
   brief: string;
   criteria: Array<{
     description: string;
@@ -197,37 +224,93 @@ export type ReleaseRubricInput = {
   submissionId: string;
 };
 
-export async function getTeacherOperationsWorkspace(
+/* The class and subject a request is about.
+
+   A subject teacher selects an offering and the class follows from it. A class
+   teacher who teaches nothing falls back to the class they hold, so their
+   register still opens. Anyone holding neither is told which of the two they
+   are missing. */
+async function resolveOperationsScope(
+  database: SchoolDatabase,
   access: AccessContext,
-): Promise<TeacherOperationsWorkspace> {
-  requireTeacherOperationsAccess(access);
-  await ensureOperationsFoundation();
-  if (access.role === "class-teacher") {
-    await requireDailyAttendanceScope(access);
-  }
-  if (
-    access.role !== "class-teacher" &&
-    !canTeachOffering(access, SCIENCE_OFFERING_ID)
-  ) {
+  requestedOfferingId?: string,
+): Promise<{ offerings: TeachingOffering[]; scope: OperationsScope }> {
+  const offerings = await loadTeachingOfferings(database, access);
+
+  if (requestedOfferingId && !canTeachOffering(access, requestedOfferingId)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
   }
+
+  const offering = selectOffering(offerings, requestedOfferingId);
+  if (offering) {
+    return {
+      offerings,
+      scope: {
+        classGroupId: offering.classGroupId,
+        className: offering.className,
+        offering,
+      },
+    };
+  }
+
+  const classGroupId = access.classGroupIds[0];
+  if (!classGroupId) {
+    throw new AuthorizationError(
+      "No class or subject is assigned to your account. An administrator assigns both on the Academics screen.",
+    );
+  }
+  const group = await database
+    .prepare(`SELECT name FROM class_groups WHERE id = ? AND tenant_id = ? LIMIT 1`)
+    .bind(classGroupId, access.tenantId)
+    .first<{ name: string }>();
+  return {
+    offerings,
+    scope: {
+      classGroupId,
+      className: group?.name ?? classGroupId,
+      offering: null,
+    },
+  };
+}
+
+export async function getTeacherOperationsWorkspace(
+  access: AccessContext,
+  requestedOfferingId?: string,
+): Promise<TeacherOperationsWorkspace> {
+  requireTeacherOperationsAccess(access);
+  await ensureOperationsFoundation();
   const database = await getSchoolDatabase();
+  const { offerings, scope } = await resolveOperationsScope(
+    database,
+    access,
+    requestedOfferingId,
+  );
+  if (access.role === "class-teacher") {
+    await requireDailyAttendanceScope(access, scope.classGroupId);
+  }
+
   const [assignments, attendance, periods, timetable] = await Promise.all([
-    loadTeacherAssignments(database, access.tenantId),
-    loadAttendanceWorkspace(database, access.tenantId),
+    loadTeacherAssignments(database, access.tenantId, scope.offering?.id),
+    loadAttendanceWorkspace(database, access.tenantId, scope.classGroupId),
     loadPeriods(database, access.tenantId),
-    loadTimetable(database, access.tenantId),
+    loadTimetable(database, access.tenantId, scope.classGroupId),
   ]);
   return {
     assignments,
     attendance,
-    className: CLASS_NAME,
+    className: scope.className,
     currentDate: CURRENT_DATE,
-    markingQueue: await loadMarkingQueue(database, access.tenantId),
+    markingQueue: await loadMarkingQueue(
+      database,
+      access.tenantId,
+      scope.offering?.id,
+    ),
+    offeringId: scope.offering?.id ?? null,
+    offerings,
     periods,
-    subjectName: "Integrated Science",
+    subjectName: scope.offering?.subjectName ?? "No subject assigned",
     timetable,
   };
 }
@@ -238,9 +321,15 @@ export async function createPersistentAssignment(
 ) {
   requirePermission(access, "assignment:manage");
   await ensureOperationsFoundation();
-  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
+  const database0 = await getSchoolDatabase();
+  const { scope } = await resolveOperationsScope(
+    database0,
+    access,
+    input.offeringId,
+  );
+  if (!scope.offering) {
     throw new AuthorizationError(
-      "You are not assigned to this subject offering.",
+      "No subject offering is assigned to your account.",
     );
   }
   const criteria = input.criteria.map((criterion, index) => ({
@@ -266,7 +355,14 @@ export async function createPersistentAssignment(
   const assignmentId = crypto.randomUUID();
   const versionId = `${assignmentId}:v1`;
   const criterionIds = input.criteria.map(() => crypto.randomUUID());
-  const learners = await loadClassLearnerIds(database, access.tenantId);
+  /* The class the subject is taught to, so publishing a Mathematics
+     assignment creates submission rows for that class's learners rather than
+     for JHS 2 Gold's. */
+  const learners = await loadClassLearnerIds(
+    database,
+    access.tenantId,
+    scope.offering.classGroupId,
+  );
   await database.batch([
     database
       .prepare(
@@ -277,7 +373,7 @@ export async function createPersistentAssignment(
       .bind(
         assignmentId,
         access.tenantId,
-        SCIENCE_OFFERING_ID,
+        scope.offering.id,
         access.actorPersonId,
       ),
     database
@@ -343,12 +439,14 @@ export async function savePersistentAttendance(
 ) {
   requirePermission(access, "attendance:manage");
   await ensureOperationsFoundation();
-  await requireDailyAttendanceScope(access);
   const database = await getSchoolDatabase();
+  /* The register being written decides which class teacher may write it. This
+     read used to happen after the scope check, which could only be against the
+     one hardcoded class. */
   const row = await database
     .prepare(
       `SELECT r.id, r.learner_person_id, r.code, r.note, s.id AS session_id,
-        s.status AS session_status
+        s.status AS session_status, s.class_group_id
       FROM attendance_records r
       INNER JOIN attendance_sessions s ON s.id = r.session_id
       WHERE r.id = ? AND r.tenant_id = ?
@@ -356,6 +454,7 @@ export async function savePersistentAttendance(
     )
     .bind(input.recordId, access.tenantId)
     .first<{
+      class_group_id: string;
       code: AttendanceCode;
       id: string;
       learner_person_id: string;
@@ -368,6 +467,7 @@ export async function savePersistentAttendance(
       "Attendance record was not found.",
     );
   }
+  await requireDailyAttendanceScope(access, row.class_group_id);
   if (row.session_status === "draft") {
     await database.batch([
       database
@@ -458,21 +558,31 @@ export async function savePersistentAttendance(
   return getTeacherOperationsWorkspace(access);
 }
 
-export async function submitPersistentAttendance(access: AccessContext) {
+export async function submitPersistentAttendance(
+  access: AccessContext,
+  requestedOfferingId?: string,
+) {
   requirePermission(access, "attendance:manage");
   await ensureOperationsFoundation();
-  await requireDailyAttendanceScope(access);
   const database = await getSchoolDatabase();
+  const { scope } = await resolveOperationsScope(
+    database,
+    access,
+    requestedOfferingId,
+  );
+  await requireDailyAttendanceScope(access, scope.classGroupId);
   const attendance = await loadAttendanceWorkspace(
     database,
     access.tenantId,
+    scope.classGroupId,
   );
   if (attendance.status !== "draft") {
-    return getTeacherOperationsWorkspace(access);
+    return getTeacherOperationsWorkspace(access, requestedOfferingId);
   }
   const rosterLearnerIds = await loadClassLearnerIds(
     database,
     access.tenantId,
+    scope.classGroupId,
   );
   submitAttendanceRegister(
     rosterLearnerIds,
@@ -1443,7 +1553,11 @@ function seedAttendance(database: SchoolDatabase) {
 async function loadTeacherAssignments(
   database: SchoolDatabase,
   tenantId: string,
+  offeringId?: string,
 ) {
+  /* A class teacher who teaches no subject has no assignments, which is not
+     the same as an error. */
+  if (!offeringId) return [];
   const result = await database
     .prepare(
       `SELECT a.id, a.status, v.id AS version_id, v.title, v.due_at,
@@ -1460,7 +1574,7 @@ async function loadTeacherAssignments(
       GROUP BY a.id, v.id
       ORDER BY v.due_at`,
     )
-    .bind(tenantId, SCIENCE_OFFERING_ID)
+    .bind(tenantId, offeringId)
     .all<{
       due_at: string;
       id: string;
@@ -1488,7 +1602,9 @@ async function loadTeacherAssignments(
 async function loadMarkingQueue(
   database: SchoolDatabase,
   tenantId: string,
+  offeringId?: string,
 ) {
+  if (!offeringId) return [];
   const result = await database
     .prepare(
       `SELECT s.id, s.status, s.response_text, s.submitted_at,
@@ -1499,10 +1615,13 @@ async function loadMarkingQueue(
       INNER JOIN assignments a ON a.id = s.assignment_id
       INNER JOIN assignment_versions v
         ON v.assignment_id = a.id AND v.version = s.assignment_version
-      WHERE s.tenant_id = ? AND s.status IN ('submitted', 'late')
+      /* Scoped to the offering. This asked only for the tenant, so every
+         teacher's marking queue held every other teacher's submissions. */
+      WHERE s.tenant_id = ? AND a.offering_id = ?
+        AND s.status IN ('submitted', 'late')
       ORDER BY s.submitted_at`,
     )
-    .bind(tenantId)
+    .bind(tenantId, offeringId)
     .all<{
       assignment_id: string;
       id: string;
@@ -1569,6 +1688,7 @@ async function loadRubricCriteria(
 async function loadAttendanceWorkspace(
   database: SchoolDatabase,
   tenantId: string,
+  classGroupId: string,
 ) {
   const session = await database
     .prepare(
@@ -1578,16 +1698,23 @@ async function loadAttendanceWorkspace(
         AND mode = 'daily'
       LIMIT 1`,
     )
-    .bind(tenantId, CLASS_GROUP_ID, CURRENT_DATE)
+    .bind(tenantId, classGroupId, CURRENT_DATE)
     .first<{
       id: string;
       session_date: string;
       status: AttendanceSessionStatus;
     }>();
+  /* A class with no register taken today has an empty one, not an error. Only
+     the seeded class has a session, so throwing here is what made every other
+     class's daily workspace unopenable. */
   if (!session) {
-    throw new DailyOperationsPolicyError(
-      "Today's attendance register was not found.",
-    );
+    return {
+      date: CURRENT_DATE,
+      rows: [],
+      sessionId: "",
+      status: "draft" as AttendanceSessionStatus,
+      summary: summarizeAttendance([]),
+    };
   }
   const result = await database
     .prepare(
@@ -1648,7 +1775,11 @@ async function loadPeriods(database: SchoolDatabase, tenantId: string) {
   }));
 }
 
-async function loadTimetable(database: SchoolDatabase, tenantId: string) {
+async function loadTimetable(
+  database: SchoolDatabase,
+  tenantId: string,
+  classGroupId: string,
+) {
   const result = await database
     .prepare(
       `SELECT e.id, e.period_id, e.weekday, e.subject_name, e.room, e.status,
@@ -1662,7 +1793,7 @@ async function loadTimetable(database: SchoolDatabase, tenantId: string) {
       WHERE e.tenant_id = ? AND e.class_group_id = ?
       ORDER BY e.weekday, e.period_id`,
     )
-    .bind(tenantId, CLASS_GROUP_ID)
+    .bind(tenantId, classGroupId)
     .all<{
       change_reason: string | null;
       id: string;
@@ -1703,12 +1834,33 @@ async function buildLearnerSchoolDay(
   if (!learner) {
     throw new DailyOperationsPolicyError("Learner was not found.");
   }
+  /* The learner's own class, so their school day is their timetable rather
+     than JHS 2 Gold's. */
+  const placement = await database
+    .prepare(
+      `SELECT class_group.id, class_group.name
+      FROM class_groups AS class_group
+      INNER JOIN tenant_memberships AS membership
+        ON membership.tenant_id = class_group.tenant_id
+          AND membership.person_id = ?
+          AND membership.status = 'active'
+          AND membership.scope_type = 'class'
+          AND (
+            membership.scope_id = class_group.id
+            OR membership.scope_id = class_group.name
+          )
+      WHERE class_group.tenant_id = ?
+      LIMIT 1`,
+    )
+    .bind(learnerId, tenantId)
+    .first<{ id: string; name: string }>();
+  const learnerClassGroupId = placement?.id ?? CLASS_GROUP_ID;
   const [assignments, attendanceRecords, periods, timetable] =
     await Promise.all([
       loadLearnerAssignments(database, tenantId, learnerId),
       loadLearnerAttendance(database, tenantId, learnerId),
       loadPeriods(database, tenantId),
-      loadTimetable(database, tenantId),
+      loadTimetable(database, tenantId, learnerClassGroupId),
     ]);
   const currentRecord = attendanceRecords.find(
     (record) => record.sessionDate === CURRENT_DATE && record.submitted,
@@ -1964,9 +2116,21 @@ async function buildGuardianAlertStatements(
   return alertStatements;
 }
 
+async function classNameOf(
+  database: SchoolDatabase,
+  classGroupId: string,
+): Promise<string> {
+  const group = await database
+    .prepare(`SELECT name FROM class_groups WHERE id = ? LIMIT 1`)
+    .bind(classGroupId)
+    .first<{ name: string }>();
+  return group?.name ?? classGroupId;
+}
+
 async function loadClassLearnerIds(
   database: SchoolDatabase,
   tenantId: string,
+  classGroupId: string,
 ) {
   const result = await database
     .prepare(
@@ -1978,7 +2142,8 @@ async function loadClassLearnerIds(
         AND (m.scope_id = ? OR m.scope_id = ?)
       ORDER BY p.first_name`,
     )
-    .bind(tenantId, CLASS_NAME, CLASS_GROUP_ID)
+    /* Name or id, as everywhere a class membership is matched. */
+    .bind(tenantId, classGroupId, await classNameOf(database, classGroupId))
     .all<{ id: string }>();
   return result.results.map((row) => row.id);
 }
@@ -1997,7 +2162,10 @@ function requireTeacherOperationsAccess(access: AccessContext) {
   requirePermission(access, "attendance:manage");
 }
 
-async function requireDailyAttendanceScope(access: AccessContext) {
+async function requireDailyAttendanceScope(
+  access: AccessContext,
+  classGroupId: string,
+) {
   if (
     access.role === "school-admin" ||
     access.role === "academic-admin"
@@ -2019,11 +2187,19 @@ async function requireDailyAttendanceScope(access: AccessContext) {
         AND (scope_id = ? OR scope_id = ?)
       LIMIT 1`,
     )
+    /* A membership's scope_id holds a class name or a class group id
+       depending on how it was written, so both are matched — as
+       loadAccessScopes() does. */
     .bind(
       access.tenantId,
       access.actorPersonId,
-      CLASS_NAME,
-      CLASS_GROUP_ID,
+      classGroupId,
+      (
+        await database
+          .prepare(`SELECT name FROM class_groups WHERE id = ? LIMIT 1`)
+          .bind(classGroupId)
+          .first<{ name: string }>()
+      )?.name ?? classGroupId,
     )
     .first<{ person_id: string }>();
   if (!membership) {

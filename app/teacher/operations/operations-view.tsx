@@ -26,11 +26,15 @@ import "./operations.css";
    generated from rows that have to exist.
    ========================================================================== */
 
-async function fetchWorkspace(): Promise<
-  { error: string } | { workspace: TeacherOperationsWorkspace }
-> {
+async function fetchWorkspace(
+  offeringId?: string,
+): Promise<{ error: string } | { workspace: TeacherOperationsWorkspace }> {
   try {
-    const response = await fetch("/api/teacher/operations");
+    const response = await fetch(
+      offeringId
+        ? `/api/teacher/operations?offeringId=${encodeURIComponent(offeringId)}`
+        : "/api/teacher/operations",
+    );
     const payload = (await response.json()) as {
       error?: string;
       workspace?: TeacherOperationsWorkspace;
@@ -55,9 +59,9 @@ export function OperationsView() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (offeringId?: string) => {
     setState("loading");
-    const result = await fetchWorkspace();
+    const result = await fetchWorkspace(offeringId);
     if ("error" in result) {
       setProblem(result.error);
       setState("error");
@@ -108,6 +112,7 @@ export function OperationsView() {
     <LoadedOperations
       busy={busy}
       notice={notice}
+      selectOffering={(offeringId) => void load(offeringId)}
       setBusy={setBusy}
       setNotice={setNotice}
       setWorkspace={setWorkspace}
@@ -120,6 +125,7 @@ export function OperationsView() {
 function LoadedOperations({
   busy,
   notice,
+  selectOffering,
   setBusy,
   setNotice,
   setWorkspace,
@@ -127,6 +133,7 @@ function LoadedOperations({
 }: {
   busy: boolean;
   notice: string;
+  selectOffering: (offeringId: string) => void;
   setBusy: (value: boolean) => void;
   setNotice: (value: string) => void;
   setWorkspace: (value: TeacherOperationsWorkspace) => void;
@@ -175,9 +182,28 @@ function LoadedOperations({
           <section className="operations-hero">
             <div>
               <span className="operations-class-code">J2</span>
-              <p>
-                {workspace.className} · Class and subject operations
-              </p>
+              {/* Read "JHS 2 Gold · Integrated Science" to everyone, because
+                  the screen was gated on that one offering and its register on
+                  that one class. Choosing a subject here chooses its class. */}
+              {workspace.offerings.length > 1 ? (
+                <label className="operations-subject-switch">
+                  <span className="sr-only">Class and subject</span>
+                  <select
+                    onChange={(event) => selectOffering(event.target.value)}
+                    value={workspace.offeringId ?? ""}
+                  >
+                    {workspace.offerings.map((offering) => (
+                      <option key={offering.id} value={offering.id}>
+                        {offering.className} · {offering.subjectName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <p>
+                  {workspace.className} · {workspace.subjectName}
+                </p>
+              )}
               <h2>Registers, marking, and guardian alerts</h2>
               <p>
                 Everything recorded here writes to the {workspace.className}{" "}
@@ -751,7 +777,10 @@ function AttendancePanel({
         </div>
         <button
           disabled={busy || workspace.attendance.status !== "draft"}
-          onClick={() => void runAction({ action: "submit-attendance" })}
+          onClick={() => void runAction({
+                action: "submit-attendance",
+                offeringId: workspace.offeringId,
+              })}
           type="button"
         >
           {workspace.attendance.status === "draft"
