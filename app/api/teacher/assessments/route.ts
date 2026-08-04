@@ -15,11 +15,16 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const schoolUser = await requireSchoolRequestUser();
+    /* Which of the teacher's subjects to open. Absent on first load, when the
+       repository picks their first. */
+    const offeringId =
+      new URL(request.url).searchParams.get("offeringId") ?? undefined;
     const workspace = await listTeacherAssessmentWorkspace(
       schoolUser.access,
+      offeringId,
     );
     return Response.json({ actor: schoolUser.name, workspace });
   } catch (error) {
@@ -31,8 +36,8 @@ export async function POST(request: Request) {
   try {
     const schoolUser = await requireSchoolRequestUser();
     const payload = (await request.json()) as
-      | ({ action: "create-question" } & CreateBankQuestionInput)
-      | ({ action: "create-assessment" } & CreateAssessmentInput)
+      | ({ action: "create-question"; offeringId?: string } & CreateBankQuestionInput)
+      | ({ action: "create-assessment"; offeringId?: string } & CreateAssessmentInput)
       | { action: "publish"; assessmentId: string }
       | {
           action: "mark";
@@ -44,13 +49,18 @@ export async function POST(request: Request) {
       | { action: "release"; attemptId: string };
 
     if (payload.action === "create-question") {
-      const question = await createBankQuestion(schoolUser.access, payload);
+      const question = await createBankQuestion(
+        schoolUser.access,
+        payload,
+        payload.offeringId,
+      );
       return Response.json({ question }, { status: 201 });
     }
     if (payload.action === "create-assessment") {
       const assessment = await createPersistentAssessmentDraft(
         schoolUser.access,
         payload,
+        payload.offeringId,
       );
       return Response.json({ assessment }, { status: 201 });
     }

@@ -33,11 +33,15 @@ const typeLabels = Object.fromEntries(
    exist, and never be told.
    ========================================================================== */
 
-async function fetchWorkspace(): Promise<
-  { error: string } | { workspace: TeacherAssessmentWorkspace }
-> {
+async function fetchWorkspace(
+  offeringId?: string,
+): Promise<{ error: string } | { workspace: TeacherAssessmentWorkspace }> {
   try {
-    const response = await fetch("/api/teacher/assessments");
+    const response = await fetch(
+      offeringId
+        ? `/api/teacher/assessments?offeringId=${encodeURIComponent(offeringId)}`
+        : "/api/teacher/assessments",
+    );
     const payload = (await response.json()) as {
       error?: string;
       workspace?: TeacherAssessmentWorkspace;
@@ -63,9 +67,9 @@ export function TeacherAssessmentsView() {
   const [problem, setProblem] = useState("");
   const [notice, setNotice] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (offeringId?: string) => {
     setState("loading");
-    const result = await fetchWorkspace();
+    const result = await fetchWorkspace(offeringId);
     if ("error" in result) {
       setProblem(result.error);
       setState("error");
@@ -115,6 +119,7 @@ export function TeacherAssessmentsView() {
   return (
     <LoadedAssessments
       notice={notice}
+      selectOffering={(offeringId) => void load(offeringId)}
       setNotice={setNotice}
       setWorkspace={(update) =>
         setWorkspace((current) => (current ? update(current) : current))
@@ -127,11 +132,13 @@ export function TeacherAssessmentsView() {
 /* Split from the loader so the rest can take a workspace that is present. */
 function LoadedAssessments({
   notice,
+  selectOffering,
   setNotice,
   setWorkspace,
   workspace,
 }: {
   notice: string;
+  selectOffering: (offeringId: string) => void;
   setNotice: (value: string) => void;
   /* An updater over a workspace that is present, so nothing below has to
      spread a value that might be null. */
@@ -160,7 +167,11 @@ function LoadedAssessments({
 
   async function createQuestion(input: ComposedQuestion) {
     const response = await fetch("/api/teacher/assessments", {
-      body: JSON.stringify({ action: "create-question", ...input }),
+      body: JSON.stringify({
+        action: "create-question",
+        offeringId: workspace.offeringId,
+        ...input,
+      }),
       headers: { "content-type": "application/json" },
       method: "POST",
     });
@@ -207,7 +218,11 @@ function LoadedAssessments({
 
   async function createQuiz(input: QuizDraft) {
     const response = await fetch("/api/teacher/assessments", {
-      body: JSON.stringify({ action: "create-assessment", ...input }),
+      body: JSON.stringify({
+        action: "create-assessment",
+        offeringId: workspace.offeringId,
+        ...input,
+      }),
       headers: { "content-type": "application/json" },
       method: "POST",
     });
@@ -270,7 +285,28 @@ function LoadedAssessments({
           <section className="assessment-hero">
             <div>
               <span className="subject-code">{workspace.code}</span>
-              <p>{workspace.className}</p>
+              {/* This said "Integrated Science · JHS 2 Gold" to everyone,
+                  because the workspace was gated on that one offering. A
+                  teacher of several subjects chooses here. */}
+              {workspace.offerings.length > 1 ? (
+                <label className="assessment-subject-switch">
+                  <span className="sr-only">Subject</span>
+                  <select
+                    onChange={(event) => selectOffering(event.target.value)}
+                    value={workspace.offeringId}
+                  >
+                    {workspace.offerings.map((offering) => (
+                      <option key={offering.id} value={offering.id}>
+                        {offering.subjectName} · {offering.className}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <p>
+                  {workspace.subjectName} · {workspace.className}
+                </p>
+              )}
               <h2>Build, deliver and review with confidence.</h2>
               <p>
                 Reuse approved questions, pin exact versions, and keep

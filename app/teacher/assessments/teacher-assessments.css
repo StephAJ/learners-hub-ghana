@@ -173,6 +173,41 @@
   max-width: 600px;
 }
 
+/* The subject line was "Integrated Science · JHS 2 Gold" for everyone, because
+   the workspace was gated on that one offering. It is a control now, and it
+   sits on the dark hero — so it is glass rather than a filled input, matching
+   the preview button on the other side of the same panel. The caret is drawn
+   in the same muted ink the line above it uses. */
+.assessment-subject-switch select {
+  appearance: none;
+  background-color: rgba(255, 255, 255, 0.12);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23c8ddd6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right var(--space-3) center;
+  background-repeat: no-repeat;
+  background-size: 12px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-14);
+  padding: var(--space-1) var(--space-8) var(--space-1) var(--space-3);
+}
+
+.assessment-subject-switch select:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.assessment-subject-switch select:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* The options themselves render in the system palette, not the hero's. */
+.assessment-subject-switch option {
+  color: var(--ink);
+}
+
 .assessment-hero h2 {
   margin: 4px 0 12px;
   font-family: var(--font-serif);

@@ -12,6 +12,11 @@ import { getSchoolDatabase } from "./index";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
 import { SCIENCE_OFFERING_ID } from "./learning-repository";
 import {
+  loadTeachingOfferings,
+  selectOffering,
+  type TeachingOffering,
+} from "./teaching-offerings";
+import {
   adjustGradeEntry,
   approveReport,
   calculateWeightedGrade,
@@ -72,14 +77,12 @@ export type GradebookReportSummary = {
 
 /* One entry per subject the teacher holds. The markbook carried a single
    offeringId and no way to change it, so a teacher of four subjects could
-   reach exactly one markbook and was told nothing about the other three. */
-export type TeacherGradebookOffering = {
-  classGroupId: string;
-  className: string;
-  id: string;
-  subjectCode: string;
-  subjectName: string;
-};
+   reach exactly one markbook and was told nothing about the other three.
+
+   Named here because the view imports it from this module; the shape and the
+   query behind it are shared with the assessment and daily-class workspaces,
+   which ask the same question. */
+export type TeacherGradebookOffering = TeachingOffering;
 
 export type TeacherGradebookWorkspace = {
   categories: GradeCategory[];
@@ -145,59 +148,6 @@ export type SaveGradeEntryInput = {
   status?: GradeEntryStatus;
 };
 
-/* Every offering this person can open a markbook for. A teacher's own
-   subjects; for an administrator, the school's, because the role already
-   passes canTeachOffering() and a head of department opening one markbook
-   should not be told they teach nothing. */
-async function loadTeacherOfferings(
-  database: SchoolDatabase,
-  access: AccessContext,
-): Promise<TeacherGradebookOffering[]> {
-  const scopedToSelf =
-    access.role !== "school-admin" && access.role !== "academic-admin";
-  if (scopedToSelf && access.subjectOfferingIds.length === 0) return [];
-
-  /* The id list is interpolated rather than bound because the driver takes a
-     fixed parameter list, and these are ids this process just read out of
-     teacher_assignments — not input. */
-  const ownFilter = scopedToSelf
-    ? `AND offering.id IN (${access.subjectOfferingIds
-        .map((id) => `'${id.replace(/'/g, "''")}'`)
-        .join(", ")})`
-    : "";
-
-  const result = await database
-    .prepare(
-      `SELECT
-        offering.id,
-        offering.class_group_id,
-        offering.class_name,
-        subject.code AS subject_code,
-        subject.name AS subject_name
-      FROM subject_offerings AS offering
-      INNER JOIN subjects AS subject ON subject.id = offering.subject_id
-      WHERE offering.tenant_id = ? AND offering.status = 'active'
-        ${ownFilter}
-      ORDER BY offering.class_name, subject.name`,
-    )
-    .bind(access.tenantId)
-    .all<{
-      class_group_id: string;
-      class_name: string;
-      id: string;
-      subject_code: string;
-      subject_name: string;
-    }>();
-
-  return result.results.map((row) => ({
-    classGroupId: row.class_group_id,
-    className: row.class_name,
-    id: row.id,
-    subjectCode: row.subject_code,
-    subjectName: row.subject_name,
-  }));
-}
-
 export async function listTeacherGradebookWorkspace(
   access: AccessContext,
   requestedOfferingId?: string,
@@ -206,7 +156,7 @@ export async function listTeacherGradebookWorkspace(
   await ensureReportingFoundation();
   const database = await getSchoolDatabase();
 
-  const offerings = await loadTeacherOfferings(database, access);
+  const offerings = await loadTeachingOfferings(database, access);
   if (offerings.length === 0) {
     throw new AuthorizationError(
       "No subject offering is assigned to your account. An administrator assigns subjects on the Academics screen.",
@@ -219,8 +169,7 @@ export async function listTeacherGradebookWorkspace(
       "You are not assigned to this subject offering.",
     );
   }
-  const offering =
-    offerings.find((item) => item.id === requestedOfferingId) ?? offerings[0];
+  const offering = selectOffering(offerings, requestedOfferingId)!;
 
   const [categories, items, scale, period, submission] = await Promise.all([
     loadCategories(database, access.tenantId, offering.id),

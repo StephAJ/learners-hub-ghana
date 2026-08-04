@@ -26,10 +26,7 @@ import {
   canTeachOffering,
 } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
-import {
-  ensureLearningFoundation,
-  SCIENCE_OFFERING_ID,
-} from "./learning-repository";
+import { ensureLearningFoundation } from "./learning-repository";
 import { getSchoolDatabase } from "./index";
 import {
   demoAssessmentBySlug,
@@ -43,6 +40,12 @@ import type { SchoolDatabase, SchoolStatement } from "./school-database";
 
 const TENANT_ID = "tenant-greenfield";
 export const DIGESTION_ASSESSMENT_ID = "assessment-digestion-check";
+
+import {
+  loadTeachingOfferings,
+  selectOffering,
+  type TeachingOffering,
+} from "./teaching-offerings";
 
 export type QuestionBankSummary = {
   difficulty: "foundation" | "standard" | "challenge";
@@ -90,6 +93,11 @@ export type TeacherAssessmentWorkspace = {
   className: string;
   code: string;
   offeringId: string;
+  /* Every subject this teacher may write questions for, the selected one
+     included. The workspace named one offering and gated on the constant
+     SCIENCE_OFFERING_ID, so a teacher of any other subject was refused at the
+     door rather than shown their own question bank. */
+  offerings: TeachingOffering[];
   reviewQueue: ReviewAttempt[];
   subjectName: string;
   typeCoverage: number;
@@ -146,45 +154,78 @@ export type CreateAssessmentInput = {
 
 export async function listTeacherAssessmentWorkspace(
   access: AccessContext,
+  requestedOfferingId?: string,
 ): Promise<TeacherAssessmentWorkspace> {
   requireAssessmentPermission(access);
   await ensureAssessmentFoundation();
-  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
-    throw new AuthorizationError(
-      "No active assessment subject is assigned to your account.",
-    );
-  }
   const database = await getSchoolDatabase();
+  const offering = await requireOffering(
+    database,
+    access,
+    requestedOfferingId,
+  );
+  const offerings = await loadTeachingOfferings(database, access);
+
   const [bank, assessments, reviewQueue] = await Promise.all([
-    loadQuestionBank(database, access.tenantId),
-    loadAssessmentSummaries(database, access.tenantId),
-    loadReviewQueue(database, access.tenantId),
+    loadQuestionBank(database, access.tenantId, offering.id),
+    loadAssessmentSummaries(database, access.tenantId, offering.id),
+    loadReviewQueue(database, access.tenantId, offering.id),
   ]);
 
   return {
     assessments,
     bank,
-    className: "JHS 2 Gold",
-    code: "IS",
-    offeringId: SCIENCE_OFFERING_ID,
+    className: offering.className,
+    code: offering.subjectCode,
+    offeringId: offering.id,
+    offerings,
     reviewQueue,
-    subjectName: "Integrated Science",
+    subjectName: offering.subjectName,
     typeCoverage: new Set(bank.map((question) => question.type)).size,
   };
+}
+
+/* The offering a request is about, or a refusal saying which of the two
+   things went wrong: holding no subjects at all, and asking for one that is
+   not yours, are different problems with different fixes. */
+async function requireOffering(
+  database: SchoolDatabase,
+  access: AccessContext,
+  requestedOfferingId?: string,
+): Promise<TeachingOffering> {
+  const offerings = await loadTeachingOfferings(database, access);
+  if (offerings.length === 0) {
+    throw new AuthorizationError(
+      "No subject offering is assigned to your account. An administrator assigns subjects on the Academics screen.",
+    );
+  }
+  if (requestedOfferingId && !canTeachOffering(access, requestedOfferingId)) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+  const offering = selectOffering(offerings, requestedOfferingId);
+  if (!offering) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+  return offering;
 }
 
 export async function createBankQuestion(
   access: AccessContext,
   input: CreateBankQuestionInput,
+  requestedOfferingId?: string,
 ): Promise<QuestionBankSummary> {
   await ensureAssessmentFoundation();
   validateQuestionInput(input);
-  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
-    throw new AuthorizationError(
-      "You are not assigned to this subject offering.",
-    );
-  }
   const database = await getSchoolDatabase();
+  const offering = await requireOffering(
+    database,
+    access,
+    requestedOfferingId,
+  );
   const questionId = crypto.randomUUID();
   const questionVersionId = `${questionId}:v1`;
   const options = toQuestionOptions(input.options);
@@ -200,7 +241,7 @@ export async function createBankQuestion(
       .bind(
         questionId,
         access.tenantId,
-        SCIENCE_OFFERING_ID,
+        offering.id,
         access.actorPersonId,
         input.type,
         input.difficulty,
@@ -255,15 +296,16 @@ export async function createBankQuestion(
 export async function createPersistentAssessmentDraft(
   access: AccessContext,
   input: CreateAssessmentInput,
+  requestedOfferingId?: string,
 ): Promise<AssessmentSummary> {
   await ensureAssessmentFoundation();
   validateAssessmentInput(input);
-  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
-    throw new AuthorizationError(
-      "You are not assigned to this subject offering.",
-    );
-  }
   const database = await getSchoolDatabase();
+  const offering = await requireOffering(
+    database,
+    access,
+    requestedOfferingId,
+  );
   const uniqueQuestionIds = [...new Set(input.questionIds)];
   const placeholders = uniqueQuestionIds.map(() => "?").join(", ");
   const questionRows = await database
@@ -286,11 +328,7 @@ export async function createPersistentAssessmentDraft(
         AND q.status = 'approved'
         AND q.id IN (${placeholders})`,
     )
-    .bind(
-      access.tenantId,
-      SCIENCE_OFFERING_ID,
-      ...uniqueQuestionIds,
-    )
+    .bind(access.tenantId, offering.id, ...uniqueQuestionIds)
     .all<{
       answer_key: string;
       current_version: number;
@@ -314,7 +352,7 @@ export async function createPersistentAssessmentDraft(
     authorPersonId: access.actorPersonId,
     id: crypto.randomUUID(),
     instructions: input.instructions.trim(),
-    offeringId: SCIENCE_OFFERING_ID,
+    offeringId: offering.id,
     passMarkPercent: input.passMarkPercent,
     purpose: input.purpose,
     tenantId: access.tenantId,
@@ -920,7 +958,9 @@ export async function markPersistentResponse(
       { marks, questionVersionId },
     ),
   ]);
-  return loadReviewQueue(database, access.tenantId);
+  /* The queue that comes back is the one the marked response belongs to, not
+     whichever subject sorts first. */
+  return loadReviewQueue(database, access.tenantId, row.offering_id);
 }
 
 export async function releasePersistentResult(
@@ -968,7 +1008,7 @@ export async function releasePersistentResult(
       {},
     ),
   ]);
-  return loadReviewQueue(database, access.tenantId);
+  return loadReviewQueue(database, access.tenantId, attempt.offering_id);
 }
 
 export async function ensureAssessmentFoundation() {
@@ -1173,7 +1213,11 @@ function seedReviewAttempt(
   ];
 }
 
-async function loadQuestionBank(database: SchoolDatabase, tenantId: string) {
+async function loadQuestionBank(
+  database: SchoolDatabase,
+  tenantId: string,
+  offeringId: string,
+) {
   const result = await database
     .prepare(
       `SELECT
@@ -1194,7 +1238,7 @@ async function loadQuestionBank(database: SchoolDatabase, tenantId: string) {
       GROUP BY q.id, v.id
       ORDER BY q.updated_at DESC, q.created_at DESC`,
     )
-    .bind(tenantId, SCIENCE_OFFERING_ID)
+    .bind(tenantId, offeringId)
     .all<{
       current_version: number;
       difficulty: QuestionBankSummary["difficulty"];
@@ -1222,6 +1266,7 @@ async function loadQuestionBank(database: SchoolDatabase, tenantId: string) {
 async function loadAssessmentSummaries(
   database: SchoolDatabase,
   tenantId: string,
+  offeringId: string,
 ) {
   const result = await database
     .prepare(
@@ -1253,7 +1298,7 @@ async function loadAssessmentSummaries(
       WHERE a.tenant_id = ? AND a.offering_id = ?
       ORDER BY a.updated_at DESC`,
     )
-    .bind(tenantId, SCIENCE_OFFERING_ID)
+    .bind(tenantId, offeringId)
     .all<{
       attempt_count: number;
       current_version: number;
@@ -1278,7 +1323,11 @@ async function loadAssessmentSummaries(
   }));
 }
 
-async function loadReviewQueue(database: SchoolDatabase, tenantId: string) {
+async function loadReviewQueue(
+  database: SchoolDatabase,
+  tenantId: string,
+  offeringId: string,
+) {
   const result = await database
     .prepare(
       `SELECT
@@ -1309,7 +1358,7 @@ async function loadReviewQueue(database: SchoolDatabase, tenantId: string) {
         CASE at.status WHEN 'needs-marking' THEN 1 WHEN 'marked' THEN 2 ELSE 3 END,
         at.submitted_at`,
     )
-    .bind(tenantId, SCIENCE_OFFERING_ID)
+    .bind(tenantId, offeringId)
     .all<{
       attempt_id: string;
       learner_name: string;
