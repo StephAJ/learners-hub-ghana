@@ -245,6 +245,17 @@ export function ClockIcon(props: IconProps) {
   );
 }
 
+/** A conversation between a learner and a teacher. */
+export function MessagesIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20 14.5a2.5 2.5 0 0 1-2.5 2.5H9l-4 3.5V6.5A2.5 2.5 0 0 1 7.5 4h10A2.5 2.5 0 0 1 20 6.5z" />
+      <path d="M8.5 9h7" />
+      <path d="M8.5 12.5h4.5" />
+    </Icon>
+  );
+}
+
 /** Marking a question to come back to, in the assessment runner. */
 export function FlagIcon(props: IconProps) {
   return (

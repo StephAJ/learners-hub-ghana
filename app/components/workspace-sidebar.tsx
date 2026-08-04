@@ -12,6 +12,7 @@ import {
   FileTextIcon,
   HomeIcon,
   InboxIcon,
+  MessagesIcon,
   LayersIcon,
   PanelCollapseIcon,
   SignOutIcon,
@@ -52,6 +53,7 @@ const icons: Record<string, (props: { size?: number }) => ReactNode> = {
   content: FileTextIcon,
   home: HomeIcon,
   markbook: ChartIcon,
+  messages: MessagesIcon,
   schoolDay: CalendarIcon,
   subjects: BooksIcon,
 };

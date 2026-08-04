@@ -1,0 +1,383 @@
+/* ==========================================================================
+   The school inbox
+
+   A thread list beside one conversation. Both columns scroll independently
+   and the whole thing is capped to the viewport, so the composer stays put
+   while a long conversation scrolls behind it.
+
+   Type, weight, radius, spacing and colour come from the tokens in
+   globals.css.
+   ========================================================================== */
+
+.inbox {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 20rem minmax(0, 1fr);
+  /* Sized to the workspace content area rather than to content: an inbox that
+     grows with its longest conversation puts the reply box off screen. */
+  height: min(46rem, calc(100dvh - 12rem));
+}
+
+.inbox-list,
+.inbox-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* -- Thread list ---------------------------------------------------------- */
+
+.inbox-list-head {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+}
+
+.inbox-list-head h2 {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  margin: 0;
+}
+
+.inbox-list-head span {
+  color: var(--brand);
+  font-size: var(--fs-13);
+}
+
+.inbox-new {
+  align-items: center;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-pill);
+  color: var(--brand);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+}
+
+.inbox-new:hover:not(:disabled) {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #ffffff;
+}
+
+.inbox-new:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.inbox-list ul {
+  list-style: none;
+  margin: 0;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+.inbox-list li button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  text-align: left;
+  width: 100%;
+}
+
+.inbox-list li button:hover {
+  background: var(--brand-tint);
+}
+
+.inbox-list li button.is-open {
+  background: var(--brand-tint);
+  border-color: var(--brand-line);
+}
+
+.inbox-list-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.inbox-list-copy strong {
+  color: var(--ink);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.inbox-list-copy small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-list-meta {
+  align-items: flex-end;
+  display: grid;
+  flex: none;
+  gap: var(--space-1);
+  justify-items: end;
+}
+
+.inbox-list-meta time {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+.inbox-list-meta b {
+  background: var(--brand);
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  min-width: 1.25rem;
+  padding: 0 var(--space-1);
+  text-align: center;
+}
+
+.inbox-empty,
+.inbox-placeholder {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+  padding: var(--space-6);
+}
+
+.inbox-placeholder {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  text-align: center;
+}
+
+.inbox-error {
+  background: #f6e3de;
+  color: #96341f;
+  font-size: var(--fs-13);
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+}
+
+/* -- Conversation --------------------------------------------------------- */
+
+.conversation-head {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.conversation-head > div {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.conversation-head strong {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+}
+
+.conversation-head small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+.conversation-close {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  cursor: pointer;
+  flex: none;
+  height: 2rem;
+  width: 2rem;
+}
+
+.conversation-transcript {
+  display: grid;
+  flex: 1;
+  gap: var(--space-3);
+  justify-items: start;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+
+.bubble {
+  background: var(--canvas);
+  border-radius: var(--radius-lg);
+  /* Square off the corner nearest the sender, so the two sides read as a
+     conversation rather than two lists. */
+  border-bottom-left-radius: var(--radius-xs);
+  display: grid;
+  gap: var(--space-1);
+  max-width: min(34rem, 82%);
+  padding: var(--space-3) var(--space-4);
+}
+
+.bubble.is-mine {
+  background: var(--brand);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-xs);
+  color: #ffffff;
+  justify-self: end;
+}
+
+.bubble p {
+  font-family: var(--font-body);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+  /* A pasted line of a hundred characters must wrap rather than widen. */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.bubble time {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+.bubble.is-mine time {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* -- Composer ------------------------------------------------------------- */
+
+.conversation-composer {
+  align-items: flex-end;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.conversation-composer textarea {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  padding: var(--space-3);
+  resize: none;
+  width: 100%;
+}
+
+.conversation-composer textarea:focus-visible {
+  border-color: var(--brand);
+  outline: 2px solid var(--brand-line);
+  outline-offset: 1px;
+}
+
+.conversation-composer button {
+  align-items: center;
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: 0 var(--space-5);
+}
+
+.conversation-composer button:hover:not(:disabled) {
+  background: var(--brand-strong);
+}
+
+.conversation-composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* -- Choosing who to write to --------------------------------------------- */
+
+.recipient-list {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.recipient-list label {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.recipient-list label.is-selected {
+  background: var(--brand-tint);
+  border-color: var(--brand);
+}
+
+.recipient-list input {
+  accent-color: var(--brand);
+  margin: 0;
+}
+
+.recipient-list span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.recipient-list strong {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.recipient-list small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+@media (max-width: 860px) {
+  /* One column at a time on a phone: the list until a conversation is open,
+     then the conversation. Both at 20rem would leave neither readable. */
+  .inbox {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .inbox-list ul {
+    max-height: 18rem;
+  }
+
+  .inbox-panel {
+    min-height: 26rem;
+  }
+}

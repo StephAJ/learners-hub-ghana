@@ -39,6 +39,7 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
       icon: "assessments",
       label: "Assessments",
     },
+    { href: "/learn/messages", icon: "messages", label: "Messages" },
   ],
   teacher: [
     { href: "/teacher", icon: "home", label: "Today" },
@@ -47,6 +48,7 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
     { href: "/teacher/content", icon: "content", label: "Content library" },
     { href: "/teacher/assessments", icon: "assessments", label: "Assessments" },
     { href: "/teacher/gradebook", icon: "markbook", label: "Markbook" },
+    { href: "/teacher/messages", icon: "messages", label: "Messages" },
   ],
 };
 

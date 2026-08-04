@@ -552,6 +552,36 @@ CREATE TABLE IF NOT EXISTS "lesson_standard_links" (
   FOREIGN KEY ("standard_id") REFERENCES "curriculum_standards" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "message_threads" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "learner_person_id" text NOT NULL,
+  "teacher_person_id" text NOT NULL,
+  "offering_id" text,
+  "started_by_person_id" text NOT NULL,
+  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  "last_message_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  "learner_read_at" text,
+  "teacher_read_at" text,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("learner_person_id") REFERENCES "people" ("id"),
+  FOREIGN KEY ("teacher_person_id") REFERENCES "people" ("id"),
+  FOREIGN KEY ("offering_id") REFERENCES "subject_offerings" ("id"),
+  FOREIGN KEY ("started_by_person_id") REFERENCES "people" ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "messages" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "thread_id" text NOT NULL,
+  "sender_person_id" text NOT NULL,
+  "body" text NOT NULL,
+  "sent_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("thread_id") REFERENCES "message_threads" ("id"),
+  FOREIGN KEY ("sender_person_id") REFERENCES "people" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "report_cards" (
   "id" text PRIMARY KEY,
   "tenant_id" text NOT NULL,
@@ -813,6 +843,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS "media_object_key_idx"
 
 CREATE INDEX IF NOT EXISTS "media_tenant_offering_idx"
   ON "media_assets" ("tenant_id", "offering_id", "status");
+
+CREATE INDEX IF NOT EXISTS "threads_learner_recent_idx"
+  ON "message_threads" ("tenant_id", "learner_person_id", "last_message_at");
+
+CREATE INDEX IF NOT EXISTS "threads_teacher_recent_idx"
+  ON "message_threads" ("tenant_id", "teacher_person_id", "last_message_at");
+
+CREATE INDEX IF NOT EXISTS "messages_thread_sent_idx"
+  ON "messages" ("thread_id", "sent_at");
 
 CREATE INDEX IF NOT EXISTS "questions_tenant_offering_idx"
   ON "question_bank_items" ("tenant_id", "offering_id", "status");

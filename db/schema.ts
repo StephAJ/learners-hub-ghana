@@ -1681,3 +1681,77 @@ export const admissionApplicationRecords = sqliteTable(
     ),
   ],
 );
+
+/* ==========================================================================
+   Messaging
+
+   One conversation is one learner and one teacher. A pair can hold several
+   threads, the way a mailbox holds several conversations, because "my
+   fractions homework" and "I will be absent on Thursday" are not the same
+   conversation and should not become one.
+
+   Read state lives on the thread as two timestamps rather than in a
+   per-message table: with exactly two participants, "everything before this
+   moment is read" is the whole of what needs storing, and it makes the unread
+   count a comparison rather than a join.
+   ========================================================================== */
+
+export const messageThreads = sqliteTable(
+  "message_threads",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    learnerPersonId: text("learner_person_id")
+      .notNull()
+      .references(() => people.id),
+    teacherPersonId: text("teacher_person_id")
+      .notNull()
+      .references(() => people.id),
+    /* What the conversation is about, when the person starting it chose a
+       subject. Null for a general message to a class teacher. */
+    offeringId: text("offering_id").references(() => subjectOfferings.id),
+    startedByPersonId: text("started_by_person_id")
+      .notNull()
+      .references(() => people.id),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    /* Denormalised so the thread list sorts without touching messages. */
+    lastMessageAt: text("last_message_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    learnerReadAt: text("learner_read_at"),
+    teacherReadAt: text("teacher_read_at"),
+  },
+  (table) => [
+    index("threads_learner_recent_idx").on(
+      table.tenantId,
+      table.learnerPersonId,
+      table.lastMessageAt,
+    ),
+    index("threads_teacher_recent_idx").on(
+      table.tenantId,
+      table.teacherPersonId,
+      table.lastMessageAt,
+    ),
+  ],
+);
+
+export const messages = sqliteTable(
+  "messages",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => messageThreads.id),
+    senderPersonId: text("sender_person_id")
+      .notNull()
+      .references(() => people.id),
+    body: text("body").notNull(),
+    sentAt: text("sent_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("messages_thread_sent_idx").on(table.threadId, table.sentAt)],
+);
