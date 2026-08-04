@@ -13,13 +13,31 @@ import { createSchoolDatabase, type SchoolDatabase } from "./school-database";
 
 let database: SchoolDatabase | undefined;
 
-/** The school database. Shared by every repository. */
+/**
+ * The school database. Shared by every repository.
+ *
+ * This used to refuse unless `process.env.DATABASE_URL` was set, and that
+ * check was wrong in a way that took out half the product on the VPS.
+ *
+ * `deploy/hostinger/docker-compose.yml` configures the web container the way
+ * PostgreSQL tooling normally is — `PGHOST`, `PGUSER`, `PGPASSWORD`,
+ * `PGDATABASE`, `PGPORT` — and never sets `DATABASE_URL`. node-postgres reads
+ * those variables itself when it is given no connection string, so
+ * `getPostgresPool()` connected perfectly well and sign-in, people,
+ * admissions and the admin screens all worked.
+ *
+ * Everything behind this function did not. The five learning repositories —
+ * messaging, content, assessment, operations and reporting — all reach the
+ * database through here, so on the VPS every one of them threw
+ * "DATABASE_URL is not set" against a database that was connected and
+ * healthy. `/api/health` reported healthy throughout, because it asks the
+ * pool rather than this.
+ *
+ * There is no configuration test here any more. The pool is the single
+ * authority on whether a database is reachable, and a genuine connection
+ * failure surfaces as a connection error, which says something true.
+ */
 export async function getSchoolDatabase(): Promise<SchoolDatabase> {
-  if (!process.env.DATABASE_URL) {
-    throw new Error(
-      "DATABASE_URL is not set, so there is no database to read from.",
-    );
-  }
   database ??= createSchoolDatabase(getPostgresPool());
   return database;
 }

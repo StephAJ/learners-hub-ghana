@@ -368,3 +368,58 @@ describe("the generated learning schema", () => {
     expect(learningSchema).not.toContain(" boolean");
   });
 });
+
+/* ==========================================================================
+   How the database is configured
+
+   The deployment configures PostgreSQL the way PostgreSQL tooling normally is
+   — PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT — and sets no
+   DATABASE_URL. node-postgres reads those itself, so the pool connects and
+   sign-in, people and admissions all work.
+
+   db/index.ts used to refuse unless DATABASE_URL specifically was set, which
+   meant the five learning repositories behind it — messaging, content,
+   assessment, operations, reporting — threw "DATABASE_URL is not set" on a
+   VPS whose database was connected and healthy, while /api/health reported
+   healthy because it asks the pool instead.
+
+   These pin both halves of that: no module may invent its own configuration
+   test, and the compose file has to keep configuring the pool somehow.
+   ========================================================================== */
+describe("database configuration", () => {
+  it("leaves the question of whether a database exists to the pool", () => {
+    const source = readFileSync(
+      new URL("../db/index.ts", import.meta.url),
+      "utf8",
+    );
+    const guard = /if\s*\(\s*!process\.env\.DATABASE_URL\s*\)/;
+    expect(
+      guard.test(source),
+      "db/index.ts must not gate the school database on DATABASE_URL: the " +
+        "VPS configures the pool with PGHOST/PGUSER/PGPASSWORD instead, and " +
+        "this check took out every learning repository there.",
+    ).toBe(false);
+  });
+
+  it("configures the web container with credentials node-postgres can find", () => {
+    const compose = readFileSync(
+      new URL("../deploy/hostinger/docker-compose.yml", import.meta.url),
+      "utf8",
+    );
+    const web = compose.slice(
+      compose.indexOf("  web:"),
+      compose.indexOf("  postgres:"),
+    );
+    const hasConnectionString = /^\s+DATABASE_URL:/m.test(web);
+    const hasLibpqVariables =
+      /^\s+PGHOST:/m.test(web) &&
+      /^\s+PGUSER:/m.test(web) &&
+      /^\s+PGPASSWORD:/m.test(web) &&
+      /^\s+PGDATABASE:/m.test(web);
+    expect(
+      hasConnectionString || hasLibpqVariables,
+      "the web service must give node-postgres either DATABASE_URL or the " +
+        "full set of PG* variables, or nothing can reach the database",
+    ).toBe(true);
+  });
+});
