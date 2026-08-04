@@ -1014,3 +1014,34 @@
   font-size: var(--fs-13);
   margin-top: var(--space-1);
 }
+
+/* ==========================================================================
+   A video link
+
+   A video block can now source its footage from a link as well as from an
+   uploaded file — the resolver in domain/learning/video.ts already handled
+   both, and the lesson player already framed YouTube behind a click-to-load
+   poster. What was missing was anywhere for a teacher to put the link.
+
+   The note under the field is the whole point of it: it says, while the
+   teacher is still looking at the field, whether what they pasted will
+   actually play.
+   ========================================================================== */
+
+.video-link-field small {
+  color: var(--muted);
+  display: block;
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+  margin-top: var(--space-2);
+}
+
+/* Not red. An unrecognised link is a teacher part-way through pasting, not a
+   failure — the message names what does work rather than scolding. */
+.video-link-field small.is-problem {
+  color: var(--brand-accent-ink);
+}
+
+.video-link-field small.is-good {
+  color: var(--brand-strong);
+}

@@ -11,6 +11,7 @@ import type {
   LessonBlock,
   LessonBlockType,
 } from "../../../domain/learning/types";
+import { resolveVideoUrl } from "../../../domain/learning/video";
 import { demoContentWorkspace, demoTeacherLessonWorkspace } from "../../demo-data";
 import { demoSubjectBySlug } from "../../../domain/demo/greenfield";
 import {
@@ -547,6 +548,10 @@ function LessonDraftForm({
   const [blockContent, setBlockContent] = useState("");
   const [attachmentId, setAttachmentId] = useState("");
   const [posterId, setPosterId] = useState("");
+  /* A published video a teacher wants to teach around, rather than footage the
+     school hosts. domain/learning/video.ts decides whether a link is playable;
+     this only holds what was typed. */
+  const [videoUrl, setVideoUrl] = useState("");
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [blocks, setBlocks] = useState<
@@ -596,6 +601,7 @@ function LessonDraftForm({
           noteBody,
           noteTitle,
           posterId,
+          videoUrl,
         }),
         content: blockContent.trim(),
         id: crypto.randomUUID(),
@@ -608,6 +614,7 @@ function LessonDraftForm({
     setNoteTitle("");
     setNoteBody("");
     setAttachmentId("");
+    setVideoUrl("");
     setPosterId("");
   }
 
@@ -768,6 +775,23 @@ function LessonDraftForm({
           </label>
         )}
         {blockType === "video" && (
+          <label className="video-link-field">
+            <span>Or a video link</span>
+            <input
+              onChange={(event) => setVideoUrl(event.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              type="url"
+              value={videoUrl}
+            />
+            {/* Checked against the same resolver the player uses, so a link
+                that will not play is caught while the teacher is still looking
+                at it rather than by a learner on Monday morning. */}
+            <small className={videoLinkNote(videoUrl).tone}>
+              {videoLinkNote(videoUrl).message}
+            </small>
+          </label>
+        )}
+        {blockType === "video" && (
           <label>
             <span>Thumbnail (optional)</span>
             <select
@@ -832,18 +856,54 @@ function releaseLabel(lesson: LessonSummary) {
  * optional, but only on a video" as another ternary layer was how the
  * interactive branch's provider once went missing.
  */
+/**
+ * What to tell a teacher about the link they have typed so far.
+ *
+ * Deliberately not a blocking validation: a half-typed URL is the normal state
+ * of this field, and a teacher who pastes something unsupported should be told
+ * what *is* supported rather than simply refused.
+ */
+function videoLinkNote(raw: string): { message: string; tone: string } {
+  const value = raw.trim();
+  if (!value) {
+    return {
+      message:
+        "A YouTube link, or a direct .mp4 or .webm address. Leave blank to use an uploaded video instead.",
+      tone: "",
+    };
+  }
+  const source = resolveVideoUrl(value);
+  if (!source) {
+    return {
+      message:
+        "That link cannot be played. YouTube links work, as do direct https addresses ending in .mp4 or .webm.",
+      tone: "is-problem",
+    };
+  }
+  if (source.kind === "youtube") {
+    return {
+      message:
+        "YouTube video recognised. It loads only when a learner presses play, so no cookies are set before then.",
+      tone: "is-good",
+    };
+  }
+  return { message: "Direct video file recognised.", tone: "is-good" };
+}
+
 function blockConfig({
   attachmentId,
   blockType,
   noteBody,
   noteTitle,
   posterId,
+  videoUrl,
 }: {
   attachmentId: string;
   blockType: LessonBlockType;
   noteBody: string;
   noteTitle: string;
   posterId: string;
+  videoUrl: string;
 }): CreateLessonFormInput["blocks"][number]["config"] {
   if (blockType === "interactive") {
     return attachmentId
@@ -854,9 +914,11 @@ function blockConfig({
   if (blockType === "video") {
     /* A poster is worth keeping even with no footage yet: the teacher has said
        what the activity should look like, and the block is still a draft. */
-    if (!attachmentId && !posterId) return undefined;
+    const link = videoUrl.trim();
+    if (!attachmentId && !posterId && !link) return undefined;
     return {
       ...(attachmentId ? { mediaAssetId: attachmentId } : {}),
+      ...(link ? { videoUrl: link } : {}),
       ...(posterId ? { posterAssetId: posterId } : {}),
     };
   }
