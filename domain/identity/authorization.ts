@@ -22,6 +22,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
     "report:release",
     "report:read",
     "messages:moderate",
+    "announcement:post",
   ]),
   "academic-admin": new Set([
     "people:read",
@@ -38,6 +39,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
     "report:release",
     "report:read",
     "messages:moderate",
+    "announcement:post",
   ]),
   "admissions-officer": new Set([
     "people:read",
@@ -53,6 +55,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
     "attendance:manage",
     "gradebook:manage",
     "report:read",
+    "announcement:post",
   ]),
   "class-teacher": new Set([
     "people:read",
@@ -64,6 +67,7 @@ const rolePermissions: Record<SchoolRole, ReadonlySet<Permission>> = {
     "gradebook:manage",
     "student-record:read",
     "report:read",
+    "announcement:post",
   ]),
   guardian: new Set(["student-record:read", "report:read"]),
   learner: new Set(["student-record:read", "report:read"]),

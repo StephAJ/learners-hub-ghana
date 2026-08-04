@@ -1949,3 +1949,52 @@ export const messageReports = sqliteTable(
     index("reports_thread_idx").on(table.threadId),
   ],
 );
+
+/* A notice to everyone in a scope at once.
+
+   Messaging is one person writing to one person; this is the other thing a
+   school does, and until now the product had no idea of it at all. The scope
+   columns are deliberately the same shape as tenant_memberships' — a type of
+   tenant/class/subject and an id — so who can see a notice is answered with
+   the scopes a person already has rather than a new idea of audience.
+
+   publish_at carries no SQL default on purpose. Everywhere else in this
+   schema CURRENT_TIMESTAMP is rendered as 'YYYY-MM-DD HH24:MI:SS', while the
+   repositories write ISO-8601 through JavaScript. The two do not sort against
+   each other, and these are the two columns whose comparison decides whether
+   a notice is showing, so both are always written by the repository in one
+   format. */
+export const announcements = sqliteTable(
+  "announcements",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    authorPersonId: text("author_person_id")
+      .notNull()
+      .references(() => people.id),
+    scopeType: text("scope_type", { enum: ["tenant", "class", "subject"] })
+      .notNull()
+      .default("tenant"),
+    /* Null only when scope_type is tenant. */
+    scopeId: text("scope_id"),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    publishAt: text("publish_at").notNull(),
+    /* Null stands until someone takes it down. */
+    expiresAt: text("expires_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("announcements_tenant_publish_idx").on(
+      table.tenantId,
+      table.publishAt,
+    ),
+    index("announcements_scope_idx").on(
+      table.tenantId,
+      table.scopeType,
+      table.scopeId,
+    ),
+  ],
+);

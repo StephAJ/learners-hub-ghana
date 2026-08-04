@@ -8,6 +8,7 @@ import { LessonPolicyError } from "../domain/learning/lessons";
 import { AssessmentPolicyError } from "../domain/assessment/assessment";
 import { ReportingPolicyError } from "../domain/reporting/gradebook";
 import { DailyOperationsPolicyError } from "../domain/operations/daily-operations";
+import { AnnouncementError } from "../domain/announcements/announcements";
 import { ContentPolicyError } from "../domain/content/content-policy";
 import { MessagingError } from "../domain/messaging/messaging";
 
@@ -42,6 +43,9 @@ export function schoolApiErrorResponse(error: unknown) {
     return Response.json({ error: error.message }, { status: 422 });
   }
   if (error instanceof ContentPolicyError) {
+    return Response.json({ error: error.message }, { status: 422 });
+  }
+  if (error instanceof AnnouncementError) {
     return Response.json({ error: error.message }, { status: 422 });
   }
   const message =

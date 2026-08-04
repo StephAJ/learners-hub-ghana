@@ -36,6 +36,21 @@ CREATE TABLE IF NOT EXISTS "admission_intakes" (
   FOREIGN KEY ("academic_year_id") REFERENCES "academic_years" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "announcements" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "author_person_id" text NOT NULL,
+  "scope_type" text NOT NULL DEFAULT 'tenant',
+  "scope_id" text,
+  "title" text NOT NULL,
+  "body" text NOT NULL,
+  "publish_at" text NOT NULL,
+  "expires_at" text,
+  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("author_person_id") REFERENCES "people" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "subjects" (
   "id" text PRIMARY KEY,
   "tenant_id" text NOT NULL,
@@ -805,6 +820,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS "admission_intakes_tenant_label_idx"
 
 CREATE INDEX IF NOT EXISTS "admission_intakes_tenant_status_idx"
   ON "admission_intakes" ("tenant_id", "status");
+
+CREATE INDEX IF NOT EXISTS "announcements_tenant_publish_idx"
+  ON "announcements" ("tenant_id", "publish_at");
+
+CREATE INDEX IF NOT EXISTS "announcements_scope_idx"
+  ON "announcements" ("tenant_id", "scope_type", "scope_id");
 
 CREATE INDEX IF NOT EXISTS "attempts_learner_assessment_idx"
   ON "assessment_attempts" ("tenant_id", "learner_person_id", "assessment_id");

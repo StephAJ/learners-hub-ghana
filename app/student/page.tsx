@@ -1,3 +1,4 @@
+import { AnnouncementsPanel } from "../components/announcements/announcements-panel";
 import Link from "next/link";
 import { ProgressDonut } from "../components/progress-donut";
 import { WorkspaceShell } from "../components/workspace-shell";
@@ -127,6 +128,8 @@ export default async function StudentHomePage() {
           </div>
         </section>
       </div>
+
+      <AnnouncementsPanel />
     </WorkspaceShell>
   );
 }

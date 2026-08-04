@@ -28,7 +28,13 @@ export type Permission =
   /* Reading conversations someone has reported, and closing the report. Held
      by the school's administrators only: it is the power to read messages the
      holder is not a party to, so it is deliberately not part of teaching. */
-  | "messages:moderate";
+  | "messages:moderate"
+  /* Posting a notice to everyone in a scope at once. Distinct from messaging,
+     which is one person writing to one person: telling thirty-eight families
+     that Thursday's trip is cancelled through thirty-eight private threads is
+     not something anyone will do. What the holder may reach is bounded by
+     scope, not by this permission — see announcementScopesFor(). */
+  | "announcement:post";
 
 /* A school's colour. Two values only: everything else in the palette is
    derived from these in CSS, so a school cannot end up half-branded. See

@@ -1,3 +1,4 @@
+import { AnnouncementsPanel } from "../components/announcements/announcements-panel";
 import Link from "next/link";
 import { WorkspaceShell } from "../components/workspace-shell";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
@@ -127,6 +128,8 @@ export default async function TeacherHomePage() {
           </div>
         </section>
       </div>
+
+      <AnnouncementsPanel />
     </WorkspaceShell>
   );
 }
