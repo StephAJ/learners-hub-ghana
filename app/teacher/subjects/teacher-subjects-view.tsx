@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type {
   LessonSummary,
   TeacherLessonWorkspace,
@@ -12,76 +18,182 @@ import type {
   LessonBlockType,
 } from "../../../domain/learning/types";
 import { resolveVideoUrl } from "../../../domain/learning/video";
-import { demoContentWorkspace, demoTeacherLessonWorkspace } from "../../demo-data";
-import { demoSubjectBySlug } from "../../../domain/demo/greenfield";
-import {
-  publishPreviewLesson,
-  rememberPreviewDraft,
-} from "../../preview-workspace";
 import "../../admin/academic/academic.css";
 import "./teacher-subjects.css";
 
-/* Grace Mensah's Integrated Science, straight from the shared demo dataset,
-   so the lesson library a teacher sees is exactly what the learner opens. */
-const demoSubject = demoSubjectBySlug("integrated-science")!;
-const previewWorkspace: TeacherLessonWorkspace =
-  demoTeacherLessonWorkspace(demoSubject);
-const previewContentWorkspace: TeacherContentWorkspace =
-  demoContentWorkspace(demoSubject);
+/* ==========================================================================
+   No preview library
+
+   This screen opened on Grace Mensah's Integrated Science from the shared
+   demo dataset and kept it whenever /api/teacher/lessons failed. Authoring in
+   that state wrote the draft into preview-workspace.ts, a Map that lives for
+   one browser tab, and told the teacher their lesson was "saved in this
+   preview session" — a sentence that reads, to someone who has just written a
+   lesson, like it was saved.
+
+   Publishing went the same way: the learner player read the same Map, so the
+   whole author-publish-open path worked convincingly and persisted nothing.
+   ========================================================================== */
+
+const EMPTY_CONTENT: TeacherContentWorkspace = {
+  activities: [],
+  className: "",
+  mediaAssets: [],
+  offeringId: "",
+  subjectName: "",
+  totalBytes: 0,
+};
+
+async function fetchWorkspace(): Promise<
+  { error: string } | { workspace: TeacherLessonWorkspace }
+> {
+  try {
+    const response = await fetch("/api/teacher/lessons");
+    const payload = (await response.json()) as {
+      error?: string;
+      workspace?: TeacherLessonWorkspace;
+    };
+    if (!response.ok || !payload.workspace) {
+      return {
+        error: payload.error ?? "Your lesson library could not be loaded.",
+      };
+    }
+    return { workspace: payload.workspace };
+  } catch {
+    return { error: "Your lesson library could not be reached." };
+  }
+}
 
 export function TeacherSubjectsView() {
-  const [workspace, setWorkspace] = useState(previewWorkspace);
-  const [contentWorkspace, setContentWorkspace] = useState(
-    previewContentWorkspace,
+  const [workspace, setWorkspace] = useState<TeacherLessonWorkspace | null>(
+    null,
   );
-  const [selectedLessonId, setSelectedLessonId] = useState(
-    previewWorkspace.lessons[0].id,
-  );
+  const [contentWorkspace, setContentWorkspace] =
+    useState<TeacherContentWorkspace>(EMPTY_CONTENT);
+  const [selectedLessonId, setSelectedLessonId] = useState("");
   const [selectedUnitId, setSelectedUnitId] = useState("all");
-  const [dataMode, setDataMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
-  );
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [problem, setProblem] = useState("");
   const [notice, setNotice] = useState("");
   /* The draft currently loaded into the builder, if any. Editing is limited to
      drafts: a published lesson is a version learners may already hold progress
      against, so changing it is a new version rather than an edit. */
   const [editingLessonId, setEditingLessonId] = useState<string>();
 
+  const load = useCallback(async () => {
+    setState("loading");
+    const result = await fetchWorkspace();
+    if ("error" in result) {
+      setProblem(result.error);
+      setState("error");
+      return;
+    }
+    setWorkspace(result.workspace);
+    setSelectedLessonId(result.workspace.lessons[0]?.id ?? "");
+    setState("ready");
+  }, []);
+
   useEffect(() => {
     let active = true;
-    async function loadWorkspace() {
-      try {
-        const response = await fetch("/api/teacher/lessons");
-        if (!response.ok) throw new Error("Teacher records unavailable.");
-        const payload = (await response.json()) as {
-          actor: string;
-          workspace: TeacherLessonWorkspace;
-        };
-        if (!active) return;
-        setWorkspace(payload.workspace);
-        setSelectedLessonId((current) =>
-          payload.workspace.lessons.some((lesson) => lesson.id === current)
-            ? current
-            : payload.workspace.lessons[0]?.id ?? "",
-        );
-        setDataMode("protected");
-        const contentResponse = await fetch("/api/teacher/content");
-        if (contentResponse.ok) {
-          const contentPayload = (await contentResponse.json()) as {
-            workspace: TeacherContentWorkspace;
-          };
-          if (active) setContentWorkspace(contentPayload.workspace);
-        }
-      } catch {
-        if (active) setDataMode("preview");
+
+    async function loadOnce() {
+      const result = await fetchWorkspace();
+      if (!active) return;
+      if ("error" in result) {
+        setProblem(result.error);
+        setState("error");
+        return;
+      }
+      setWorkspace(result.workspace);
+      setSelectedLessonId((current) =>
+        result.workspace.lessons.some((lesson) => lesson.id === current)
+          ? current
+          : (result.workspace.lessons[0]?.id ?? ""),
+      );
+      setState("ready");
+
+      /* The library is a second request because a subject can be taught
+         without one. A teacher whose media library fails to load still gets
+         their lessons; the attach control simply has nothing to offer. */
+      const contentResponse = await fetch("/api/teacher/content");
+      if (!contentResponse.ok || !active) return;
+      const contentPayload = (await contentResponse.json()) as {
+        workspace?: TeacherContentWorkspace;
+      };
+      if (active && contentPayload.workspace) {
+        setContentWorkspace(contentPayload.workspace);
       }
     }
-    void loadWorkspace();
+
+    void loadOnce();
     return () => {
       active = false;
     };
   }, []);
 
+  if (state === "loading") {
+    return <p className="workspace-loading">Loading your lesson library…</p>;
+  }
+
+  if (state === "error" || !workspace) {
+    return (
+      <div className="workspace-failure">
+        <h2>Your lesson library could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => void load()} type="button">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <LoadedSubjects
+      contentWorkspace={contentWorkspace}
+      editingLessonId={editingLessonId}
+      notice={notice}
+      selectedLessonId={selectedLessonId}
+      selectedUnitId={selectedUnitId}
+      setEditingLessonId={setEditingLessonId}
+      setNotice={setNotice}
+      setSelectedLessonId={setSelectedLessonId}
+      setSelectedUnitId={setSelectedUnitId}
+      setWorkspace={(update) =>
+        setWorkspace((current) => (current ? update(current) : current))
+      }
+      workspace={workspace}
+    />
+  );
+}
+
+/* Split from the loader so the rest can take a workspace that is present. */
+function LoadedSubjects({
+  contentWorkspace,
+  editingLessonId,
+  notice,
+  selectedLessonId,
+  selectedUnitId,
+  setEditingLessonId,
+  setNotice,
+  setSelectedLessonId,
+  setSelectedUnitId,
+  setWorkspace,
+  workspace,
+}: {
+  contentWorkspace: TeacherContentWorkspace;
+  editingLessonId: string | undefined;
+  notice: string;
+  selectedLessonId: string;
+  selectedUnitId: string;
+  setEditingLessonId: (value: string | undefined) => void;
+  setNotice: (value: string) => void;
+  setSelectedLessonId: (value: string) => void;
+  setSelectedUnitId: (value: string) => void;
+  setWorkspace: (
+    update: (current: TeacherLessonWorkspace) => TeacherLessonWorkspace,
+  ) => void;
+  workspace: TeacherLessonWorkspace;
+}) {
   const visibleLessons = useMemo(
     () =>
       selectedUnitId === "all"
@@ -116,30 +228,6 @@ export function TeacherSubjectsView() {
     lessonId: string,
     input: CreateLessonFormInput,
   ) {
-    if (dataMode !== "protected") {
-      setWorkspace((current) => ({
-        ...current,
-        lessons: current.lessons.map((lesson) =>
-          lesson.id === lessonId
-            ? {
-                ...lesson,
-                blockCount: input.blocks.length,
-                objectiveCount: input.objectives.length,
-                title: input.title,
-                unitId: input.unitId,
-                unitTitle:
-                  current.units.find((unit) => unit.id === input.unitId)
-                    ?.title ?? lesson.unitTitle,
-                updatedAt: new Date().toISOString(),
-              }
-            : lesson,
-        ),
-      }));
-      setEditingLessonId(undefined);
-      setNotice("Draft updated in this preview session.");
-      return;
-    }
-
     const response = await fetch("/api/teacher/lessons", {
       body: JSON.stringify({
         action: "update",
@@ -171,67 +259,6 @@ export function TeacherSubjectsView() {
   }
 
   async function createDraft(input: CreateLessonFormInput) {
-    if (dataMode !== "protected") {
-      const previewLesson: LessonSummary = {
-        blockCount: input.blocks.length,
-        id: `preview-${Date.now()}`,
-        objectiveCount: input.objectives.length,
-        prerequisiteTitle: input.prerequisiteLessonId
-          ? workspace.lessons.find(
-              (lesson) => lesson.id === input.prerequisiteLessonId,
-            )?.title
-          : undefined,
-        releaseMode: input.prerequisiteLessonId
-          ? "prerequisite"
-          : input.availableFrom
-            ? "scheduled"
-            : "immediate",
-        standardCodes: workspace.standards
-          .filter((standard) => input.standardIds.includes(standard.id))
-          .map((standard) => standard.code),
-        status: "draft",
-        title: input.title,
-        unitId: input.unitId,
-        unitTitle:
-          workspace.units.find((unit) => unit.id === input.unitId)?.title ??
-          "Curriculum unit",
-        updatedAt: new Date().toISOString(),
-        version: 0,
-      };
-      /* Keep the draft's actual contents, not just its summary, so publishing
-         it hands the learner player a real lesson. */
-      rememberPreviewDraft(workspace.offeringId, {
-        availability: "available",
-        blocks: input.blocks.map((block, index) => ({
-          config: block.config,
-          content: block.content,
-          id: `${previewLesson.id}-block-${index + 1}`,
-          position: index + 1,
-          ready: true,
-          title: block.title,
-          type: block.type,
-        })),
-        estimatedMinutes: Math.max(5, input.blocks.length * 5),
-        id: previewLesson.id,
-        objectives: input.objectives,
-        progressPercent: 0,
-        standardCodes: previewLesson.standardCodes,
-        summary: input.summary,
-        title: input.title,
-        unitTitle: previewLesson.unitTitle,
-        version: 0,
-      });
-      setWorkspace((current) => ({
-        ...current,
-        lessons: [previewLesson, ...current.lessons],
-      }));
-      setSelectedLessonId(previewLesson.id);
-      setNotice(
-        "Draft saved in this preview session. Publish it to open it in the learner view.",
-      );
-      return;
-    }
-
     const response = await fetch("/api/teacher/lessons", {
       body: JSON.stringify({
         action: "create",
@@ -259,24 +286,6 @@ export function TeacherSubjectsView() {
 
   async function publishSelectedLesson() {
     if (!selectedLesson || selectedLesson.status !== "draft") return;
-    if (dataMode !== "protected") {
-      const released = publishPreviewLesson(selectedLesson.id);
-      setWorkspace((current) => ({
-        ...current,
-        lessons: current.lessons.map((lesson) =>
-          lesson.id === selectedLesson.id
-            ? { ...lesson, status: "published", version: 1 }
-            : lesson,
-        ),
-      }));
-      setNotice(
-        released
-          ? `${selectedLesson.title} is now open in the learner view for this preview session.`
-          : "This lesson was authored before the page reloaded, so its activities are no longer in memory. Recreate the draft to publish it.",
-      );
-      return;
-    }
-
     const response = await fetch("/api/teacher/lessons", {
       body: JSON.stringify({
         action: "publish",
@@ -306,24 +315,6 @@ export function TeacherSubjectsView() {
 
   async function duplicateSelectedLesson() {
     if (!selectedLesson) return;
-    if (dataMode !== "protected") {
-      const duplicate: LessonSummary = {
-        ...selectedLesson,
-        id: `preview-copy-${Date.now()}`,
-        releaseMode: "immediate",
-        status: "draft",
-        title: `${selectedLesson.title} — copy`,
-        version: 0,
-      };
-      setWorkspace((current) => ({
-        ...current,
-        lessons: [duplicate, ...current.lessons],
-      }));
-      setSelectedLessonId(duplicate.id);
-      setNotice("A reusable private copy was added to the lesson library.");
-      return;
-    }
-
     const response = await fetch("/api/teacher/lessons", {
       body: JSON.stringify({
         action: "duplicate",
@@ -403,6 +394,20 @@ export function TeacherSubjectsView() {
                 <div><p className="eyebrow">Lesson library</p><h2 id="lesson-library-title">{selectedUnitId === "all" ? "All lessons" : workspace.units.find((unit) => unit.id === selectedUnitId)?.title}</h2></div>
                 <span>{visibleLessons.length} lessons</span>
               </div>
+              {visibleLessons.length === 0 ? (
+                <div className="workspace-empty">
+                  <strong>
+                    {workspace.lessons.length === 0
+                      ? "No lessons yet"
+                      : "No lessons in this unit"}
+                  </strong>
+                  <p>
+                    {workspace.lessons.length === 0
+                      ? "Lessons you write for this subject appear here. Start one with “Write a lesson” above."
+                      : "Choose another unit, or write the first lesson for this one."}
+                  </p>
+                </div>
+              ) : null}
               <div className="lesson-list">
                 {visibleLessons.map((lesson) => (
                   <button

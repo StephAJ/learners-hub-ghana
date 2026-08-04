@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   GradebookLearner,
   TeacherGradebookWorkspace,
@@ -8,127 +8,142 @@ import type {
 import "../../admin/academic/academic.css";
 import "./gradebook.css";
 
-const previewWorkspace: TeacherGradebookWorkspace = {
-  categories: [
-    {
-      id: "category-science-ca",
-      name: "Continuous assessment",
-      weightPercent: 40,
-    },
-    {
-      id: "category-science-exam",
-      name: "End-of-term examination",
-      weightPercent: 60,
-    },
-  ],
-  className: "JHS 2 Gold",
-  items: [
-    {
-      categoryId: "category-science-ca",
-      categoryName: "Continuous assessment",
-      id: "grade-item-digestion-quiz",
-      maximumMarks: 20,
-      title: "Digestive system quiz",
-    },
-    {
-      categoryId: "category-science-ca",
-      categoryName: "Continuous assessment",
-      id: "grade-item-model-project",
-      maximumMarks: 30,
-      title: "Body systems model",
-    },
-    {
-      categoryId: "category-science-exam",
-      categoryName: "End-of-term examination",
-      id: "grade-item-term-exam",
-      maximumMarks: 50,
-      title: "End-of-term examination",
-    },
-  ],
-  learners: [
-    learner(
-      "person-ama",
-      "Ama Serwaa",
-      "LH-260112",
-      [18, 27, 45],
-      90,
-      "A",
-    ),
-    learner(
-      "person-kwame",
-      "Kwame Agyeman",
-      "LH-260138",
-      [16, 25, 42],
-      83.2,
-      "A",
-    ),
-    learner(
-      "person-kojo",
-      "Kojo Boateng",
-      "LH-260145",
-      [12, null, 35],
-      null,
-      "—",
-    ),
-  ],
-  offeringId: "offering-science-jhs2",
-  period: {
-    academicYear: "2026 / 2027",
-    id: "period-2026-term1",
-    name: "Term 1",
-    policyVersion: 1,
-    submissionStatus: "open",
-  },
-  reports: [
-    report("person-ama", "Ama Serwaa", 87.3),
-    report("person-kwame", "Kwame Agyeman", 78.2),
-    report("person-kojo", "Kojo Boateng", 69.2),
-  ],
-  scale: [
-    { grade: "A", maximumPercent: 100, minimumPercent: 80, remark: "Excellent" },
-    { grade: "B", maximumPercent: 79.9, minimumPercent: 70, remark: "Very good" },
-    { grade: "C", maximumPercent: 69.9, minimumPercent: 60, remark: "Good" },
-    { grade: "D", maximumPercent: 59.9, minimumPercent: 50, remark: "Credit" },
-    { grade: "E", maximumPercent: 49.9, minimumPercent: 40, remark: "Pass" },
-    { grade: "F", maximumPercent: 39.9, minimumPercent: 0, remark: "Needs support" },
-  ],
-  subjectName: "Integrated Science",
-};
+/* ==========================================================================
+   No preview markbook
+
+   This screen used to open on a hardcoded copy of Grace Mensah's Integrated
+   Science — three learners, three grade items, a full grading scale — and it
+   kept that copy whenever /api/teacher/gradebook failed, in a mode called
+   "preview". Marking a learner in that mode ran updatePreview(), which moved
+   the mark in local state, invented a grade for the one learner it knew by
+   id, and reported "Missing mark recorded in this preview."
+
+   Nothing was written, and the screen looked exactly like the working one.
+   Every teacher-side fault therefore rendered as a working markbook holding
+   another school's marks — including, until this week, an authorisation
+   refusal for any teacher who does not teach Integrated Science.
+
+   What replaces it is three honest states: loading, the failure with the
+   reason the server gave, and the markbook itself.
+   ========================================================================== */
+
+async function fetchWorkspace(): Promise<
+  { error: string } | { workspace: TeacherGradebookWorkspace }
+> {
+  try {
+    const response = await fetch("/api/teacher/gradebook");
+    const payload = (await response.json()) as {
+      error?: string;
+      workspace?: TeacherGradebookWorkspace;
+    };
+    if (!response.ok || !payload.workspace) {
+      return { error: payload.error ?? "The markbook could not be loaded." };
+    }
+    return { workspace: payload.workspace };
+  } catch {
+    return { error: "The markbook could not be reached." };
+  }
+}
 
 type GradebookTab = "marks" | "reports" | "policy";
 
 export function GradebookView() {
-  const [workspace, setWorkspace] = useState(previewWorkspace);
-  const [tab, setTab] = useState<GradebookTab>("marks");
-  const [dataMode, setDataMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
+  const [workspace, setWorkspace] = useState<TeacherGradebookWorkspace | null>(
+    null,
   );
+  const [tab, setTab] = useState<GradebookTab>("marks");
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [problem, setProblem] = useState("");
   const [notice, setNotice] = useState("");
   const [busyAction, setBusyAction] = useState("");
 
+  /* Used by the Try again button. The mount path below repeats it rather than
+     depending on it, so an in-flight load from a unmounting view cannot land
+     on state that no longer exists. */
+  const load = useCallback(async () => {
+    setState("loading");
+    const result = await fetchWorkspace();
+    if ("error" in result) {
+      setProblem(result.error);
+      setState("error");
+      return;
+    }
+    setWorkspace(result.workspace);
+    setState("ready");
+  }, []);
+
   useEffect(() => {
     let active = true;
-    async function loadWorkspace() {
-      try {
-        const response = await fetch("/api/teacher/gradebook");
-        if (!response.ok) throw new Error("Gradebook unavailable.");
-        const payload = (await response.json()) as {
-          actor: string;
-          workspace: TeacherGradebookWorkspace;
-        };
-        if (!active) return;
-        setWorkspace(payload.workspace);
-        setDataMode("protected");
-      } catch {
-        if (active) setDataMode("preview");
+
+    async function loadOnce() {
+      const result = await fetchWorkspace();
+      if (!active) return;
+      if ("error" in result) {
+        setProblem(result.error);
+        setState("error");
+        return;
       }
+      setWorkspace(result.workspace);
+      setState("ready");
     }
-    void loadWorkspace();
+
+    void loadOnce();
     return () => {
       active = false;
     };
   }, []);
 
+  if (state === "loading") {
+    return <p className="workspace-loading">Loading your markbook…</p>;
+  }
+
+  if (state === "error" || !workspace) {
+    return (
+      <div className="workspace-failure">
+        <h2>Your markbook could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => void load()} type="button">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <LoadedGradebook
+      busyAction={busyAction}
+      notice={notice}
+      setBusyAction={setBusyAction}
+      setNotice={setNotice}
+      setTab={setTab}
+      setWorkspace={setWorkspace}
+      tab={tab}
+      workspace={workspace}
+    />
+  );
+}
+
+/* Split out so everything below can take a workspace that is present, rather
+   than testing for null on every line of a 500-line render. */
+function LoadedGradebook({
+  busyAction,
+  notice,
+  setBusyAction,
+  setNotice,
+  setTab,
+  setWorkspace,
+  tab,
+  workspace,
+}: {
+  busyAction: string;
+  notice: string;
+  setBusyAction: (value: string) => void;
+  setNotice: (value: string) => void;
+  setTab: (value: GradebookTab) => void;
+  setWorkspace: (value: TeacherGradebookWorkspace) => void;
+  tab: GradebookTab;
+  workspace: TeacherGradebookWorkspace;
+}) {
   const missingCount = workspace.learners.reduce(
     (sum, item) => sum + item.missingCount,
     0,
@@ -144,11 +159,6 @@ export function GradebookView() {
 
   async function runAction(body: Record<string, unknown>) {
     setBusyAction(String(body.action));
-    if (dataMode !== "protected") {
-      updatePreview(body);
-      setBusyAction("");
-      return;
-    }
     const response = await fetch("/api/teacher/gradebook", {
       body: JSON.stringify(body),
       headers: { "content-type": "application/json" },
@@ -166,62 +176,6 @@ export function GradebookView() {
     setWorkspace(payload.workspace);
     setNotice(actionNotice(String(body.action)));
     setBusyAction("");
-  }
-
-  function updatePreview(body: Record<string, unknown>) {
-    const action = String(body.action);
-    if (action === "save-entry") {
-      setWorkspace((current) => ({
-        ...current,
-        learners: current.learners.map((item) => ({
-          ...item,
-          cells: item.cells.map((cell) =>
-            cell.entryId === body.entryId
-              ? {
-                  ...cell,
-                  status: "recorded",
-                  value: Number(body.marks),
-                }
-              : cell,
-          ),
-          grade: item.id === "person-kojo" ? "B" : item.grade,
-          missingCount:
-            item.cells.some((cell) => cell.entryId === body.entryId)
-              ? 0
-              : item.missingCount,
-          remark: item.id === "person-kojo" ? "Very good" : item.remark,
-          totalPercent: item.id === "person-kojo" ? 70.6 : item.totalPercent,
-        })),
-      }));
-    } else if (action === "submit-gradebook") {
-      setWorkspace((current) => ({
-        ...current,
-        period: { ...current.period, submissionStatus: "submitted" },
-        reports: current.reports.map((item) => ({
-          ...item,
-          status: "submitted",
-        })),
-      }));
-    } else if (action === "approve-report") {
-      setWorkspace((current) => ({
-        ...current,
-        reports: current.reports.map((item) =>
-          item.id === body.reportId
-            ? { ...item, status: "approved" }
-            : item,
-        ),
-      }));
-    } else if (action === "release-report") {
-      setWorkspace((current) => ({
-        ...current,
-        reports: current.reports.map((item) =>
-          item.id === body.reportId
-            ? { ...item, status: "released", version: item.version + 1 }
-            : item,
-        ),
-      }));
-    }
-    setNotice(actionNotice(action, true));
   }
 
   return (
@@ -351,6 +305,15 @@ function MarksPanel({
           {workspace.period.submissionStatus}
         </div>
       </div>
+      {workspace.learners.length === 0 ? (
+        <div className="workspace-empty">
+          <strong>No learners in this class yet</strong>
+          <p>
+            Marks appear once learners have been placed into{" "}
+            {workspace.className}.
+          </p>
+        </div>
+      ) : null}
       <div className="gradebook-table-wrap">
         <table className="marks-table">
           <thead>
@@ -652,54 +615,6 @@ function PolicyPanel({
   );
 }
 
-function learner(
-  id: string,
-  name: string,
-  studentId: string,
-  marks: Array<number | null>,
-  totalPercent: number | null,
-  grade: string,
-): GradebookLearner {
-  const itemIds = [
-    "grade-item-digestion-quiz",
-    "grade-item-model-project",
-    "grade-item-term-exam",
-  ];
-  const maxima = [20, 30, 50];
-  return {
-    cells: marks.map((mark, index) => ({
-      adjusted: false,
-      entryId: `grade-entry-${id}-${index + 1}`,
-      itemId: itemIds[index],
-      maximumMarks: maxima[index],
-      status: mark === null ? "missing" : "recorded",
-      value: mark,
-    })),
-    grade,
-    id,
-    missingCount: marks.filter((mark) => mark === null).length,
-    name,
-    remark: grade === "A" ? "Excellent" : grade === "—" ? "Incomplete" : "Very good",
-    studentId,
-    totalPercent,
-  };
-}
-
-function report(
-  learnerId: string,
-  learnerName: string,
-  averagePercent: number,
-): TeacherGradebookWorkspace["reports"][number] {
-  return {
-    averagePercent,
-    id: `report-${learnerId}-term1`,
-    learnerName,
-    status: "draft",
-    updatedAt: "2026-07-23T12:00:00Z",
-    version: 0,
-  };
-}
-
 /* The raw status is a slug — "open", "submitted", "approved" — and printing
    it as-is was one of the things that made the metric cards read like a
    database dump. */
@@ -723,11 +638,12 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function actionNotice(action: string, preview = false) {
-  const suffix = preview ? " in this preview." : ".";
-  if (action === "save-entry") return `Missing mark recorded${suffix}`;
-  if (action === "submit-gradebook") return `Gradebook submitted for review${suffix}`;
-  if (action === "approve-report") return `Report approved${suffix}`;
-  if (action === "release-report") return `Report released to authorised guardians${suffix}`;
-  return `Gradebook updated${suffix}`;
+function actionNotice(action: string) {
+  if (action === "save-entry") return "Missing mark recorded.";
+  if (action === "submit-gradebook") return "Gradebook submitted for review.";
+  if (action === "approve-report") return "Report approved.";
+  if (action === "release-report") {
+    return "Report released to authorised guardians.";
+  }
+  return "Gradebook updated.";
 }

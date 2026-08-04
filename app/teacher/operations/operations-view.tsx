@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   AttendanceRow,
   MarkingSubmission,
@@ -11,135 +11,132 @@ import type { AttendanceCode } from "../../../domain/operations/types";
 import "../../admin/academic/academic.css";
 import "./operations.css";
 
-const attendanceRows: AttendanceRow[] = [
-  attendance("person-ama", "Ama Serwaa", "LH-260112", "present"),
-  attendance("person-kwame", "Kwame Agyeman", "LH-260138", "present"),
-  attendance("person-kojo", "Kojo Boateng", "LH-260145", "late"),
-];
+/* ==========================================================================
+   No preview class
 
-const previewRubric = [
-  {
-    description:
-      "Labels, functions, and scientific relationships are correct.",
-    id: "criterion-science-accuracy",
-    maximumPoints: 12,
-    name: "Scientific accuracy",
-  },
-  {
-    description:
-      "The model and explanation communicate the idea clearly.",
-    id: "criterion-science-communication",
-    maximumPoints: 8,
-    name: "Communication",
-  },
-];
+   This screen opened on JHS 2 Gold — a register of three learners, a marking
+   queue with one handed-in submission and its rubric, a five-period day — and
+   kept all of it whenever /api/teacher/operations failed. Submitting the
+   register in that state ran updatePreview(), which moved the rows in local
+   state and said "Preview updated. Register submitted."
 
-const previewWorkspace: TeacherOperationsWorkspace = {
-  assignments: [
-    {
-      dueAt: "2026-07-28T16:00:00Z",
-      id: "assignment-body-systems",
-      maximumPoints: 20,
-      needsMarking: 2,
-      rubric: previewRubric,
-      status: "published",
-      submissionCount: 3,
-      title: "Body systems model",
-    },
-  ],
-  attendance: {
-    date: "2026-07-24",
-    rows: attendanceRows,
-    sessionId: "attendance-2026-07-24",
-    status: "draft",
-    summary: summarize(attendanceRows),
-  },
-  className: "JHS 2 Gold",
-  currentDate: "2026-07-24",
-  markingQueue: [
-    submission(
-      "submission-body-kwame",
-      "Kwame Agyeman",
-      "LH-260138",
-      "My model connects the digestive and circulatory systems. Nutrients pass through the small intestine into the blood, which carries them to body cells.",
-    ),
-    submission(
-      "submission-body-ama",
-      "Ama Serwaa",
-      "LH-260112",
-      "I linked the respiratory and circulatory systems and labelled how oxygen travels from the lungs to cells.",
-      [
-        {
-          contentType: "application/pdf",
-          filename: "body-systems-model-diagram.pdf",
-          id: "attachment-body-ama-1",
-          sizeBytes: 1_884_160,
-          uploadedAt: "2026-07-23T15:02:00Z",
-        },
-      ],
-    ),
-  ],
-  periods: [
-    period("period-1", "Period 1", 1, "08:00", "09:00", "lesson"),
-    period("period-2", "Period 2", 2, "09:10", "10:10", "lesson"),
-    period("period-break", "Break", 3, "10:10", "10:35", "break"),
-    period("period-3", "Period 3", 4, "10:35", "11:35", "lesson"),
-    period("period-4", "Period 4", 5, "11:45", "12:45", "lesson"),
-  ],
-  subjectName: "Integrated Science",
-  timetable: [
-    timetable("timetable-5-1", "period-1", "Social Studies", "Block B · Room 2", "Emmanuel Ofori"),
-    timetable("timetable-5-2", "period-2", "Integrated Science", "Science Lab", "Grace Mensah"),
-    timetable("timetable-5-3", "period-3", "English Language", "Block A · Room 4", "Mary Asante"),
-    timetable("timetable-5-4", "period-4", "Mathematics", "Block A · Room 4", "Emmanuel Ofori"),
-  ],
-};
+   An attendance register that reports itself submitted and was never written
+   is the worst of these to leave standing: a school's attendance record is
+   evidence, and the guardian alerts that follow a submitted register are
+   generated from rows that have to exist.
+   ========================================================================== */
+
+async function fetchWorkspace(): Promise<
+  { error: string } | { workspace: TeacherOperationsWorkspace }
+> {
+  try {
+    const response = await fetch("/api/teacher/operations");
+    const payload = (await response.json()) as {
+      error?: string;
+      workspace?: TeacherOperationsWorkspace;
+    };
+    if (!response.ok || !payload.workspace) {
+      return { error: payload.error ?? "Your classes could not be loaded." };
+    }
+    return { workspace: payload.workspace };
+  } catch {
+    return { error: "Your classes could not be reached." };
+  }
+}
 
 type OperationsTab = "today" | "assignments" | "attendance" | "timetable";
 
 export function OperationsView() {
-  const [workspace, setWorkspace] = useState(previewWorkspace);
-  const [tab, setTab] = useState<OperationsTab>("today");
-  const [mode, setMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
+  const [workspace, setWorkspace] = useState<TeacherOperationsWorkspace | null>(
+    null,
   );
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [problem, setProblem] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const load = useCallback(async () => {
+    setState("loading");
+    const result = await fetchWorkspace();
+    if ("error" in result) {
+      setProblem(result.error);
+      setState("error");
+      return;
+    }
+    setWorkspace(result.workspace);
+    setState("ready");
+  }, []);
+
   useEffect(() => {
     let active = true;
-    void load();
 
-    async function load() {
-      try {
-        const response = await fetch("/api/teacher/operations");
-        if (!response.ok) throw new Error("Operations unavailable.");
-        const payload = (await response.json()) as {
-          actor: string;
-          workspace: TeacherOperationsWorkspace;
-        };
-        if (!active) return;
-        setWorkspace(payload.workspace);
-        setMode("protected");
-      } catch {
-        if (active) setMode("preview");
+    async function loadOnce() {
+      const result = await fetchWorkspace();
+      if (!active) return;
+      if ("error" in result) {
+        setProblem(result.error);
+        setState("error");
+        return;
       }
+      setWorkspace(result.workspace);
+      setState("ready");
     }
 
+    void loadOnce();
     return () => {
       active = false;
     };
   }, []);
 
+  if (state === "loading") {
+    return <p className="workspace-loading">Loading your classes…</p>;
+  }
+
+  if (state === "error" || !workspace) {
+    return (
+      <div className="workspace-failure">
+        <h2>Your classes could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => void load()} type="button">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <LoadedOperations
+      busy={busy}
+      notice={notice}
+      setBusy={setBusy}
+      setNotice={setNotice}
+      setWorkspace={setWorkspace}
+      workspace={workspace}
+    />
+  );
+}
+
+/* Split from the loader so the rest can take a workspace that is present. */
+function LoadedOperations({
+  busy,
+  notice,
+  setBusy,
+  setNotice,
+  setWorkspace,
+  workspace,
+}: {
+  busy: boolean;
+  notice: string;
+  setBusy: (value: boolean) => void;
+  setNotice: (value: string) => void;
+  setWorkspace: (value: TeacherOperationsWorkspace) => void;
+  workspace: TeacherOperationsWorkspace;
+}) {
+  const [tab, setTab] = useState<OperationsTab>("today");
+
   async function runAction(body: Record<string, unknown>) {
     setBusy(true);
     setNotice("");
-    if (mode !== "protected") {
-      setWorkspace((current) => updatePreview(current, body));
-      setNotice(actionMessage(String(body.action), true));
-      setBusy(false);
-      return;
-    }
     try {
       const response = await fetch("/api/teacher/operations", {
         body: JSON.stringify(body),
@@ -154,7 +151,7 @@ export function OperationsView() {
         throw new Error(payload.error ?? "The action could not be completed.");
       }
       setWorkspace(payload.workspace);
-      setNotice(actionMessage(String(body.action), false));
+      setNotice(actionMessage(String(body.action)));
     } catch (error) {
       setNotice(
         error instanceof Error ? error.message : "The action failed.",
@@ -167,6 +164,7 @@ export function OperationsView() {
   const todayEntries = workspace.timetable.filter(
     (entry) => entry.weekday === 5,
   );
+  const nextEntry = todayEntries[1];
 
   return (
     <>
@@ -186,14 +184,27 @@ export function OperationsView() {
                 class record.
               </p>
             </div>
+            {/* Defaulted to "Integrated Science · 09:10 · Science Lab" when
+                the day held no second period — a lesson the teacher does not
+                have, at a time they are not teaching. A class with nothing
+                left on its timetable says so. */}
             <div className="operations-next">
               <span>Next lesson</span>
-              <strong>{todayEntries[1]?.subjectName ?? "Integrated Science"}</strong>
-              <small>
-                {periodFor(workspace, todayEntries[1])?.startsAt ?? "09:10"} ·{" "}
-                {todayEntries[1]?.room ?? "Science Lab"}
-              </small>
-              <i>On schedule</i>
+              {nextEntry ? (
+                <>
+                  <strong>{nextEntry.subjectName}</strong>
+                  <small>
+                    {periodFor(workspace, nextEntry)?.startsAt} ·{" "}
+                    {nextEntry.room}
+                  </small>
+                  <i>On schedule</i>
+                </>
+              ) : (
+                <>
+                  <strong>Nothing scheduled</strong>
+                  <small>No further periods on today’s timetable</small>
+                </>
+              )}
             </div>
           </section>
 
@@ -389,6 +400,15 @@ function AssignmentsPanel({
         </div>
         {showForm ? (
           <AssignmentForm busy={busy} runAction={runAction} />
+        ) : null}
+        {workspace.assignments.length === 0 ? (
+          <div className="workspace-empty">
+            <strong>No assignments yet</strong>
+            <p>
+              Published assignments and their rubrics appear here, with what
+              learners have handed in.
+            </p>
+          </div>
         ) : null}
         <div className="assignment-list">
           {workspace.assignments.map((assignmentItem) => (
@@ -687,6 +707,14 @@ function AttendancePanel({
           <small>Excused</small>
         </span>
       </div>
+      {workspace.attendance.rows.length === 0 ? (
+        <div className="workspace-empty">
+          <strong>No register for today</strong>
+          <p>
+            A register appears once learners have been placed into this class.
+          </p>
+        </div>
+      ) : null}
       <div className="attendance-table-wrap">
         <table className="attendance-table">
           <thead>
@@ -973,187 +1001,6 @@ function PanelHeading({
   );
 }
 
-function updatePreview(
-  workspace: TeacherOperationsWorkspace,
-  body: Record<string, unknown>,
-) {
-  const action = String(body.action);
-  if (action === "save-attendance") {
-    const rows = workspace.attendance.rows.map((row) =>
-      row.recordId === body.recordId
-        ? {
-            ...row,
-            code: body.code as AttendanceCode,
-            note: String(body.note ?? ""),
-          }
-        : row,
-    );
-    return {
-      ...workspace,
-      attendance: {
-        ...workspace.attendance,
-        rows,
-        status:
-          workspace.attendance.status === "draft"
-            ? "draft" as const
-            : "corrected" as const,
-        summary: summarize(rows),
-      },
-    };
-  }
-  if (action === "submit-attendance") {
-    return {
-      ...workspace,
-      attendance: { ...workspace.attendance, status: "submitted" as const },
-    };
-  }
-  if (action === "release-rubric") {
-    return {
-      ...workspace,
-      markingQueue: workspace.markingQueue.filter(
-        (item) => item.id !== body.submissionId,
-      ),
-    };
-  }
-  if (action === "change-timetable") {
-    return {
-      ...workspace,
-      timetable: workspace.timetable.map((entry) =>
-        entry.id === body.entryId
-          ? {
-              ...entry,
-              changeReason: String(body.reason),
-              status: body.status as TimetableEntryView["status"],
-            }
-          : entry,
-      ),
-    };
-  }
-  if (action === "create-assignment") {
-    const criteria = body.criteria as Array<{
-      description: string;
-      maximumPoints: number;
-      name: string;
-    }>;
-    return {
-      ...workspace,
-      assignments: [
-        ...workspace.assignments,
-        {
-          dueAt: String(body.dueAt),
-          id: `preview-${Date.now()}`,
-          maximumPoints: criteria.reduce(
-            (sum, item) => sum + item.maximumPoints,
-            0,
-          ),
-          needsMarking: 0,
-          rubric: criteria.map((item, index) => ({
-            ...item,
-            id: `preview-criterion-${index}`,
-          })),
-          status: "published",
-          submissionCount: 3,
-          title: String(body.title),
-        },
-      ],
-    };
-  }
-  return workspace;
-}
-
-function attendance(
-  learnerPersonId: string,
-  learnerName: string,
-  studentId: string,
-  code: AttendanceCode,
-): AttendanceRow {
-  return {
-    code,
-    learnerName,
-    learnerPersonId,
-    note: "",
-    recordId: `attendance-2026-07-24:${learnerPersonId}`,
-    studentId,
-  };
-}
-
-function submission(
-  id: string,
-  learnerName: string,
-  studentId: string,
-  responseText: string,
-  /* Handed-in files. One preview submission carries them so the marking card
-     shows what a scanned hand-in actually looks like. */
-  attachments: MarkingSubmission["attachments"] = [],
-): MarkingSubmission {
-  return {
-    assignmentId: "assignment-body-systems",
-    assignmentTitle: "Body systems model",
-    attachments,
-    criteria: previewRubric,
-    id,
-    learnerName,
-    responseText,
-    status: "submitted",
-    studentId,
-    submittedAt: "2026-07-23T15:14:00Z",
-  };
-}
-
-function period(
-  id: string,
-  name: string,
-  position: number,
-  startsAt: string,
-  endsAt: string,
-  kind: "lesson" | "break" | "assembly",
-) {
-  return { endsAt, id, kind, name, position, startsAt };
-}
-
-function timetable(
-  id: string,
-  periodId: string,
-  subjectName: string,
-  room: string,
-  teacherName: string,
-): TimetableEntryView {
-  return {
-    changeReason: null,
-    id,
-    periodId,
-    room,
-    status: "scheduled",
-    subjectName,
-    substituteTeacherName: null,
-    teacherName,
-    weekday: 5,
-  };
-}
-
-function summarize(rows: AttendanceRow[]) {
-  const excused = rows.filter((row) => row.code === "excused").length;
-  const late = rows.filter((row) => row.code === "late").length;
-  const absent = rows.filter(
-    (row) => row.code === "absent" || row.code === "sick",
-  ).length;
-  const presentEquivalent = rows.filter((row) =>
-    ["present", "late", "school-activity", "remote"].includes(row.code),
-  ).length;
-  const totalCounted = rows.length - excused;
-  return {
-    absent,
-    excused,
-    late,
-    percentage:
-      totalCounted > 0
-        ? Math.round((presentEquivalent / totalCounted) * 1000) / 10
-        : 0,
-    presentEquivalent,
-    totalCounted,
-  };
-}
-
 function periodFor(
   workspace: TeacherOperationsWorkspace,
   entry?: TimetableEntryView,
@@ -1207,8 +1054,8 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function actionMessage(action: string, preview: boolean) {
-  const prefix = preview ? "Preview updated. " : "";
+function actionMessage(action: string) {
+  const prefix = "";
   const messages: Record<string, string> = {
     "change-timetable": "Timetable change recorded with its reason.",
     "create-assignment": "Assignment and rubric published to the class.",

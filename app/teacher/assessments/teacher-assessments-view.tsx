@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   QuestionBankSummary,
   ReviewAttempt,
@@ -22,181 +22,127 @@ const typeLabels = Object.fromEntries(
   ]),
 ) as Record<QuestionType, string>;
 
-const previewWorkspace: TeacherAssessmentWorkspace = {
-  assessments: [
-    {
-      attemptCount: 1,
-      id: "assessment-digestion-check",
-      purpose: "formative",
-      questionCount: 5,
-      status: "published",
-      timeLimitMinutes: 12,
-      title: "Digestive system knowledge check",
-      totalMarks: 9,
-      version: 1,
-    },
-    {
-      attemptCount: 0,
-      id: "assessment-nutrition-exit-ticket",
-      purpose: "formative",
-      questionCount: 1,
-      status: "draft",
-      timeLimitMinutes: 8,
-      title: "Balanced diet exit ticket",
-      totalMarks: 1,
-      version: 0,
-    },
-  ],
-  bank: [
-    question(
-      "question-absorption-site",
-      "Where does most nutrient absorption take place?",
-      "single-choice",
-      1,
-      "foundation",
-      1,
-    ),
-    question(
-      "question-bile-true-false",
-      "Bile helps the body digest fats.",
-      "true-false",
-      1,
-      "foundation",
-      2,
-    ),
-    question(
-      "question-organ-action-match",
-      "Match each digestive organ to its main action.",
-      "matching",
-      2,
-      "standard",
-      1,
-    ),
-    question(
-      "question-digestion-order",
-      "Arrange the organs in the order food travels through them.",
-      "ordering",
-      2,
-      "standard",
-      1,
-    ),
-    question(
-      "question-villi-explanation",
-      "Explain two ways the small intestine is adapted for absorption.",
-      "essay",
-      3,
-      "challenge",
-      1,
-    ),
-    question(
-      "question-nutrients-multiple",
-      "Select the two nutrient groups associated with growth and protection.",
-      "multiple-choice",
-      2,
-      "standard",
-      0,
-    ),
-    question(
-      "question-saliva-short-text",
-      "Name the enzyme in saliva that begins starch digestion.",
-      "short-text",
-      1,
-      "standard",
-      0,
-    ),
-    question(
-      "question-adult-teeth-numeric",
-      "How many permanent teeth does a typical adult have?",
-      "numeric",
-      1,
-      "foundation",
-      0,
-    ),
-    question(
-      "question-digestion-file",
-      "Submit a clearly labelled digestive-system diagram.",
-      "file-upload",
-      4,
-      "challenge",
-      0,
-    ),
-    question(
-      "question-stomach-hotspot",
-      "Select the area where the stomach is located.",
-      "hotspot",
-      1,
-      "standard",
-      0,
-    ),
-    question(
-      "question-meal-composite",
-      "Read the meal scenario and recommend one improvement.",
-      "composite",
-      4,
-      "challenge",
-      0,
-    ),
-  ],
-  className: "JHS 2 Gold",
-  code: "IS",
-  offeringId: "offering-science-jhs2",
-  reviewQueue: [
-    {
-      attemptId: "attempt-kwame-digestion",
-      learnerName: "Kwame Agyeman",
-      maximumMarks: 9,
-      response: {
-        maximumMarks: 3,
-        prompt:
-          "Explain two ways the small intestine is adapted for nutrient absorption.",
-        questionVersionId: "question-villi-explanation:v1",
-        responseText:
-          "The small intestine has many villi, so digested food has more surface to pass into the blood.",
-      },
-      score: 1,
-      status: "needs-marking",
-      submittedAt: "2026-07-23T08:19:00Z",
-      title: "Digestive system knowledge check",
-    },
-  ],
-  subjectName: "Integrated Science",
-  typeCoverage: 11,
-};
+/* ==========================================================================
+   No preview bank
+
+   This screen opened on a hardcoded Integrated Science question bank, three
+   quizzes and a review queue, and kept them whenever /api/teacher/assessments
+   failed. Writing a question in that state added it to local state and said
+   "Question added to this preview"; publishing a quiz marked it published for
+   nobody. A teacher could build an assessment against a bank that did not
+   exist, and never be told.
+   ========================================================================== */
+
+async function fetchWorkspace(): Promise<
+  { error: string } | { workspace: TeacherAssessmentWorkspace }
+> {
+  try {
+    const response = await fetch("/api/teacher/assessments");
+    const payload = (await response.json()) as {
+      error?: string;
+      workspace?: TeacherAssessmentWorkspace;
+    };
+    if (!response.ok || !payload.workspace) {
+      return {
+        error: payload.error ?? "Your assessments could not be loaded.",
+      };
+    }
+    return { workspace: payload.workspace };
+  } catch {
+    return { error: "Your assessments could not be reached." };
+  }
+}
 
 type WorkspaceTab = "bank" | "quizzes" | "review";
 
 export function TeacherAssessmentsView() {
-  const [workspace, setWorkspace] = useState(previewWorkspace);
-  const [tab, setTab] = useState<WorkspaceTab>("bank");
-  const [dataMode, setDataMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
+  const [workspace, setWorkspace] = useState<TeacherAssessmentWorkspace | null>(
+    null,
   );
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [problem, setProblem] = useState("");
   const [notice, setNotice] = useState("");
-  const [showQuestionForm, setShowQuestionForm] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<QuestionType | "all">("all");
+
+  const load = useCallback(async () => {
+    setState("loading");
+    const result = await fetchWorkspace();
+    if ("error" in result) {
+      setProblem(result.error);
+      setState("error");
+      return;
+    }
+    setWorkspace(result.workspace);
+    setState("ready");
+  }, []);
 
   useEffect(() => {
     let active = true;
-    async function loadWorkspace() {
-      try {
-        const response = await fetch("/api/teacher/assessments");
-        if (!response.ok) throw new Error("Assessment records unavailable.");
-        const payload = (await response.json()) as {
-          actor: string;
-          workspace: TeacherAssessmentWorkspace;
-        };
-        if (!active) return;
-        setWorkspace(payload.workspace);
-        setDataMode("protected");
-      } catch {
-        if (active) setDataMode("preview");
+
+    async function loadOnce() {
+      const result = await fetchWorkspace();
+      if (!active) return;
+      if ("error" in result) {
+        setProblem(result.error);
+        setState("error");
+        return;
       }
+      setWorkspace(result.workspace);
+      setState("ready");
     }
-    void loadWorkspace();
+
+    void loadOnce();
     return () => {
       active = false;
     };
   }, []);
+
+  if (state === "loading") {
+    return <p className="workspace-loading">Loading your assessments…</p>;
+  }
+
+  if (state === "error" || !workspace) {
+    return (
+      <div className="workspace-failure">
+        <h2>Your assessments could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => void load()} type="button">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <LoadedAssessments
+      notice={notice}
+      setNotice={setNotice}
+      setWorkspace={(update) =>
+        setWorkspace((current) => (current ? update(current) : current))
+      }
+      workspace={workspace}
+    />
+  );
+}
+
+/* Split from the loader so the rest can take a workspace that is present. */
+function LoadedAssessments({
+  notice,
+  setNotice,
+  setWorkspace,
+  workspace,
+}: {
+  notice: string;
+  setNotice: (value: string) => void;
+  /* An updater over a workspace that is present, so nothing below has to
+     spread a value that might be null. */
+  setWorkspace: (
+    update: (current: TeacherAssessmentWorkspace) => TeacherAssessmentWorkspace,
+  ) => void;
+  workspace: TeacherAssessmentWorkspace;
+}) {
+  const [tab, setTab] = useState<WorkspaceTab>("bank");
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<QuestionType | "all">("all");
 
   const visibleQuestions = useMemo(
     () =>
@@ -213,26 +159,6 @@ export function TeacherAssessmentsView() {
   const topicSuggestion = workspace.bank[0]?.topic ?? "";
 
   async function createQuestion(input: ComposedQuestion) {
-    if (dataMode !== "protected") {
-      const previewQuestion: QuestionBankSummary = {
-        difficulty: input.difficulty,
-        id: `preview-${Date.now()}`,
-        marks: input.marks,
-        prompt: input.prompt,
-        status: "approved",
-        topic: input.topic,
-        type: input.type,
-        usageCount: 0,
-        version: 1,
-      };
-      setWorkspace((current) => ({
-        ...current,
-        bank: [previewQuestion, ...current.bank],
-      }));
-      setNotice("Question added to this preview.");
-      setShowQuestionForm(false);
-      return;
-    }
     const response = await fetch("/api/teacher/assessments", {
       body: JSON.stringify({ action: "create-question", ...input }),
       headers: { "content-type": "application/json" },
@@ -255,18 +181,6 @@ export function TeacherAssessmentsView() {
   }
 
   async function publishQuiz(assessmentId: string) {
-    if (dataMode !== "protected") {
-      setWorkspace((current) => ({
-        ...current,
-        assessments: current.assessments.map((assessment) =>
-          assessment.id === assessmentId
-            ? { ...assessment, status: "published", version: 1 }
-            : assessment,
-        ),
-      }));
-      setNotice("Quiz published in this preview.");
-      return;
-    }
     const response = await fetch("/api/teacher/assessments", {
       body: JSON.stringify({ action: "publish", assessmentId }),
       headers: { "content-type": "application/json" },
@@ -292,29 +206,6 @@ export function TeacherAssessmentsView() {
   }
 
   async function createQuiz(input: QuizDraft) {
-    if (dataMode !== "protected") {
-      setWorkspace((current) => ({
-        ...current,
-        assessments: [
-          {
-            attemptCount: 0,
-            id: `preview-quiz-${Date.now()}`,
-            purpose: input.purpose,
-            questionCount: input.questionIds.length,
-            status: "draft",
-            timeLimitMinutes: input.timeLimitMinutes,
-            title: input.title,
-            totalMarks: current.bank
-              .filter((question) => input.questionIds.includes(question.id))
-              .reduce((sum, question) => sum + question.marks, 0),
-            version: 0,
-          },
-          ...current.assessments,
-        ],
-      }));
-      setNotice("Quiz draft assembled in this preview.");
-      return;
-    }
     const response = await fetch("/api/teacher/assessments", {
       body: JSON.stringify({ action: "create-assessment", ...input }),
       headers: { "content-type": "application/json" },
@@ -346,31 +237,6 @@ export function TeacherAssessmentsView() {
         }
       | { action: "release"; attemptId: string },
   ) {
-    if (dataMode !== "protected") {
-      setWorkspace((current) => ({
-        ...current,
-        reviewQueue: current.reviewQueue.map((attempt) =>
-          attempt.attemptId === action.attemptId
-            ? {
-                ...attempt,
-                response:
-                  action.action === "mark" ? undefined : attempt.response,
-                score:
-                  action.action === "mark"
-                    ? attempt.score + action.marks
-                    : attempt.score,
-                status: action.action === "mark" ? "marked" : "released",
-              }
-            : attempt,
-        ),
-      }));
-      setNotice(
-        action.action === "mark"
-          ? "Response marked in this preview."
-          : "Result released in this preview.",
-      );
-      return;
-    }
     const response = await fetch("/api/teacher/assessments", {
       body: JSON.stringify(action),
       headers: { "content-type": "application/json" },
@@ -577,6 +443,15 @@ function QuestionBankPanel({
         </select>
       </div>
 
+      {questions.length === 0 ? (
+        <div className="workspace-empty">
+          <strong>No questions yet</strong>
+          <p>
+            Questions you write for this subject collect here, ready to be
+            pulled into a quiz. Write the first one above.
+          </p>
+        </div>
+      ) : null}
       <div className="question-bank-list">
         {questions.map((item) => (
           <article className="question-bank-card" key={item.id}>
@@ -651,6 +526,12 @@ function QuizPanel({
         />
       ) : null}
 
+      {assessments.length === 0 ? (
+        <div className="workspace-empty">
+          <strong>No quizzes yet</strong>
+          <p>Assemble one from the question bank to publish it to learners.</p>
+        </div>
+      ) : null}
       <div className="quiz-grid">
         {assessments.map((assessment) => (
           <article className="quiz-card" key={assessment.id}>
@@ -721,6 +602,14 @@ function ReviewPanel({
         </div>
         <span className="review-policy">Results release after marking</span>
       </div>
+      {attempts.length === 0 ? (
+        <div className="workspace-empty">
+          <strong>Nothing to review</strong>
+          <p>
+            Attempts appear here once learners have sat a published quiz.
+          </p>
+        </div>
+      ) : null}
       <div className="review-list">
         {attempts.map((attempt) => (
           <article className="review-card" key={attempt.attemptId}>
@@ -817,27 +706,6 @@ function ReviewPanel({
       </div>
     </section>
   );
-}
-
-function question(
-  id: string,
-  prompt: string,
-  type: QuestionType,
-  marks: number,
-  difficulty: QuestionBankSummary["difficulty"],
-  usageCount: number,
-): QuestionBankSummary {
-  return {
-    difficulty,
-    id,
-    marks,
-    prompt,
-    status: "approved",
-    topic: "Human body systems",
-    type,
-    usageCount,
-    version: 1,
-  };
 }
 
 function questionSymbol(type: QuestionType) {

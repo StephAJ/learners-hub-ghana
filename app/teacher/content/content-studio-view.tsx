@@ -1,54 +1,138 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type {
   TeacherContentWorkspace,
 } from "../../../db/content-repository";
 import type { MediaKind } from "../../../domain/content/types";
-import { demoContentWorkspace } from "../../demo-data";
-import { demoSubjectBySlug } from "../../../domain/demo/greenfield";
-import { previewMediaUrl, rememberPreviewMedia } from "../../preview-workspace";
 import "../../admin/academic/academic.css";
 import "./content-studio.css";
 
-/* The same subject and the same library the lesson author attaches from. */
-const previewWorkspace: TeacherContentWorkspace = demoContentWorkspace(
-  demoSubjectBySlug("integrated-science")!,
-);
+/* ==========================================================================
+   No preview library
+
+   This screen opened on demoContentWorkspace() — the Integrated Science
+   library from the shared demo dataset — and kept it whenever
+   /api/teacher/content failed. Uploading in that state wrote the file into a
+   Map in preview-workspace.ts, added a row, and said the video was "available
+   in this preview session"; registering an interactive activity added a row
+   that existed nowhere. A teacher could fill a library that did not exist.
+   ========================================================================== */
+
+async function fetchWorkspace(): Promise<
+  { error: string } | { workspace: TeacherContentWorkspace }
+> {
+  try {
+    const response = await fetch("/api/teacher/content");
+    const payload = (await response.json()) as {
+      error?: string;
+      workspace?: TeacherContentWorkspace;
+    };
+    if (!response.ok || !payload.workspace) {
+      return {
+        error: payload.error ?? "The subject library could not be loaded.",
+      };
+    }
+    return { workspace: payload.workspace };
+  } catch {
+    return { error: "The subject library could not be reached." };
+  }
+}
 
 export function ContentStudioView() {
-  const [workspace, setWorkspace] = useState(previewWorkspace);
-  const [mode, setMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
+  const [workspace, setWorkspace] = useState<TeacherContentWorkspace | null>(
+    null,
   );
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [problem, setProblem] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const load = useCallback(async () => {
+    setState("loading");
+    const result = await fetchWorkspace();
+    if ("error" in result) {
+      setProblem(result.error);
+      setState("error");
+      return;
+    }
+    setWorkspace(result.workspace);
+    setState("ready");
+  }, []);
+
   useEffect(() => {
     let active = true;
-    void load();
 
-    async function load() {
-      try {
-        const response = await fetch("/api/teacher/content");
-        if (!response.ok) throw new Error("Content records unavailable.");
-        const payload = (await response.json()) as {
-          actor: string;
-          workspace: TeacherContentWorkspace;
-        };
-        if (!active) return;
-        setWorkspace(payload.workspace);
-        setMode("protected");
-      } catch {
-        if (active) setMode("preview");
+    async function loadOnce() {
+      const result = await fetchWorkspace();
+      if (!active) return;
+      if ("error" in result) {
+        setProblem(result.error);
+        setState("error");
+        return;
       }
+      setWorkspace(result.workspace);
+      setState("ready");
     }
+
+    void loadOnce();
     return () => {
       active = false;
     };
   }, []);
 
+  if (state === "loading") {
+    return <p className="workspace-loading">Loading the subject library…</p>;
+  }
+
+  if (state === "error" || !workspace) {
+    return (
+      <div className="workspace-failure">
+        <h2>The subject library could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => void load()} type="button">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <LoadedContentStudio
+      busy={busy}
+      notice={notice}
+      setBusy={setBusy}
+      setNotice={setNotice}
+      setWorkspace={setWorkspace}
+      workspace={workspace}
+    />
+  );
+}
+
+/* Split from the loader so every line below can take a library that is
+   present, instead of testing for null throughout. */
+function LoadedContentStudio({
+  busy,
+  notice,
+  setBusy,
+  setNotice,
+  setWorkspace,
+  workspace,
+}: {
+  busy: boolean;
+  notice: string;
+  setBusy: (value: boolean) => void;
+  setNotice: (value: string) => void;
+  setWorkspace: (value: TeacherContentWorkspace) => void;
+  workspace: TeacherContentWorkspace;
+}) {
   const packageAssets = useMemo(
     () =>
       workspace.mediaAssets.filter(
@@ -63,35 +147,6 @@ export function ContentStudioView() {
   }) {
     setBusy(true);
     setNotice("");
-    if (mode !== "protected") {
-      const asset = {
-        contentType: input.file.type,
-        createdAt: new Date().toISOString(),
-        id: `preview-${Date.now()}`,
-        kind: input.kind,
-        offeringId: workspace.offeringId,
-        originalFilename: input.file.name,
-        sizeBytes: input.file.size,
-        status:
-          input.kind === "h5p-package"
-            ? ("awaiting-runtime" as const)
-            : ("ready" as const),
-      };
-      /* Hold the actual file for this tab. Without it a preview upload is just
-         a row in a list: the teacher cannot check their video, and a lesson
-         that attaches it has nothing to play. */
-      rememberPreviewMedia(asset.id, input.file);
-      setWorkspace((current) => ({
-        ...current,
-        mediaAssets: [asset, ...current.mediaAssets],
-        totalBytes: current.totalBytes + input.file.size,
-      }));
-      setNotice(
-        `${input.file.name} is available in this preview session. Sign in against a school database to store it permanently.`,
-      );
-      setBusy(false);
-      return;
-    }
     try {
       const form = new FormData();
       form.set("file", input.file);
@@ -122,35 +177,6 @@ export function ContentStudioView() {
   async function createActivity(input: H5pFormInput) {
     setBusy(true);
     setNotice("");
-    if (mode !== "protected") {
-      setWorkspace((current) => ({
-        ...current,
-        activities: [
-          {
-            contentType: input.contentType,
-            fallbackText: input.fallbackText,
-            id: `preview-activity-${Date.now()}`,
-            launchOrigin: input.launchUrl
-              ? new URL(input.launchUrl).origin
-              : undefined,
-            launchUrl: input.launchUrl || undefined,
-            offeringId: current.offeringId,
-            packageAssetId: input.packageAssetId || undefined,
-            provider: "h5p",
-            status: input.launchUrl
-              ? "launchable"
-              : input.packageAssetId
-                ? "awaiting-runtime"
-                : "draft",
-            title: input.title,
-          },
-          ...current.activities,
-        ],
-      }));
-      setNotice("Interactive activity draft created.");
-      setBusy(false);
-      return;
-    }
     try {
       const response = await fetch("/api/teacher/content", {
         body: JSON.stringify({
@@ -190,26 +216,6 @@ export function ContentStudioView() {
   async function activateActivity(activityId: string) {
     setBusy(true);
     setNotice("");
-    if (mode !== "protected") {
-      setWorkspace((current) => ({
-        ...current,
-        activities: current.activities.map((activity) =>
-          activity.id === activityId
-            ? {
-                ...activity,
-                runtimeContentId: `preview-${activity.id}`,
-                runtimeImportedAt: new Date().toISOString(),
-                status: "launchable" as const,
-              }
-            : activity,
-        ),
-      }));
-      setNotice(
-        "Imported activity prepared for lesson authors.",
-      );
-      setBusy(false);
-      return;
-    }
     try {
       const response = await fetch("/api/teacher/content", {
         body: JSON.stringify({
@@ -342,11 +348,9 @@ function MediaRow({
   asset: TeacherContentWorkspace["mediaAssets"][number];
 }) {
   const [open, setOpen] = useState(false);
-  /* Preview uploads live in the tab, everything else streams through the
-     authenticated media route. */
-  const source =
-    previewMediaUrl(asset.id) ??
-    `/api/content/media?assetId=${encodeURIComponent(asset.id)}`;
+  /* Every asset on this screen is a stored one now, so all of them stream
+     through the authenticated media route. */
+  const source = `/api/content/media?assetId=${encodeURIComponent(asset.id)}`;
   const playable = asset.kind === "video" || asset.kind === "audio";
 
   return (

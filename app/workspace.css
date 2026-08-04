@@ -1280,3 +1280,85 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
 :root:not([data-sidebar="collapsed"]) .workspace-nav-pip {
   display: none;
 }
+
+/* ==========================================================================
+   Loading, failure and emptiness
+
+   Shared by every workspace view, because until now none of them had any of
+   the three. Each teacher screen opened on a copy of Grace Mensah's
+   Integrated Science and kept it whenever its own fetch failed, so a school
+   with no data looked identical to a school with data, and a failing request
+   looked like a working one. These are what a screen shows instead.
+   ========================================================================== */
+
+.workspace-loading {
+  color: var(--workspace-muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  padding: var(--space-8) 0;
+  text-align: center;
+}
+
+.workspace-failure {
+  background: #fff;
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 14px 35px rgba(30, 56, 51, 0.045);
+  margin: var(--space-6) 0;
+  padding: var(--space-10);
+  text-align: center;
+}
+
+.workspace-failure h2 {
+  font-size: var(--fs-22);
+  letter-spacing: var(--tracking-display);
+  margin: 0 0 var(--space-2);
+}
+
+.workspace-failure p {
+  color: var(--workspace-muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0 auto var(--space-5);
+  max-width: 46ch;
+}
+
+.workspace-failure button {
+  background: var(--workspace-accent);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-3) var(--space-6);
+}
+
+.workspace-failure button:hover {
+  background: var(--workspace-sidebar);
+}
+
+/* Emptiness is not failure, and must not read as it. A teacher who has been
+   given no subjects has a working screen telling them something true. */
+.workspace-empty {
+  background: var(--brand-tint);
+  border: 1px dashed var(--workspace-line);
+  border-radius: var(--radius-md);
+  margin: var(--space-6) 0;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.workspace-empty strong {
+  display: block;
+  font-size: var(--fs-16);
+  margin-bottom: var(--space-2);
+}
+
+.workspace-empty p {
+  color: var(--workspace-muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0 auto;
+  max-width: 52ch;
+}

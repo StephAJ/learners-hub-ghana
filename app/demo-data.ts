@@ -2,18 +2,14 @@ import type {
   LearnerAssessment,
   LearnerQuestion,
 } from "../db/assessment-repository";
-import type { TeacherContentWorkspace } from "../db/content-repository";
 import type {
   LearnerLesson,
   LearnerSubject,
-  LessonSummary,
-  TeacherLessonWorkspace,
 } from "../db/learning-repository";
 import {
   DEMO_CLASS_NAME,
   demoAssessmentBySlug,
   demoAssessmentQuestions,
-  demoActivities,
   demoMediaAssets,
   demoPersonName,
   demoSubjectByOffering,
@@ -137,93 +133,6 @@ function toLearnerLesson(lesson: DemoSubject["lessons"][number]): LearnerLesson 
   };
 }
 
-/** A subject as the teacher lesson library expects it. Drafts are included. */
-export function demoTeacherLessonWorkspace(
-  subject: DemoSubject,
-): TeacherLessonWorkspace {
-  const mappedStandards = new Set(
-    subject.lessons.flatMap((lesson) => lesson.standardCodes),
-  );
-  return {
-    className: DEMO_CLASS_NAME,
-    code: subject.code,
-    /* Coverage is the share of the subject's standards that at least one
-       lesson claims — the same figure the repository computes. */
-    coveragePercent: Math.round(
-      (mappedStandards.size / Math.max(1, subject.standards.length)) * 100,
-    ),
-    lessons: subject.lessons.map((lesson) => toLessonSummary(subject, lesson)),
-    offeringId: subject.offeringId,
-    standards: subject.standards,
-    subjectName: subject.subjectName,
-    units: subject.units,
-  };
-}
-
-function toLessonSummary(
-  subject: DemoSubject,
-  lesson: DemoSubject["lessons"][number],
-): LessonSummary {
-  const prerequisite = lesson.releaseHint
-    ? subject.lessons.find(
-        (candidate) =>
-          candidate.id !== lesson.id &&
-          lesson.releaseHint?.includes(candidate.title),
-      )
-    : undefined;
-  return {
-    blockCount: lesson.blocks.length,
-    id: lesson.id,
-    objectiveCount: lesson.objectives.length,
-    prerequisiteTitle: prerequisite?.title,
-    releaseMode: prerequisite ? "prerequisite" : "immediate",
-    standardCodes: lesson.standardCodes,
-    status: lesson.status,
-    title: lesson.title,
-    unitId: lesson.unitId,
-    unitTitle: lesson.unitTitle,
-    updatedAt: lesson.publishedAt ?? "2026-07-28T09:00:00Z",
-    version: lesson.version,
-  };
-}
-
-/** The media library and activity list for one subject. */
-export function demoContentWorkspace(
-  subject: DemoSubject,
-): TeacherContentWorkspace {
-  const mediaAssets = demoMediaAssets
-    .filter((asset) => asset.offeringId === subject.offeringId)
-    .map((asset) => ({
-      contentType: asset.contentType,
-      createdAt: asset.createdAt,
-      id: asset.id,
-      kind: asset.kind,
-      offeringId: asset.offeringId,
-      originalFilename: asset.originalFilename,
-      sizeBytes: asset.sizeBytes,
-      status: asset.status,
-    }));
-  return {
-    activities: demoActivities
-      .filter((activity) => activity.offeringId === subject.offeringId)
-      .map((activity) => ({
-        contentType: activity.contentType,
-        fallbackText: activity.fallbackText,
-        id: activity.id,
-        offeringId: activity.offeringId,
-        packageAssetId: activity.packageAssetId,
-        provider: "h5p" as const,
-        status: activity.status,
-        title: activity.title,
-      })),
-    className: DEMO_CLASS_NAME,
-    mediaAssets,
-    offeringId: subject.offeringId,
-    subjectName: subject.subjectName,
-    totalBytes: mediaAssets.reduce((total, asset) => total + asset.sizeBytes, 0),
-  };
-}
-
 /** An assessment as the learner quiz runner expects it, answer keys removed. */
 export function demoLearnerAssessment(
   assessment: DemoAssessment,
@@ -259,15 +168,6 @@ export function demoLearnerAssessmentBySlug(
 ): LearnerAssessment | undefined {
   const assessment = demoAssessmentBySlug(slug);
   return assessment ? demoLearnerAssessment(assessment) : undefined;
-}
-
-/** The subject a teacher owns, used to pick their workspace's default. */
-export function demoSubjectForTeacher(
-  teacherPersonId: string,
-): DemoSubject | undefined {
-  return demoSubjects.find(
-    (subject) => subject.teacherPersonId === teacherPersonId,
-  );
 }
 
 export { demoSubjectByOffering, demoSubjects };
