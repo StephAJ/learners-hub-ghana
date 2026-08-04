@@ -1,0 +1,127 @@
+/* ==========================================================================
+   School details
+
+   Three panels down one column rather than the two-column workspace the other
+   admin screens use. This is a form someone fills in once and returns to
+   rarely, so it is laid out to be read top to bottom — there is no queue or
+   selection to keep beside it.
+
+   Field styling comes from academic.css, which this screen imports: the
+   inputs here should be indistinguishable from the ones on Academics.
+   ========================================================================== */
+
+.school-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 60rem;
+}
+
+.school-section {
+  padding: var(--space-5) var(--space-6);
+}
+
+.school-section .admin-panel-heading {
+  margin-bottom: var(--space-5);
+}
+
+.school-section .inline-form-fields {
+  margin-bottom: var(--space-4);
+}
+
+.wide-field {
+  display: block;
+}
+
+.wide-field > span {
+  color: var(--ink-soft);
+  display: block;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  margin-bottom: var(--space-2);
+}
+
+.wide-field input,
+.wide-field textarea {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  min-height: 38px;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+  width: 100%;
+}
+
+.wide-field input:focus-visible,
+.wide-field textarea:focus-visible,
+.address-fieldset input:focus-visible {
+  border-color: var(--primary);
+  outline: 2px solid var(--brand-line);
+}
+
+/* The explanatory line under a field. Sits below rather than beside so the
+   field keeps the full measure, and so it reads as a note on what was just
+   typed rather than as a second label. */
+.wide-field small,
+.address-fieldset small {
+  color: var(--muted);
+  display: block;
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+  margin-top: var(--space-2);
+}
+
+.wide-field a,
+.address-fieldset a {
+  color: var(--primary);
+}
+
+.address-fieldset {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  max-width: 32rem;
+  padding: 0;
+}
+
+.address-fieldset legend {
+  color: var(--ink-soft);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+
+.address-fieldset input {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-14);
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  width: 100%;
+}
+
+/* Sticks to the bottom of the viewport on a long form so the save control is
+   never scrolled away from the field being edited. */
+.school-actions {
+  background: color-mix(in srgb, var(--canvas) 88%, transparent);
+  border-radius: var(--radius-md);
+  bottom: var(--space-4);
+  padding: var(--space-3);
+  position: sticky;
+}
+
+.admin-welcome a.ghost-button {
+  align-items: center;
+  display: inline-flex;
+  text-decoration: none;
+}

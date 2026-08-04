@@ -1,4 +1,5 @@
 import { getMigrations } from "better-auth/db/migration";
+import { seedAcademicStructure } from "../db/academic-seed";
 import { seedSchoolPeople } from "../db/people-seed";
 import { migrateLearnersHubSchema, getPostgresPool } from "../db/postgres";
 import { auth } from "./auth-config";
@@ -25,6 +26,9 @@ async function preparePlatform(): Promise<void> {
      attaches identities to these person rows by id, across a foreign key. */
   await seedSchoolPeople(getPostgresPool());
   await seedDemoAccounts(getPostgresPool());
+  /* After the people, because a class group names one of them as its class
+     teacher across a foreign key. */
+  await seedAcademicStructure(getPostgresPool());
 }
 
 async function bootstrapAdministrator(): Promise<void> {

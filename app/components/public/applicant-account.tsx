@@ -8,7 +8,8 @@ import {
 } from "../../../db/applicant-repository";
 import { applicationCompletion } from "../../../domain/admissions/application-form";
 import { applicationReference } from "../../../server/mail/admissions-mail";
-import { greenfieldProfile } from "../../../domain/school/public-profile";
+import type { SchoolProfile } from "../../../domain/school/public-profile";
+import type { PublicIntakeState } from "../../../db/intake-repository";
 import "../../admissions/admissions.css";
 
 const STAGES: Array<{
@@ -58,15 +59,18 @@ export function ApplicantAccount({
   application,
   displayName,
   email,
+  intake,
+  school,
   signOut,
 }: {
   application: ApplicantApplication | null;
   displayName: string;
   email: string;
+  intake: PublicIntakeState;
+  school: SchoolProfile;
   signOut: ReactNode;
 }) {
   const user = { displayName, email };
-  const school = greenfieldProfile;
 
   const status = application?.status;
   const completion = application ? applicationCompletion(toDraft(application)) : 0;
@@ -81,9 +85,10 @@ export function ApplicantAccount({
           {signOut}
         </>
       }
+      school={school}
     >
       <div className="acct-head">
-        <p className="adm-kicker">{school.admissions.intakeLabel}</p>
+        <p className="adm-kicker">{intake.intake?.label ?? "Admissions"}</p>
         <h1>Your application to {school.name}</h1>
         <p>
           Everything about this application lives here — the form itself, where

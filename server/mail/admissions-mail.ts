@@ -1,4 +1,6 @@
-import { greenfieldProfile } from "../../domain/school/public-profile";
+import { loadSchoolProfile } from "../../db/school-profile-repository";
+import { resolveIntakeState } from "../../db/intake-repository";
+import { SCHOOL_TENANT_ID } from "../school-tenant";
 import {
   applicationCompletion,
   type ApplicationDraft,
@@ -21,8 +23,11 @@ import { admissionsInbox, sendMail } from "./transport";
    application, so every send is best-effort and the caller carries on.
    ========================================================================== */
 
-function schoolContext(): SchoolContext {
-  const school = greenfieldProfile;
+/* Async now that the school's own details are a record rather than a
+   constant. Both callers already await, and a reminder addressed from a
+   school's real inbox is worth one query. */
+async function schoolContext(): Promise<SchoolContext> {
+  const school = await loadSchoolProfile(SCHOOL_TENANT_ID);
   return {
     origin:
       process.env.BETTER_AUTH_URL?.trim() ||
@@ -71,7 +76,7 @@ function summarise(application: ApplicantApplication): ApplicationSummary {
 export async function sendSubmissionMail(
   application: ApplicantApplication,
 ): Promise<void> {
-  const school = schoolContext();
+  const school = await schoolContext();
   const summary = summarise(application);
   const inbox = admissionsInbox();
 
@@ -95,7 +100,10 @@ export async function sendDraftReminder(options: {
   guardianEmail: string;
   guardianName: string;
 }): Promise<boolean> {
-  const school = schoolContext();
+  const [school, intake] = await Promise.all([
+    schoolContext(),
+    resolveIntakeState(SCHOOL_TENANT_ID),
+  ]);
   const result = await sendMail(
     draftReminderEmail(
       {
@@ -106,7 +114,10 @@ export async function sendDraftReminder(options: {
         percentComplete: applicationCompletion(options.draft),
       },
       school,
-      formatDate(greenfieldProfile.admissions.closesOn),
+      /* The intake's closing date, not the profile's — the profile no longer
+         carries one, precisely so that the date a family is chased against is
+         the same date the form stops accepting them. */
+      intake.intake ? formatDate(intake.intake.closesOn) : "the closing date",
     ),
   );
   return result.delivered;

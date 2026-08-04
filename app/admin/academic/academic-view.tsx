@@ -1,178 +1,339 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import {
-  createClassPlacement,
-  createSubjectEntitlements,
-} from "../../../domain/academic/enrolment";
-import {
-  academicClasses,
-  academicTenantId,
-  availableLearners,
-} from "../../../domain/academic/fixtures";
+import Link from "next/link";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import type {
+  AcademicYear,
+  ClassGroup,
+  ClassOffering,
+  Subject,
+} from "../../../domain/academic/structure";
+import type { SchoolTeacher } from "../../../db/academic-repository";
+import type { SubjectRequirement } from "../../../domain/academic/types";
 import "./academic.css";
 
-type PlacementRow = {
-  className: string;
-  compulsoryCount: number;
-  date: string;
-  id: string;
-  learnerName: string;
-  optionalCount: number;
-  studentId: string;
+/* ==========================================================================
+   Academic structure
+
+   This screen used to render `domain/academic/fixtures.ts` — four classes and
+   their subjects, hardcoded — and its one working control, "Place a learner",
+   called setState and nothing else. An administrator could look at the shape
+   of their school and change none of it.
+
+   Everything below reads /api/admin/academic and writes back to it. There is
+   no fixture fallback: a school with no classes sees an empty state that says
+   so and offers the button that fixes it, which is the truth, rather than
+   four classes belonging to a school in the demo data.
+   ========================================================================== */
+
+type Structure = {
+  classGroups: ClassGroup[];
+  offeringsByClassGroup: Record<string, ClassOffering[]>;
+  subjects: Subject[];
+  teachers: SchoolTeacher[];
+  teachersByOffering: Record<string, string[]>;
+  years: AcademicYear[];
 };
 
-const initialPlacements: PlacementRow[] = [
-  {
-    id: "row-ama",
-    learnerName: "Ama Serwaa",
-    studentId: "LH-260112",
-    className: "JHS 2 Gold",
-    compulsoryCount: 6,
-    optionalCount: 1,
-    date: "21 Jul 2026",
-  },
-  {
-    id: "row-kwame",
-    learnerName: "Kwame Agyeman",
-    studentId: "LH-260138",
-    className: "JHS 2 Gold",
-    compulsoryCount: 6,
-    optionalCount: 0,
-    date: "21 Jul 2026",
-  },
-  {
-    id: "row-esi",
-    learnerName: "Esi Nyarko",
-    studentId: "LH-260207",
-    className: "JHS 1 Blue",
-    compulsoryCount: 6,
-    optionalCount: 2,
-    date: "20 Jul 2026",
-  },
-];
+const EMPTY: Structure = {
+  classGroups: [],
+  offeringsByClassGroup: {},
+  subjects: [],
+  teachers: [],
+  teachersByOffering: {},
+  years: [],
+};
+
+/* Outside the component so the mount effect can call it without the function
+   itself being a dependency, and so nothing in it touches state — the effect
+   decides what to do with the answer. */
+async function fetchStructure(): Promise<Structure | null> {
+  try {
+    const response = await fetch("/api/admin/academic");
+    const payload = (await response.json()) as {
+      error?: string;
+      structure?: Structure;
+    };
+    return response.ok ? (payload.structure ?? null) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function AcademicView() {
-  const [selectedClassId, setSelectedClassId] = useState("class-jhs2-gold");
-  const [learnerId, setLearnerId] = useState(availableLearners[0].id);
-  const [optionalIds, setOptionalIds] = useState<Set<string>>(new Set());
-  const [effectiveDate, setEffectiveDate] = useState("2026-09-08");
-  const [placements, setPlacements] = useState(initialPlacements);
+  const [structure, setStructure] = useState<Structure>(EMPTY);
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [selectedYearId, setSelectedYearId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
   const [notice, setNotice] = useState("");
+  const [problem, setProblem] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [panel, setPanel] = useState<"class" | "year" | null>(null);
+  /* Only one offering row is ever in its picker, so this is an id rather than
+     a flag per row — opening a second closes the first, which is what stops
+     the column turning into a wall of checkboxes. */
+  const [staffingId, setStaffingId] = useState("");
 
-  const selectedClass =
-    academicClasses.find((item) => item.id === selectedClassId) ??
-    academicClasses[0];
-  const compulsoryOfferings = selectedClass.offerings.filter(
-    (item) => item.requirement === "compulsory",
-  );
-  const optionalOfferings = selectedClass.offerings.filter(
-    (item) => item.requirement === "optional",
-  );
-  const selectedLearner =
-    availableLearners.find((item) => item.id === learnerId) ??
-    availableLearners[0];
-
-  const placementCompletion = useMemo(() => {
-    const totalLearners = academicClasses.reduce(
-      (total, item) => total + item.learnerCount,
-      0,
-    );
-    return Math.round((totalLearners / 165) * 100);
+  const load = useCallback(async () => {
+    const structure = await fetchStructure();
+    if (!structure) {
+      setProblem("The school’s structure could not be loaded.");
+      setState("error");
+      return false;
+    }
+    setStructure(structure);
+    setState("ready");
+    return true;
   }, []);
 
-  function selectClass(classId: string) {
-    setSelectedClassId(classId);
-    setOptionalIds(new Set());
-    setNotice("");
-  }
+  useEffect(() => {
+    let active = true;
 
-  function toggleOptionalSubject(offeringId: string) {
-    setOptionalIds((current) => {
-      const next = new Set(current);
-      if (next.has(offeringId)) {
-        next.delete(offeringId);
+    async function loadOnce() {
+      const structure = await fetchStructure();
+      if (!active) return;
+      if (structure) {
+        setStructure(structure);
+        setState("ready");
       } else {
-        next.add(offeringId);
+        setProblem("The school’s structure could not be loaded.");
+        setState("error");
       }
-      return next;
-    });
+    }
+
+    void loadOnce();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  /* The year shown defaults to the one the school is actually in, but is a
+     selection rather than a fact — an administrator sets next year up in
+     March without moving the school into it. */
+  const currentYear =
+    structure.years.find((year) => year.status === "current") ??
+    structure.years[0];
+  const activeYearId = selectedYearId || currentYear?.id || "";
+  const activeYear = structure.years.find((year) => year.id === activeYearId);
+
+  const classesThisYear = useMemo(
+    () =>
+      structure.classGroups.filter(
+        (group) =>
+          group.academicYearId === activeYearId && group.status === "active",
+      ),
+    [activeYearId, structure.classGroups],
+  );
+
+  const selectedClass =
+    classesThisYear.find((group) => group.id === selectedClassId) ??
+    classesThisYear[0];
+  const offerings = selectedClass
+    ? (structure.offeringsByClassGroup[selectedClass.id] ?? []).filter(
+        (offering) => offering.status === "active",
+      )
+    : [];
+  const compulsory = offerings.filter(
+    (item) => item.requirement === "compulsory",
+  );
+  const optional = offerings.filter((item) => item.requirement === "optional");
+
+  const placedLearners = classesThisYear.reduce(
+    (total, group) => total + group.learnerCount,
+    0,
+  );
+  const offeringCount = classesThisYear.reduce(
+    (total, group) =>
+      total +
+      (structure.offeringsByClassGroup[group.id] ?? []).filter(
+        (offering) => offering.status === "active",
+      ).length,
+    0,
+  );
+  const withTeacher = classesThisYear.filter(
+    (group) => group.classTeacherPersonId,
+  ).length;
+
+  async function send(body: unknown, success: string) {
+    setBusy(true);
+    setNotice("");
+    setProblem("");
+    try {
+      const response = await fetch("/api/admin/academic", {
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "That change could not be saved.");
+      }
+      await load();
+      setNotice(success);
+      return true;
+    } catch (error) {
+      setProblem(
+        error instanceof Error ? error.message : "Something went wrong.",
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function placeLearner(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const placement = createClassPlacement({
-      id: `placement-${selectedLearner.id}-${selectedClass.id}`,
-      tenantId: academicTenantId,
-      learnerId: selectedLearner.id,
-      classGroupId: selectedClass.id,
-      academicYearId: "year-2026-27",
-      effectiveFrom: effectiveDate,
-    });
-    const entitlements = createSubjectEntitlements(
-      placement,
-      selectedClass.offerings,
-      optionalIds,
-    );
-    const optionalCount = entitlements.filter(
-      (item) => item.requirement === "optional",
-    ).length;
+  if (state === "loading") {
+    return <p className="academic-loading">Loading the school’s structure…</p>;
+  }
 
-    setPlacements((current) => [
-      {
-        id: placement.id,
-        learnerName: selectedLearner.name,
-        studentId: selectedLearner.studentId,
-        className: selectedClass.name,
-        compulsoryCount: entitlements.length - optionalCount,
-        optionalCount,
-        date: formatDate(effectiveDate),
-      },
-      ...current.filter((item) => item.studentId !== selectedLearner.studentId),
-    ]);
-    setNotice(
-      `${selectedLearner.name} now has ${entitlements.length} subject entitlements in ${selectedClass.name}.`,
+  if (state === "error") {
+    return (
+      <div className="academic-empty">
+        <h2>The school’s structure could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => void load()} type="button">
+          Try again
+        </button>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="admin-content">
+      <section className="admin-welcome">
+        <div>
+          <p className="eyebrow">School year foundation</p>
+          <h1>Academic structure</h1>
+          <p>
+            Manage academic years, classes, subjects and what each class is
+            taught.
+          </p>
+        </div>
 
+        <div className="year-controls">
+          <label className="year-picker">
+            <small>Academic year</small>
+            <select
+              onChange={(event) => {
+                setSelectedYearId(event.target.value);
+                setSelectedClassId("");
+              }}
+              value={activeYearId}
+            >
+              {structure.years.length === 0 && (
+                <option value="">No years yet</option>
+              )}
+              {structure.years.map((year) => (
+                <option key={year.id} value={year.id}>
+                  {year.name}
+                  {year.status === "current" ? " · current" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="year-buttons">
+            {activeYear && activeYear.status !== "current" && (
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void send(
+                    { type: "set-current-year", yearId: activeYear.id },
+                    `The school is now in ${activeYear.name}.`,
+                  )
+                }
+                type="button"
+              >
+                Make current
+              </button>
+            )}
+            <button
+              className="ghost-button"
+              disabled={busy}
+              onClick={() => setPanel(panel === "year" ? null : "year")}
+              type="button"
+            >
+              Add a year
+            </button>
+          </div>
+        </div>
+      </section>
 
-        <div className="admin-content">
-          <section className="admin-welcome">
-            <div>
-              <p className="eyebrow">School year foundation</p>
-              <h1>Academic structure</h1>
-              <p>Manage classes, subject policies, teachers, and learner placement.</p>
-            </div>
-            <div className="year-selector">
-              <small>Academic year</small>
-              <strong>2026 / 2027</strong>
-              <span aria-hidden="true">⌄</span>
-            </div>
-          </section>
+      {panel === "year" && (
+        <AddYearForm
+          busy={busy}
+          onCancel={() => setPanel(null)}
+          onSubmit={async (year) => {
+            const saved = await send(
+              { type: "create-year", year },
+              `${year.name} was added.`,
+            );
+            if (saved) setPanel(null);
+          }}
+        />
+      )}
 
+      {notice && (
+        <p className="academic-notice" role="status">
+          {notice}
+        </p>
+      )}
+      {problem && (
+        <p className="academic-problem" role="alert">
+          {problem}
+        </p>
+      )}
+
+      {structure.years.length === 0 ? (
+        <div className="academic-empty">
+          <h2>Start with an academic year.</h2>
+          <p>
+            Classes, subjects and admissions intakes all belong to a year, so it
+            is the first thing to set up.
+          </p>
+          <button onClick={() => setPanel("year")} type="button">
+            Add an academic year
+          </button>
+        </div>
+      ) : (
+        <>
           <section className="admin-stats" aria-label="Academic setup summary">
             <article>
               <span className="admin-stat-icon green">▦</span>
-              <div><small>Active classes</small><strong>8</strong></div>
-              <em>KG to SHS</em>
+              <div>
+                <small>Classes</small>
+                <strong>{classesThisYear.length}</strong>
+              </div>
+              <em>{activeYear?.name ?? "This year"}</em>
             </article>
             <article>
               <span className="admin-stat-icon blue">◎</span>
-              <div><small>Placed learners</small><strong>159</strong></div>
-              <em>of 165 expected</em>
+              <div>
+                <small>Placed learners</small>
+                <strong>{placedLearners}</strong>
+              </div>
+              <em>across every class</em>
             </article>
             <article>
               <span className="admin-stat-icon gold">✓</span>
-              <div><small>Subject offerings</small><strong>42</strong></div>
-              <em>34 compulsory</em>
+              <div>
+                <small>Subject offerings</small>
+                <strong>{offeringCount}</strong>
+              </div>
+              <em>{structure.subjects.length} subjects defined</em>
             </article>
             <article>
               <span className="admin-stat-icon purple">↗</span>
-              <div><small>Placement complete</small><strong>{placementCompletion}%</strong></div>
-              <em>6 learners pending</em>
+              <div>
+                <small>Classes with a teacher</small>
+                <strong>
+                  {withTeacher} / {classesThisYear.length}
+                </strong>
+              </div>
+              <em>
+                {classesThisYear.length > 0 &&
+                withTeacher === classesThisYear.length
+                  ? "every class is covered"
+                  : `${classesThisYear.length - withTeacher} still to assign`}
+              </em>
             </article>
           </section>
 
@@ -184,261 +345,950 @@ export function AcademicView() {
                     <p className="eyebrow">Class subject policy</p>
                     <h2>Classes and required subjects</h2>
                   </div>
+                  <button
+                    className="ghost-button"
+                    onClick={() => setPanel(panel === "class" ? null : "class")}
+                    type="button"
+                  >
+                    Add a class
+                  </button>
                 </div>
 
-                <div className="class-tabs" role="tablist" aria-label="Classes">
-                  {academicClasses.map((academicClass) => (
-                    <button
-                      aria-selected={selectedClass.id === academicClass.id}
-                      className={
-                        selectedClass.id === academicClass.id ? "selected" : ""
-                      }
-                      key={academicClass.id}
-                      onClick={() => selectClass(academicClass.id)}
-                      role="tab"
-                      type="button"
+                {panel === "class" && (
+                  <AddClassForm
+                    busy={busy}
+                    onCancel={() => setPanel(null)}
+                    onSubmit={async (group) => {
+                      const saved = await send(
+                        {
+                          class: { ...group, academicYearId: activeYearId },
+                          type: "create-class",
+                        },
+                        `${group.name} was added.`,
+                      );
+                      if (saved) setPanel(null);
+                    }}
+                    teachers={structure.teachers}
+                  />
+                )}
+
+                {classesThisYear.length === 0 ? (
+                  <div className="panel-empty">
+                    <p>
+                      <strong>
+                        No classes in {activeYear?.name} yet.
+                      </strong>
+                      Add the first one and its subjects can be set straight
+                      away.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      className="class-tabs"
+                      role="tablist"
+                      aria-label="Classes"
                     >
-                      <span>{academicClass.name}</span>
-                      <small>{academicClass.learnerCount} learners</small>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="class-summary">
-                  <div className="class-monogram" aria-hidden="true">
-                    {selectedClass.name
-                      .split(" ")
-                      .slice(0, 2)
-                      .map((part) => part[0])
-                      .join("")}
-                  </div>
-                  <div>
-                    <p>{selectedClass.level}</p>
-                    <h3>{selectedClass.name}</h3>
-                    <span>{selectedClass.room}</span>
-                  </div>
-                  <div className="teacher-assignment">
-                    <small>Class teacher</small>
-                    <strong>{selectedClass.classTeacher}</strong>
-                  </div>
-                </div>
-
-                <div className="subject-policy-grid">
-                  <div>
-                    <div className="policy-heading">
-                      <span className="policy-icon required">✓</span>
-                      <div>
-                        <h3>Compulsory subjects</h3>
-                        <p>Automatically added for every learner in this class.</p>
-                      </div>
-                      <strong>{compulsoryOfferings.length}</strong>
-                    </div>
-                    <div className="policy-subjects">
-                      {compulsoryOfferings.map((offering) => (
-                        <span key={offering.id}>
-                          <b>{offering.subjectCode}</b>
-                          {offering.subjectName}
-                          <i aria-label="Locked compulsory subject">●</i>
-                        </span>
+                      {classesThisYear.map((group) => (
+                        <button
+                          aria-selected={selectedClass?.id === group.id}
+                          className={
+                            selectedClass?.id === group.id ? "selected" : ""
+                          }
+                          key={group.id}
+                          onClick={() => setSelectedClassId(group.id)}
+                          role="tab"
+                          type="button"
+                        >
+                          <span>{group.name}</span>
+                          <small>
+                            {group.learnerCount === 1
+                              ? "1 learner"
+                              : `${group.learnerCount} learners`}
+                          </small>
+                        </button>
                       ))}
                     </div>
-                  </div>
 
-                  <div>
-                    <div className="policy-heading">
-                      <span className="policy-icon optional">+</span>
-                      <div>
-                        <h3>Optional subjects</h3>
-                        <p>Available through an approved learner selection.</p>
-                      </div>
-                      <strong>{optionalOfferings.length}</strong>
-                    </div>
-                    <div className="policy-subjects optional-list">
-                      {optionalOfferings.map((offering) => (
-                        <span key={offering.id}>
-                          <b>{offering.subjectCode}</b>
-                          {offering.subjectName}
-                          <i>Approval</i>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                    {selectedClass && (
+                      /* Keyed on the class so switching tab remounts the
+                         detail with that class's own values. Resetting the
+                         fields in an effect instead would render one class's
+                         name over another class's detail for a frame. */
+                      <ClassDetail
+                        busy={busy}
+                        classGroup={selectedClass}
+                        key={selectedClass.id}
+                        compulsory={compulsory}
+                        onArchive={() =>
+                          void send(
+                            {
+                              classGroupId: selectedClass.id,
+                              type: "archive-class",
+                            },
+                            `${selectedClass.name} was archived. Its lessons and marks are kept.`,
+                          )
+                        }
+                        onCloseOffering={(offeringId, subjectName) =>
+                          void send(
+                            { offeringId, type: "close-offering" },
+                            `${subjectName} was removed from ${selectedClass.name}.`,
+                          )
+                        }
+                        onSave={(group) =>
+                          void send(
+                            {
+                              class: group,
+                              classGroupId: selectedClass.id,
+                              type: "update-class",
+                            },
+                            `${group.name} was updated.`,
+                          )
+                        }
+                        onSetOffering={(subjectId, requirement, subjectName) =>
+                          void send(
+                            {
+                              classGroupId: selectedClass.id,
+                              requirement,
+                              subjectId,
+                              type: "set-offering",
+                            },
+                            `${subjectName} is now ${requirement} in ${selectedClass.name}.`,
+                          )
+                        }
+                        onSetTeachers={(offering, teacherPersonIds) =>
+                          void send(
+                            {
+                              offeringId: offering.id,
+                              teacherPersonIds,
+                              type: "set-offering-teachers",
+                            },
+                            teacherPersonIds.length === 0
+                              ? `${offering.subjectName} has no teacher assigned.`
+                              : `${offering.subjectName} is now taught by ${teacherPersonIds.length === 1 ? "one teacher" : `${teacherPersonIds.length} teachers`}.`,
+                          ).then(() => setStaffingId(""))
+                        }
+                        onStaff={setStaffingId}
+                        optional={optional}
+                        staffingId={staffingId}
+                        subjects={structure.subjects}
+                        teachers={structure.teachers}
+                        teachersByOffering={structure.teachersByOffering}
+                        years={structure.years}
+                      />
+                    )}
+                  </>
+                )}
 
                 <div className="policy-rule">
                   <span aria-hidden="true">i</span>
                   <p>
-                    <strong>Class-first access rule:</strong> learners cannot remove
-                    compulsory subjects. Moving class closes future access while
-                    keeping all lesson, assessment, and grade history.
+                    <strong>Class-first access rule:</strong> learners cannot
+                    remove compulsory subjects. Moving class closes future
+                    access while keeping all lesson, assessment and grade
+                    history.
                   </p>
                 </div>
               </section>
 
-              <section className="admin-panel">
-                <div className="admin-panel-heading placement-heading">
-                  <div>
-                    <p className="eyebrow">Latest activity</p>
-                    <h2>Recent learner placements</h2>
-                  </div>
-                  <div className="table-filter">
-                    <span aria-hidden="true">⌕</span>
-                    <input aria-label="Search placements" placeholder="Search learners" />
-                  </div>
-                </div>
-
-                <div className="placement-table-wrap">
-                  <table className="placement-table">
-                    <thead>
-                      <tr>
-                        <th>Learner</th>
-                        <th>Class</th>
-                        <th>Subject access</th>
-                        <th>Effective</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {placements.map((placement) => (
-                        <tr key={placement.id}>
-                          <td>
-                            <span className="table-avatar">
-                              {initials(placement.learnerName)}
-                            </span>
-                            <span>
-                              <strong>{placement.learnerName}</strong>
-                              <small>{placement.studentId}</small>
-                            </span>
-                          </td>
-                          <td>{placement.className}</td>
-                          <td>
-                            <strong>{placement.compulsoryCount} compulsory</strong>
-                            <small>
-                              {placement.optionalCount
-                                ? `${placement.optionalCount} optional`
-                                : "No optional subjects"}
-                            </small>
-                          </td>
-                          <td>{placement.date}</td>
-                          <td><span className="status-pill">Active</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+              <TeachingLoad
+                classGroups={classesThisYear}
+                offeringsByClassGroup={structure.offeringsByClassGroup}
+                teachers={structure.teachers}
+                teachersByOffering={structure.teachersByOffering}
+              />
             </div>
 
-            <aside className="placement-card" aria-labelledby="placement-title">
-              <div className="placement-card-heading">
+            <aside className="subject-library" aria-labelledby="subjects-title">
+              <div className="library-heading">
                 <span aria-hidden="true">+</span>
                 <div>
-                  <p className="eyebrow">New placement</p>
-                  <h2 id="placement-title">Place a learner</h2>
+                  <p className="eyebrow">Subject library</p>
+                  <h2 id="subjects-title">Subjects this school teaches</h2>
                 </div>
               </div>
-              <p className="placement-intro">
-                Selecting a class grants every compulsory subject automatically.
+              <p className="library-intro">
+                A subject is defined once for the whole school, then offered to
+                the classes that take it.
               </p>
 
-              <form onSubmit={placeLearner}>
-                <label>
-                  <span>Learner</span>
-                  <select
-                    onChange={(event) => setLearnerId(event.target.value)}
-                    value={learnerId}
-                  >
-                    {availableLearners.map((learner) => (
-                      <option key={learner.id} value={learner.id}>
-                        {learner.name} · {learner.studentId}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <AddSubjectForm
+                busy={busy}
+                onSubmit={async (subject) =>
+                  send(
+                    { subject, type: "create-subject" },
+                    `${subject.name} was added to the subject library.`,
+                  )
+                }
+              />
 
-                <label>
-                  <span>Class</span>
-                  <select
-                    onChange={(event) => selectClass(event.target.value)}
-                    value={selectedClass.id}
-                  >
-                    {academicClasses.map((academicClass) => (
-                      <option key={academicClass.id} value={academicClass.id}>
-                        {academicClass.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  <span>Effective date</span>
-                  <input
-                    onChange={(event) => setEffectiveDate(event.target.value)}
-                    type="date"
-                    value={effectiveDate}
-                  />
-                </label>
-
-                <div className="auto-entitlement">
-                  <div>
-                    <span className="policy-icon required" aria-hidden="true">✓</span>
-                    <div>
-                      <strong>{compulsoryOfferings.length} subjects included</strong>
-                      <small>Locked by {selectedClass.name} policy</small>
-                    </div>
-                  </div>
-                  <ul>
-                    {compulsoryOfferings.map((item) => (
-                      <li key={item.id}>{item.subjectCode}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {optionalOfferings.length > 0 && (
-                  <fieldset>
-                    <legend>Approved optional subjects</legend>
-                    {optionalOfferings.map((offering) => (
-                      <label className="option-check" key={offering.id}>
-                        <input
-                          checked={optionalIds.has(offering.id)}
-                          onChange={() => toggleOptionalSubject(offering.id)}
-                          type="checkbox"
-                        />
-                        <span>
-                          <strong>{offering.subjectName}</strong>
-                          <small>{offering.subjectCode} · Requires approval</small>
-                        </span>
-                      </label>
-                    ))}
-                  </fieldset>
-                )}
-
-                <button className="place-button" type="submit">
-                  Place learner <span aria-hidden="true">→</span>
-                </button>
-                {notice && <p className="placement-notice" role="status">{notice}</p>}
-              </form>
+              {structure.subjects.length === 0 ? (
+                <p className="library-empty">
+                  No subjects yet. The first one can be added above.
+                </p>
+              ) : (
+                <ul className="subject-list">
+                  {structure.subjects.map((subject) => (
+                    <li key={subject.id}>
+                      <b>{subject.code}</b>
+                      <span>{subject.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </aside>
           </div>
-        </div>
+        </>
+      )}
+    </div>
+  );
+}
 
+function ClassDetail({
+  busy,
+  classGroup,
+  compulsory,
+  onArchive,
+  onCloseOffering,
+  onSave,
+  onSetOffering,
+  onSetTeachers,
+  onStaff,
+  optional,
+  staffingId,
+  subjects,
+  teachers,
+  teachersByOffering,
+  years,
+}: {
+  busy: boolean;
+  classGroup: ClassGroup;
+  compulsory: ClassOffering[];
+  onArchive: () => void;
+  onCloseOffering: (offeringId: string, subjectName: string) => void;
+  onSave: (group: {
+    academicYearId: string;
+    classTeacherPersonId: string | null;
+    level: string;
+    name: string;
+    room: string;
+  }) => void;
+  onSetOffering: (
+    subjectId: string,
+    requirement: SubjectRequirement,
+    subjectName: string,
+  ) => void;
+  onSetTeachers: (offering: ClassOffering, teacherPersonIds: string[]) => void;
+  onStaff: (offeringId: string) => void;
+  optional: ClassOffering[];
+  staffingId: string;
+  subjects: Subject[];
+  teachers: SchoolTeacher[];
+  teachersByOffering: Record<string, string[]>;
+  years: AcademicYear[];
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(classGroup.name);
+  const [level, setLevel] = useState(classGroup.level);
+  const [room, setRoom] = useState(classGroup.room);
+  const [teacherId, setTeacherId] = useState(
+    classGroup.classTeacherPersonId ?? "",
+  );
+  const [subjectId, setSubjectId] = useState("");
+  const [requirement, setRequirement] =
+    useState<SubjectRequirement>("compulsory");
+
+  const teacherName =
+    teachers.find((person) => person.id === classGroup.classTeacherPersonId)
+      ?.name ?? null;
+  const taken = new Set(
+    [...compulsory, ...optional].map((item) => item.subjectId),
+  );
+  const available = subjects.filter((subject) => !taken.has(subject.id));
+
+  return (
+    <>
+      <div className="class-summary">
+        <div className="class-monogram" aria-hidden="true">
+          {classGroup.name
+            .split(" ")
+            .slice(0, 2)
+            .map((part) => part[0])
+            .join("")}
+        </div>
+        <div>
+          <p>{classGroup.level || "Level not set"}</p>
+          <h3>{classGroup.name}</h3>
+          <span>{classGroup.room || "Room not set"}</span>
+        </div>
+        <div className="teacher-assignment">
+          <small>Class teacher</small>
+          <strong className={teacherName ? undefined : "unassigned"}>
+            {teacherName ?? "Not assigned"}
+          </strong>
+        </div>
+        <button
+          className="ghost-button"
+          onClick={() => setEditing((current) => !current)}
+          type="button"
+        >
+          {editing ? "Cancel" : "Edit class"}
+        </button>
+      </div>
+
+      {editing && (
+        <form
+          className="class-edit-form"
+          onSubmit={(event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            onSave({
+              academicYearId: classGroup.academicYearId,
+              classTeacherPersonId: teacherId || null,
+              level,
+              name,
+              room,
+            });
+            setEditing(false);
+          }}
+        >
+          <div className="inline-form-fields">
+            <label>
+              <span>Class name</span>
+              <input
+                onChange={(event) => setName(event.target.value)}
+                required
+                value={name}
+              />
+            </label>
+            <label>
+              <span>Level</span>
+              <input
+                onChange={(event) => setLevel(event.target.value)}
+                placeholder="Junior High"
+                value={level}
+              />
+            </label>
+            <label>
+              <span>Room</span>
+              <input
+                onChange={(event) => setRoom(event.target.value)}
+                placeholder="Block A · Room 2"
+                value={room}
+              />
+            </label>
+            <label>
+              <span>Class teacher</span>
+              <select
+                onChange={(event) => setTeacherId(event.target.value)}
+                value={teacherId}
+              >
+                <option value="">Not assigned</option>
+                {teachers.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="form-actions">
+            <button disabled={busy} type="submit">
+              Save changes
+            </button>
+            <button
+              className="danger-button"
+              disabled={busy}
+              onClick={onArchive}
+              type="button"
+            >
+              Archive this class
+            </button>
+          </div>
+          <p className="form-hint">
+            Archiving keeps every lesson, mark and report this class has
+            produced. It only stops it being taught.
+            {years.length > 1 && (
+              <>
+                {" "}
+                This class belongs to{" "}
+                {years.find((year) => year.id === classGroup.academicYearId)
+                  ?.name ?? "an earlier year"}
+                .
+              </>
+            )}
+          </p>
+        </form>
+      )}
+
+      <div className="subject-policy-grid">
+        <OfferingColumn
+          blurb="Automatically added for every learner in this class."
+          busy={busy}
+          editingId={staffingId}
+          offerings={compulsory}
+          onEdit={onStaff}
+          onRemove={onCloseOffering}
+          onSetTeachers={onSetTeachers}
+          teachers={teachers}
+          teachersByOffering={teachersByOffering}
+          title="Compulsory subjects"
+          tone="required"
+        />
+        <OfferingColumn
+          blurb="Available through an approved learner selection."
+          busy={busy}
+          editingId={staffingId}
+          offerings={optional}
+          onEdit={onStaff}
+          onRemove={onCloseOffering}
+          onSetTeachers={onSetTeachers}
+          teachers={teachers}
+          teachersByOffering={teachersByOffering}
+          title="Optional subjects"
+          tone="optional"
+        />
+      </div>
+
+      <form
+        className="add-offering-form"
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          const subject = subjects.find((item) => item.id === subjectId);
+          if (!subject) return;
+          onSetOffering(subject.id, requirement, subject.name);
+          setSubjectId("");
+        }}
+      >
+        <label>
+          <span>Add a subject to {classGroup.name}</span>
+          <select
+            onChange={(event) => setSubjectId(event.target.value)}
+            value={subjectId}
+          >
+            <option value="">Choose a subject</option>
+            {available.map((subject) => (
+              <option key={subject.id} value={subject.id}>
+                {subject.code} · {subject.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Requirement</span>
+          <select
+            onChange={(event) =>
+              setRequirement(event.target.value as SubjectRequirement)
+            }
+            value={requirement}
+          >
+            <option value="compulsory">Compulsory</option>
+            <option value="optional">Optional</option>
+          </select>
+        </label>
+        <button disabled={busy || !subjectId} type="submit">
+          Add subject
+        </button>
+        {available.length === 0 && subjects.length > 0 && (
+          <p className="form-hint">
+            Every subject in the library is already offered to this class.
+          </p>
+        )}
+      </form>
     </>
   );
 }
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("");
+/**
+ * The same assignments read the other way round.
+ *
+ * The class panel above answers "who teaches this subject". This answers "what
+ * does this teacher hold", which is the question asked when someone joins,
+ * leaves, or is quietly carrying nine periods more than everyone else.
+ *
+ * Read-only on purpose. Editing here would mean a second way to write the same
+ * join, and two write paths to one table is how they drift — the row in the
+ * class panel is where an assignment changes. What this is for is noticing.
+ */
+function TeachingLoad({
+  classGroups,
+  offeringsByClassGroup,
+  teachers,
+  teachersByOffering,
+}: {
+  classGroups: ClassGroup[];
+  offeringsByClassGroup: Record<string, ClassOffering[]>;
+  teachers: SchoolTeacher[];
+  teachersByOffering: Record<string, string[]>;
+}) {
+  /* Only this year's classes, so a teacher is not credited with subjects from
+     a year the school has closed. */
+  const held = new Map<string, Array<{ className: string; subject: string }>>();
+  for (const group of classGroups) {
+    for (const offering of offeringsByClassGroup[group.id] ?? []) {
+      if (offering.status !== "active") continue;
+      for (const personId of teachersByOffering[offering.id] ?? []) {
+        const list = held.get(personId) ?? [];
+        list.push({ className: group.name, subject: offering.subjectName });
+        held.set(personId, list);
+      }
+    }
+  }
+
+  const unstaffed = classGroups.flatMap((group) =>
+    (offeringsByClassGroup[group.id] ?? []).filter(
+      (offering) =>
+        offering.status === "active" &&
+        (teachersByOffering[offering.id] ?? []).length === 0,
+    ),
+  );
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <p className="eyebrow">Staffing</p>
+          <h2>Who is teaching what</h2>
+        </div>
+        {unstaffed.length > 0 && (
+          <span className="unstaffed-count">
+            {unstaffed.length} without a teacher
+          </span>
+        )}
+      </div>
+
+      {teachers.length === 0 ? (
+        <div className="panel-empty">
+          <p>
+            <strong>No teaching staff yet.</strong>
+            Invite a teacher from <Link href="/admin/people#invite">People</Link>,
+            then assign them a subject above.
+          </p>
+        </div>
+      ) : (
+        <ul className="teaching-load">
+          {teachers.map((person) => {
+            const load = held.get(person.id) ?? [];
+            return (
+              <li key={person.id}>
+                <div>
+                  <strong>{person.name}</strong>
+                  <small>{humaniseRole(person.role)}</small>
+                </div>
+                {load.length === 0 ? (
+                  <span className="load-none">No subjects assigned</span>
+                ) : (
+                  <span className="load-subjects">
+                    {load.map((item, index) => (
+                      <b key={`${item.className}-${item.subject}-${index}`}>
+                        {item.subject}
+                        <i>{item.className}</i>
+                      </b>
+                    ))}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
 }
 
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00.000Z`));
+/* ==========================================================================
+   A subject on a class, and who teaches it
+
+   These were name chips. They are rows now because a subject offering with
+   nobody teaching it is the single most useful thing this screen can tell an
+   administrator staffing a term, and a chip has nowhere to say it.
+
+   The teacher list edits in place — pressing the names turns that one row
+   into a picker and leaves every other row where it was, so the list does not
+   reflow under the cursor.
+   ========================================================================== */
+function OfferingColumn({
+  blurb,
+  busy,
+  editingId,
+  offerings,
+  onEdit,
+  onRemove,
+  onSetTeachers,
+  teachers,
+  teachersByOffering,
+  title,
+  tone,
+}: {
+  blurb: string;
+  busy: boolean;
+  editingId: string;
+  offerings: ClassOffering[];
+  onEdit: (offeringId: string) => void;
+  onRemove: (offeringId: string, subjectName: string) => void;
+  onSetTeachers: (offering: ClassOffering, teacherPersonIds: string[]) => void;
+  teachers: SchoolTeacher[];
+  teachersByOffering: Record<string, string[]>;
+  title: string;
+  tone: "optional" | "required";
+}) {
+  return (
+    <div>
+      <div className="policy-heading">
+        <span className={`policy-icon ${tone}`}>
+          {tone === "required" ? "✓" : "+"}
+        </span>
+        <div>
+          <h3>{title}</h3>
+          <p>{blurb}</p>
+        </div>
+        <strong>{offerings.length}</strong>
+      </div>
+      <div className="offering-rows">
+        {offerings.map((offering) => {
+          const assigned = teachersByOffering[offering.id] ?? [];
+          const named = assigned
+            .map((id) => teachers.find((person) => person.id === id)?.name)
+            .filter(Boolean) as string[];
+
+          return (
+            <div className="offering-row" key={offering.id}>
+              <b className="offering-code">{offering.subjectCode}</b>
+              <span className="offering-name">{offering.subjectName}</span>
+
+              {editingId === offering.id ? (
+                <TeacherPicker
+                  assigned={assigned}
+                  busy={busy}
+                  onCancel={() => onEdit("")}
+                  onSave={(ids) => onSetTeachers(offering, ids)}
+                  teachers={teachers}
+                />
+              ) : (
+                <button
+                  className={
+                    named.length > 0
+                      ? "offering-teachers"
+                      : "offering-teachers is-empty"
+                  }
+                  disabled={busy}
+                  onClick={() => onEdit(offering.id)}
+                  type="button"
+                >
+                  {named.length > 0 ? named.join(", ") : "Assign a teacher"}
+                </button>
+              )}
+
+              <button
+                aria-label={`Remove ${offering.subjectName} from this class`}
+                className="offering-remove"
+                disabled={busy}
+                onClick={() => onRemove(offering.id, offering.subjectName)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+        {offerings.length === 0 && (
+          <p className="policy-empty">None set for this class.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Who teaches one subject.
+ *
+ * A list rather than a single choice, because co-teaching is ordinary — a
+ * practical split between a specialist and a form tutor, or a subject handed
+ * over mid-year with both names on it for a term.
+ *
+ * Held as local state and committed on Save so an administrator can tick
+ * three people without three round trips, and can change their mind without
+ * having written anything.
+ */
+function TeacherPicker({
+  assigned,
+  busy,
+  onCancel,
+  onSave,
+  teachers,
+}: {
+  assigned: string[];
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (teacherPersonIds: string[]) => void;
+  teachers: SchoolTeacher[];
+}) {
+  const [chosen, setChosen] = useState<string[]>(assigned);
+
+  function toggle(id: string) {
+    setChosen((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  }
+
+  return (
+    <div className="teacher-picker">
+      {teachers.length === 0 ? (
+        <p className="form-hint">
+          No staff yet. Invite a teacher from{" "}
+          <Link href="/admin/people#invite">People</Link> first.
+        </p>
+      ) : (
+        <>
+          <div className="teacher-options">
+            {teachers.map((person) => (
+              <label key={person.id}>
+                <input
+                  checked={chosen.includes(person.id)}
+                  onChange={() => toggle(person.id)}
+                  type="checkbox"
+                />
+                <span>
+                  <strong>{person.name}</strong>
+                  <small>{humaniseRole(person.role)}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="teacher-picker-actions">
+            <button disabled={busy} onClick={() => onSave(chosen)} type="button">
+              Save
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busy}
+              onClick={onCancel}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function humaniseRole(role: string) {
+  return role
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function AddYearForm({
+  busy,
+  onCancel,
+  onSubmit,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (year: {
+    endsOn: string;
+    name: string;
+    startsOn: string;
+  }) => void | Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [startsOn, setStartsOn] = useState("");
+  const [endsOn, setEndsOn] = useState("");
+
+  return (
+    <form
+      className="admin-panel inline-form"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        void onSubmit({ endsOn, name, startsOn });
+      }}
+    >
+      <h2>Add an academic year</h2>
+      <div className="inline-form-fields">
+        <label>
+          <span>Name</span>
+          <input
+            onChange={(event) => setName(event.target.value)}
+            placeholder="2027 / 2028"
+            required
+            value={name}
+          />
+        </label>
+        <label>
+          <span>First day</span>
+          <input
+            onChange={(event) => setStartsOn(event.target.value)}
+            required
+            type="date"
+            value={startsOn}
+          />
+        </label>
+        <label>
+          <span>Last day</span>
+          <input
+            onChange={(event) => setEndsOn(event.target.value)}
+            required
+            type="date"
+            value={endsOn}
+          />
+        </label>
+      </div>
+      <div className="form-actions">
+        <button disabled={busy} type="submit">
+          Add year
+        </button>
+        <button className="ghost-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+      </div>
+      <p className="form-hint">
+        A new year is planned, not current — the school stays in the year it is
+        in until you make the change deliberately.
+      </p>
+    </form>
+  );
+}
+
+function AddClassForm({
+  busy,
+  onCancel,
+  onSubmit,
+  teachers,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (group: {
+    classTeacherPersonId: string | null;
+    level: string;
+    name: string;
+    room: string;
+  }) => void | Promise<void>;
+  teachers: Array<{ id: string; name: string }>;
+}) {
+  const [name, setName] = useState("");
+  const [level, setLevel] = useState("");
+  const [room, setRoom] = useState("");
+  const [teacherId, setTeacherId] = useState("");
+
+  return (
+    <form
+      className="inline-form"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        void onSubmit({
+          classTeacherPersonId: teacherId || null,
+          level,
+          name,
+          room,
+        });
+      }}
+    >
+      <div className="inline-form-fields">
+        <label>
+          <span>Class name</span>
+          <input
+            onChange={(event) => setName(event.target.value)}
+            placeholder="JHS 1 Blue"
+            required
+            value={name}
+          />
+        </label>
+        <label>
+          <span>Level</span>
+          <input
+            onChange={(event) => setLevel(event.target.value)}
+            placeholder="Junior High"
+            value={level}
+          />
+        </label>
+        <label>
+          <span>Room</span>
+          <input
+            onChange={(event) => setRoom(event.target.value)}
+            placeholder="Block A · Room 2"
+            value={room}
+          />
+        </label>
+        <label>
+          <span>Class teacher</span>
+          <select
+            onChange={(event) => setTeacherId(event.target.value)}
+            value={teacherId}
+          >
+            <option value="">Assign later</option>
+            {teachers.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="form-actions">
+        <button disabled={busy} type="submit">
+          Add class
+        </button>
+        <button className="ghost-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AddSubjectForm({
+  busy,
+  onSubmit,
+}: {
+  busy: boolean;
+  onSubmit: (subject: {
+    code: string;
+    name: string;
+  }) => Promise<boolean>;
+}) {
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+
+  return (
+    <form
+      className="add-subject-form"
+      onSubmit={async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        /* Cleared only on success, so a rejected code — a duplicate, or one
+           too short — is still in the field to be corrected rather than
+           retyped from nothing. */
+        if (await onSubmit({ code, name })) {
+          setCode("");
+          setName("");
+        }
+      }}
+    >
+      <label>
+        <span>Code</span>
+        <input
+          maxLength={6}
+          onChange={(event) => setCode(event.target.value.toUpperCase())}
+          placeholder="MA"
+          required
+          value={code}
+        />
+      </label>
+      <label>
+        <span>Subject name</span>
+        <input
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Mathematics"
+          required
+          value={name}
+        />
+      </label>
+      <button disabled={busy} type="submit">
+        Add
+      </button>
+    </form>
+  );
 }

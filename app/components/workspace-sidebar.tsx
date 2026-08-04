@@ -15,6 +15,7 @@ import {
   MessagesIcon,
   LayersIcon,
   PanelCollapseIcon,
+  SchoolIcon,
   SignOutIcon,
   UsersIcon,
 } from "./icons";
@@ -56,6 +57,7 @@ const icons: Record<string, (props: { size?: number }) => ReactNode> = {
   home: HomeIcon,
   markbook: ChartIcon,
   messages: MessagesIcon,
+  school: SchoolIcon,
   schoolDay: CalendarIcon,
   subjects: BooksIcon,
 };

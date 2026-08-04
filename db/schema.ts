@@ -163,6 +163,167 @@ export const auditEvents = sqliteTable(
   ],
 );
 
+/* ==========================================================================
+   The shape of the school
+
+   Until these tables existed, a class was a string. `subject_offerings`
+   carried `class_group_id`, `class_name` and `academic_year_id` with nothing
+   on the other end of any of them, and the four classes an administrator
+   could see came from a hardcoded array in domain/academic/fixtures.ts. That
+   made a class something only a developer could add, and made "JHS 2 Gold"
+   and "JHS 2 gold" two different classes that no constraint would ever
+   notice.
+
+   The denormalised columns on `subject_offerings` stay where they are — a
+   hundred prepared statements read `class_name` off the offering rather than
+   joining, and rewriting those is a separate change. What they now have is a
+   parent row to agree with.
+   ========================================================================== */
+
+export const academicYears = sqliteTable(
+  "academic_years",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    /* As the school writes it: "2026 / 2027". Shown wherever a year is
+       named, so it is the school's wording rather than a derived label. */
+    name: text("name").notNull(),
+    startsOn: text("starts_on").notNull(),
+    endsOn: text("ends_on").notNull(),
+    /* Exactly one year per school should be `current`. That is a rule the
+       repository enforces on write, not a constraint here: a partial unique
+       index would make the moment of rollover — where the outgoing year is
+       closed and the incoming one opened — impossible to express in one
+       statement without a deferred constraint. */
+    status: text("status", { enum: ["planned", "current", "closed"] })
+      .notNull()
+      .default("planned"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("academic_years_tenant_name_idx").on(table.tenantId, table.name),
+  ],
+);
+
+export const classGroups = sqliteTable(
+  "class_groups",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    academicYearId: text("academic_year_id")
+      .notNull()
+      .references(() => academicYears.id),
+    name: text("name").notNull(),
+    /* "Junior High", "Primary", "Kindergarten" — the school's own grouping.
+       Free text because the stages a school teaches are not ours to enumerate:
+       a Ghanaian basic school and a British one disagree about all of them. */
+    level: text("level").notNull().default(""),
+    room: text("room").notNull().default(""),
+    /* Nullable on purpose. A class exists on the timetable before anyone has
+       been given it, and the admin home counts exactly this to tell a school
+       which classes are not ready for the term. */
+    classTeacherPersonId: text("class_teacher_person_id").references(
+      () => people.id,
+    ),
+    status: text("status", { enum: ["active", "archived"] })
+      .notNull()
+      .default("active"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("class_groups_tenant_year_idx").on(
+      table.tenantId,
+      table.academicYearId,
+    ),
+    /* Two classes in one year cannot share a name. Across years they can, and
+       must: "JHS 1 Blue" exists every September. */
+    uniqueIndex("class_groups_tenant_year_name_idx").on(
+      table.tenantId,
+      table.academicYearId,
+      table.name,
+    ),
+  ],
+);
+
+/* ==========================================================================
+   An admissions intake
+
+   `db/applicant-repository.ts` used to carry `const CURRENT_INTAKE_ID =
+   "2026-2027"`, which meant opening admissions for a new year was a source
+   edit and a redeploy, and closing them was not possible at all — the public
+   form accepted applications whatever the advertised closing date said.
+
+   An intake is the record that answers "are we taking applications, for which
+   year, until when". The public form asks it; the admin screen sets it.
+   ========================================================================== */
+
+export const admissionIntakes = sqliteTable(
+  "admission_intakes",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    academicYearId: text("academic_year_id")
+      .notNull()
+      .references(() => academicYears.id),
+    /* What families are told they are applying for: "2026 / 2027 intake". */
+    label: text("label").notNull(),
+    opensOn: text("opens_on").notNull(),
+    closesOn: text("closes_on").notNull(),
+    /* `draft` is set up but not announced; `open` accepts applications;
+       `closed` refuses new ones while leaving every existing application
+       readable and reviewable. Closing is never deletion. */
+    status: text("status", { enum: ["draft", "open", "closed"] })
+      .notNull()
+      .default("draft"),
+    /* Places being offered. 0 means the school has not said, and nothing
+       enforces it — it is shown to the admissions officer against the number
+       of offers already made, which is the point. */
+    capacity: integer("capacity").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("admission_intakes_tenant_label_idx").on(
+      table.tenantId,
+      table.label,
+    ),
+    index("admission_intakes_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+    ),
+  ],
+);
+
+/* ==========================================================================
+   What the public site says about the school
+
+   Everything the marketing site shows — the name, the strapline, the address,
+   the programmes, the news, the admissions steps — was a TypeScript constant
+   compiled into the bundle, read by the landing page, the sign-in page, the
+   applicant account and the admissions emails. A school could not change its
+   own telephone number.
+
+   Stored as one JSON document rather than thirty columns because it is a
+   document: the school edits it whole, nothing queries inside it, and the
+   shape belongs to domain/school/public-profile.ts where it is already
+   defined and already validated. The generator emits `text` for this — see
+   scripts/generate-learning-schema.ts for why the storage types mirror
+   SQLite — so the repository parses on read.
+   ========================================================================== */
+
+export const schoolProfiles = sqliteTable("school_profiles", {
+  tenantId: text("tenant_id")
+    .primaryKey()
+    .references(() => tenants.id),
+  document: text("document").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const subjects = sqliteTable(
   "subjects",
   {

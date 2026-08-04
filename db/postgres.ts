@@ -195,4 +195,59 @@ const additiveMigrations = `
      scan of every application the school has ever taken. */
   CREATE INDEX IF NOT EXISTS admission_records_draft_reminder_idx
     ON admission_application_records (tenant_id, status, updated_at);
+
+  /* ------------------------------------------------------------------------
+     Giving the existing classes a parent row
+
+     Before academic_years and class_groups existed, a class was three
+     denormalised columns on subject_offerings pointing at nothing. Any
+     database written by an earlier build already holds real offerings with
+     real class ids, and the new admin screens read the parent tables — so
+     without this backfill an existing school opens Academics and correctly
+     sees nothing at all, while its offerings sit there referring to classes
+     that have no record.
+
+     Both statements are keyed on the id the offerings already use, so the
+     rows that appear are the school's own classes rather than new ones, and
+     re-running is a no-op.
+
+     No foreign key is added from subject_offerings onto either table. The
+     denormalised columns are read directly by around a hundred prepared
+     statements that would have to move with it, and a constraint added here
+     would fail the deployment of any school whose offerings disagree with
+     this backfill even slightly. Coherence first; enforcement is its own
+     change.
+     ------------------------------------------------------------------------ */
+
+  /* Name and dates are left as the raw id and empty strings deliberately: the
+     year's real name and term dates are things only the school knows, and a
+     plausible-looking guess is worse than a blank an administrator is asked
+     to fill in. The seeded demo year is corrected by db/academic-seed.ts. */
+  INSERT INTO academic_years (id, tenant_id, name, starts_on, ends_on, status)
+  SELECT
+    offering.academic_year_id,
+    MIN(offering.tenant_id),
+    offering.academic_year_id,
+    '',
+    '',
+    'current'
+  FROM subject_offerings AS offering
+  WHERE offering.academic_year_id <> ''
+  GROUP BY offering.academic_year_id
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO class_groups
+    (id, tenant_id, academic_year_id, name, level, room, status)
+  SELECT
+    offering.class_group_id,
+    MIN(offering.tenant_id),
+    MIN(offering.academic_year_id),
+    MIN(offering.class_name),
+    '',
+    '',
+    'active'
+  FROM subject_offerings AS offering
+  WHERE offering.class_group_id <> '' AND offering.academic_year_id <> ''
+  GROUP BY offering.class_group_id
+  ON CONFLICT (id) DO NOTHING;
 `;

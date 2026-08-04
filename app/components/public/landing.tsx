@@ -14,6 +14,7 @@ import { HeroCarousel } from "./hero-carousel";
 import { Reveal } from "./reveal";
 import { SiteHeader } from "./site-header";
 import { ArcStack, ChevronBand, DotField, RingAccent } from "./decor";
+import type { PublicIntakeState } from "../../../db/intake-repository";
 import type { SchoolProfile } from "../../../domain/school/public-profile";
 import { signInPath } from "../../auth";
 import "../../site.css";
@@ -34,10 +35,14 @@ const NAVIGATION = [
  * means this renders anywhere, including without a database.
  */
 export function Landing({
+  intake,
   school,
   signInHref,
   signInLabel,
 }: {
+  /* Whether the school is actually taking applications, rather than what its
+     profile once said it would. The admissions panel below reads this. */
+  intake: PublicIntakeState;
   school: SchoolProfile;
   signInHref: string;
   signInLabel: string;
@@ -283,9 +288,13 @@ export function Landing({
           <Reveal className="site-admissions-inner">
             <div className="site-admissions-copy" data-reveal>
               <p className="site-kicker site-kicker-gold">
-                {school.admissions.intakeLabel}
+                {intake.intake?.label ?? "Admissions"}
               </p>
-              <h2>Applications close on {formatDate(school.admissions.closesOn)}.</h2>
+              <h2>
+                {intake.isOpen && intake.intake
+                  ? `Applications close on ${formatDate(intake.intake.closesOn)}.`
+                  : "Applications are closed at the moment."}
+              </h2>
               <p>{school.admissions.note}</p>
               <div className="site-admissions-actions">
                 <Link className="site-button site-button-gold" href="/admissions">

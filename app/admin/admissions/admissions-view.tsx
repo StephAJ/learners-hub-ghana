@@ -1,32 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import {
-  acceptAdmissionOffer,
-  convertAcceptedApplication,
-  recordAdmissionDecision,
-  startApplicationReview,
-} from "../../../domain/admissions/admissions";
-import { admissionApplications } from "../../../domain/admissions/fixtures";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type {
-  AdmissionApplication,
-  AdmissionDocumentType,
-  AdmissionStatus,
-} from "../../../domain/admissions/types";
+  AcademicYear,
+  AdmissionIntake,
+} from "../../../domain/academic/structure";
 import type { ApplicantApplication } from "../../../db/applicant-repository";
-import { academicClasses } from "../../../domain/academic/fixtures";
 import "../academic/academic.css";
 import "./admissions.css";
 
-const documentNames: Record<AdmissionDocumentType, string> = {
-  "birth-certificate": "Birth certificate",
-  "previous-report": "Previous school report",
-  "passport-photo": "Passport photograph",
-  "medical-note": "Medical information",
-};
+/* ==========================================================================
+   Admissions
 
-const statusNames: Record<AdmissionStatus, string> = {
+   Two things happen on this screen, and until now only one of them existed.
+
+   Reviewing applications worked: the queue below reads real records and its
+   status changes persist. What it was drawn over was fixture data — a set of
+   invented applicants from domain/admissions/fixtures.ts that the real ones
+   were merged on top of, so an empty queue looked busy and every count on
+   the page was a literal typed into the markup.
+
+   Opening and closing admissions did not exist at all. The intake was
+   `const CURRENT_INTAKE_ID = "2026-2027"` in db/applicant-repository.ts —
+   the school's own home page listed "Open the public admissions intake" as
+   its next step, and there was nothing anywhere that could do it. The panel
+   at the top of this screen is that missing control.
+   ========================================================================== */
+
+type ApplicationStatus = ApplicantApplication["status"];
+
+const statusNames: Record<ApplicationStatus, string> = {
   draft: "Draft",
   submitted: "Awaiting review",
   "under-review": "Under review",
@@ -36,94 +40,212 @@ const statusNames: Record<AdmissionStatus, string> = {
   enrolled: "Enrolled",
 };
 
+/* The one step forward from each state, matching the transitions
+   db/applicant-repository.ts will actually accept. The server is still the
+   authority — this only decides what the button says. */
+const nextStep: Partial<
+  Record<ApplicationStatus, { label: string; status: ApplicationStatus }>
+> = {
+  submitted: { label: "Start review", status: "under-review" },
+  "under-review": { label: "Make offer", status: "offered" },
+  offered: { label: "Record acceptance", status: "accepted" },
+  accepted: { label: "Create student record", status: "enrolled" },
+};
+
+const intakeStatusNames: Record<AdmissionIntake["status"], string> = {
+  closed: "Closed",
+  draft: "Not published",
+  open: "Open",
+};
+
+type AdmissionsData = {
+  applications: ApplicantApplication[];
+  counts: Record<string, number>;
+  error?: string;
+  intakes: AdmissionIntake[];
+  years: AcademicYear[];
+};
+
+/* Outside the component so the mount effect can call it without the function
+   itself being a dependency, and so nothing in it touches state — the caller
+   decides what to do with the answer. */
+async function fetchAdmissions(): Promise<AdmissionsData> {
+  const empty = { applications: [], counts: {}, intakes: [], years: [] };
+  try {
+    const [applicationsResponse, intakeResponse] = await Promise.all([
+      fetch("/api/admin/admissions"),
+      fetch("/api/admin/intake"),
+    ]);
+    const applicationsPayload = (await applicationsResponse.json()) as {
+      applications?: ApplicantApplication[];
+      error?: string;
+    };
+    if (!applicationsResponse.ok || !applicationsPayload.applications) {
+      return {
+        ...empty,
+        error: applicationsPayload.error ?? "Applications could not be loaded.",
+      };
+    }
+    const intakePayload = (await intakeResponse.json()) as {
+      applicationCounts?: Record<string, number>;
+      error?: string;
+      intakes?: AdmissionIntake[];
+      years?: AcademicYear[];
+    };
+    if (!intakeResponse.ok || !intakePayload.intakes) {
+      return {
+        ...empty,
+        error: intakePayload.error ?? "Intakes could not be loaded.",
+      };
+    }
+
+    return {
+      applications: applicationsPayload.applications,
+      counts: intakePayload.applicationCounts ?? {},
+      intakes: intakePayload.intakes,
+      years: intakePayload.years ?? [],
+    };
+  } catch (error) {
+    return {
+      ...empty,
+      error: error instanceof Error ? error.message : "Something went wrong.",
+    };
+  }
+}
+
 export function AdmissionsView() {
-  const [applications, setApplications] = useState(admissionApplications);
-  const [selectedId, setSelectedId] = useState(admissionApplications[0].id);
-  const [statusFilter, setStatusFilter] = useState<AdmissionStatus | "all">(
+  const [applications, setApplications] = useState<ApplicantApplication[]>([]);
+  const [intakes, setIntakes] = useState<AdmissionIntake[]>([]);
+  const [years, setYears] = useState<AcademicYear[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [selectedId, setSelectedId] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "all">(
     "all",
   );
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [editingIntake, setEditingIntake] = useState(false);
+
+  const load = useCallback(async () => {
+    const loaded = await fetchAdmissions();
+    if (loaded.error) {
+      setProblem(loaded.error);
+      return false;
+    }
+    setApplications(loaded.applications);
+    setIntakes(loaded.intakes);
+    setYears(loaded.years);
+    setCounts(loaded.counts);
+    setState("ready");
+    return true;
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
 
-    async function loadSubmittedApplications() {
-      try {
-        const response = await fetch("/api/admin/admissions");
-        const payload = (await response.json()) as {
-          applications?: ApplicantApplication[];
-          error?: string;
-        };
-        if (!response.ok || !payload.applications) {
-          throw new Error(payload.error ?? "Applications could not be loaded.");
-        }
-        if (cancelled || payload.applications.length === 0) return;
-
-        const persistentApplications = payload.applications.map(
-          mapApplicantApplication,
-        );
-        setApplications((current) => {
-          const persistentIds = new Set(
-            persistentApplications.map((application) => application.id),
-          );
-          return [
-            ...persistentApplications,
-            ...current.filter((application) => !persistentIds.has(application.id)),
-          ];
-        });
-        setSelectedId(persistentApplications[0].id);
-      } catch (error) {
-        if (!cancelled) {
-          setNotice(
-            error instanceof Error
-              ? error.message
-              : "Applications could not be loaded.",
-          );
-        }
+    async function loadOnce() {
+      const loaded = await fetchAdmissions();
+      if (!active) return;
+      if (loaded.error) {
+        setProblem(loaded.error);
+        setState("error");
+        return;
       }
+      setApplications(loaded.applications);
+      setIntakes(loaded.intakes);
+      setYears(loaded.years);
+      setCounts(loaded.counts);
+      setState("ready");
     }
 
-    void loadSubmittedApplications();
+    void loadOnce();
     return () => {
-      cancelled = true;
+      active = false;
     };
   }, []);
 
+  /* The one the school is working on: open if any is, otherwise the most
+     recent — which is what an officer reviewing last month's applications
+     after the door shut is looking at. */
+  const activeIntake =
+    intakes.find((intake) => intake.status === "open") ?? intakes[0] ?? null;
+
   const visibleApplications = useMemo(() => {
-    const normalisedQuery = query.trim().toLowerCase();
+    const normalised = query.trim().toLowerCase();
     return applications.filter((application) => {
       const matchesStatus =
         statusFilter === "all" || application.status === statusFilter;
-      const searchableText = [
-        application.applicationNumber,
-        application.applicant.firstName,
-        application.applicant.lastName,
-        application.guardian.fullName,
+      const searchable = [
+        application.applicantFirstName,
+        application.applicantLastName,
+        application.guardianName,
+        application.guardianEmail,
       ]
         .join(" ")
         .toLowerCase();
-      return matchesStatus && searchableText.includes(normalisedQuery);
+      return matchesStatus && searchable.includes(normalised);
     });
   }, [applications, query, statusFilter]);
 
   const selected =
     applications.find((application) => application.id === selectedId) ??
-    applications[0];
-  const selectedClass = className(selected.desiredClassGroupId);
+    visibleApplications[0] ??
+    applications[0] ??
+    null;
 
-  async function updateApplication(
-    updated: AdmissionApplication,
-    message: string,
-  ) {
-    setSaving(true);
+  const byStatus = useMemo(() => {
+    const tally: Partial<Record<ApplicationStatus, number>> = {};
+    for (const application of applications) {
+      tally[application.status] = (tally[application.status] ?? 0) + 1;
+    }
+    return tally;
+  }, [applications]);
+
+  const offersMade =
+    (byStatus.offered ?? 0) + (byStatus.accepted ?? 0) + (byStatus.enrolled ?? 0);
+
+  async function sendIntake(body: unknown, success: string) {
+    setBusy(true);
     setNotice("");
+    setProblem("");
+    try {
+      const response = await fetch("/api/admin/intake", {
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "That change could not be saved.");
+      }
+      await load();
+      setNotice(success);
+      return true;
+    } catch (error) {
+      setProblem(
+        error instanceof Error ? error.message : "Something went wrong.",
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function advance(application: ApplicantApplication) {
+    const step = nextStep[application.status];
+    if (!step) return;
+
+    setBusy(true);
+    setNotice("");
+    setProblem("");
     try {
       const response = await fetch("/api/admin/admissions", {
         body: JSON.stringify({
-          applicationId: updated.id,
-          status: updated.status,
+          applicationId: application.id,
+          status: step.status,
         }),
         headers: { "content-type": "application/json" },
         method: "PATCH",
@@ -133,308 +255,625 @@ export function AdmissionsView() {
         error?: string;
       };
       if (!response.ok || !payload.application) {
-        throw new Error(payload.error ?? "The application could not be updated.");
+        throw new Error(
+          payload.error ?? "The application could not be updated.",
+        );
       }
-
+      const updated = payload.application;
       setApplications((current) =>
-        current.map((application) =>
-          application.id === updated.id ? updated : application,
-        ),
+        current.map((item) => (item.id === updated.id ? updated : item)),
       );
-      setNotice(message);
-    } catch (error) {
       setNotice(
-        error instanceof Error
-          ? error.message
-          : "The application could not be updated.",
+        `${fullName(application)} is now ${statusNames[updated.status].toLowerCase()}.`,
+      );
+    } catch (error) {
+      setProblem(
+        error instanceof Error ? error.message : "Something went wrong.",
       );
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
-  async function advanceApplication() {
-    if (selected.status === "submitted") {
-      const reviewing = startApplicationReview(
-        selected,
-        "staff-admissions-1",
-        "2026-07-23",
-      );
-      await updateApplication(
-        reviewing,
-        `${fullName(selected)} is now under review.`,
-      );
-      return;
-    }
+  if (state === "loading") {
+    return <p className="academic-loading">Loading admissions…</p>;
+  }
 
-    if (selected.status === "under-review") {
-      const offered = recordAdmissionDecision(selected, {
-        decidedAt: "2026-07-23",
-        decidedBy: "staff-admissions-1",
-        decision: "offered",
-        note: "Application reviewed and entry requirements confirmed.",
-        offerExpiresAt: "2026-08-15",
-      });
-      await updateApplication(
-        offered,
-        `An admission offer was prepared for ${fullName(selected)}.`,
-      );
-      return;
-    }
-
-    if (selected.status === "offered") {
-      const accepted = acceptAdmissionOffer(
-        selected,
-        "2026-07-23",
-        `guardian-${selected.id}`,
-      );
-      await updateApplication(
-        accepted,
-        `${fullName(selected)}'s offer is now accepted.`,
-      );
-      return;
-    }
-
-    if (selected.status === "accepted") {
-      const sequence = applications.indexOf(selected) + 176;
-      const conversion = convertAcceptedApplication(selected, {
-        academicYearId: "year-2026-27",
-        effectiveFrom: "2026-09-08",
-        guardianId: `guardian-${selected.id}`,
-        learnerId: `learner-${selected.id}`,
-        placementId: `placement-${selected.id}`,
-        studentId: `GA-26${sequence}`,
-      });
-      await updateApplication(
-        conversion.application,
-        `${fullName(selected)} now has student ID ${conversion.learner.studentId} and a ${selectedClass} placement.`,
-      );
-    }
+  if (state === "error") {
+    return (
+      <div className="academic-empty">
+        <h2>Admissions could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => void load()} type="button">
+          Try again
+        </button>
+      </div>
+    );
   }
 
   return (
-    <>
+    <div className="admin-content admissions-content">
+      <section className="admin-welcome admissions-welcome">
+        <div>
+          <p className="eyebrow">{activeIntake?.label ?? "No intake set up"}</p>
+          <h1>Admissions</h1>
+          <p>
+            Review applicants, issue offers, and decide when families can
+            apply.
+          </p>
+        </div>
+        <Link className="primary-admin-button" href="/admissions">
+          <span aria-hidden="true">↗</span> View public page
+        </Link>
+      </section>
 
+      {notice && (
+        <p className="academic-notice" role="status">
+          {notice}
+        </p>
+      )}
+      {problem && (
+        <p className="academic-problem" role="alert">
+          {problem}
+        </p>
+      )}
 
-        <div className="admin-content admissions-content">
-          <section className="admin-welcome admissions-welcome">
+      <IntakePanel
+        applicationCount={activeIntake ? (counts[activeIntake.id] ?? 0) : 0}
+        busy={busy}
+        editing={editingIntake}
+        intake={activeIntake}
+        intakes={intakes}
+        onCreate={async (intake) => {
+          const saved = await sendIntake(
+            { intake, type: "create" },
+            `${intake.label} was created. It is not public until you open it.`,
+          );
+          if (saved) setEditingIntake(false);
+        }}
+        onSetEditing={setEditingIntake}
+        onSetStatus={(status) => {
+          if (!activeIntake) return;
+          void sendIntake(
+            { intakeId: activeIntake.id, status, type: "status" },
+            status === "open"
+              ? `${activeIntake.label} is open. Families can apply from the public site.`
+              : `${activeIntake.label} is closed. Applications already received are still here.`,
+          );
+        }}
+        onUpdate={async (intake) => {
+          if (!activeIntake) return;
+          const saved = await sendIntake(
+            { intake, intakeId: activeIntake.id, type: "update" },
+            `${intake.label} was updated.`,
+          );
+          if (saved) setEditingIntake(false);
+        }}
+        years={years}
+      />
+
+      <section className="admin-stats admissions-stats" aria-label="Admissions summary">
+        <article>
+          <span className="admin-stat-icon blue">↓</span>
+          <div>
+            <small>Applications received</small>
+            <strong>{applications.length}</strong>
+          </div>
+          <em>{activeIntake?.label ?? "no intake"}</em>
+        </article>
+        <article>
+          <span className="admin-stat-icon gold">◷</span>
+          <div>
+            <small>Awaiting review</small>
+            <strong>{byStatus.submitted ?? 0}</strong>
+          </div>
+          <em>
+            {(byStatus.submitted ?? 0) === 0
+              ? "nothing waiting"
+              : "not yet opened"}
+          </em>
+        </article>
+        <article>
+          <span className="admin-stat-icon purple">✉</span>
+          <div>
+            <small>Offers issued</small>
+            <strong>{offersMade}</strong>
+          </div>
+          <em>{byStatus.offered ?? 0} awaiting a reply</em>
+        </article>
+        <article>
+          <span className="admin-stat-icon green">✓</span>
+          <div>
+            <small>Learners enrolled</small>
+            <strong>{byStatus.enrolled ?? 0}</strong>
+          </div>
+          <em>
+            {activeIntake && activeIntake.capacity > 0
+              ? `of ${activeIntake.capacity} places`
+              : "no capacity set"}
+          </em>
+        </article>
+      </section>
+
+      <section className="pipeline-panel" aria-label="Admissions pipeline">
+        {(
+          [
+            ["Submitted", byStatus.submitted ?? 0],
+            ["Review", byStatus["under-review"] ?? 0],
+            ["Offered", byStatus.offered ?? 0],
+            ["Accepted", byStatus.accepted ?? 0],
+            ["Enrolled", byStatus.enrolled ?? 0],
+          ] as Array<[string, number]>
+        ).map(([label, count], index) => (
+          <div key={label}>
+            <span>{index + 1}</span>
+            <p>
+              {label}
+              <strong>{count}</strong>
+            </p>
+            {index < 4 && <i aria-hidden="true">→</i>}
+          </div>
+        ))}
+      </section>
+
+      <div className="admissions-workspace">
+        <section className="application-queue" aria-labelledby="queue-title">
+          <div className="queue-heading">
             <div>
-              <p className="eyebrow">2026 / 2027 intake</p>
-              <h1>Admissions</h1>
-              <p>Review applicants, issue offers, and create complete student records.</p>
+              <p className="eyebrow">Application queue</p>
+              <h2 id="queue-title">Active applicants</h2>
             </div>
-            <Link className="primary-admin-button" href="/admissions/apply">
-              <span aria-hidden="true">↗</span> View public form
-            </Link>
-          </section>
+            <span>{visibleApplications.length} shown</span>
+          </div>
 
-          <section className="admin-stats admissions-stats" aria-label="Admissions summary">
-            <article>
-              <span className="admin-stat-icon blue">↓</span>
-              <div><small>Applications received</small><strong>128</strong></div>
-              <em>12 this week</em>
-            </article>
-            <article>
-              <span className="admin-stat-icon gold">◷</span>
-              <div><small>Awaiting review</small><strong>34</strong></div>
-              <em>8 need attention</em>
-            </article>
-            <article>
-              <span className="admin-stat-icon purple">✉</span>
-              <div><small>Offers issued</small><strong>18</strong></div>
-              <em>6 awaiting response</em>
-            </article>
-            <article>
-              <span className="admin-stat-icon green">✓</span>
-              <div><small>Learners enrolled</small><strong>71</strong></div>
-              <em>55% of applications</em>
-            </article>
-          </section>
-
-          <section className="pipeline-panel" aria-label="Admissions pipeline">
-            {[
-              ["Submitted", 34],
-              ["Review", 21],
-              ["Offered", 18],
-              ["Accepted", 9],
-              ["Enrolled", 71],
-            ].map(([label, count], index) => (
-              <div key={label}>
-                <span>{index + 1}</span>
-                <p>{label}<strong>{count}</strong></p>
-                {index < 4 && <i aria-hidden="true">→</i>}
-              </div>
-            ))}
-          </section>
-
-          {notice && <p className="admissions-notice" role="status">{notice}</p>}
-
-          <div className="admissions-workspace">
-            <section className="application-queue" aria-labelledby="queue-title">
-              <div className="queue-heading">
-                <div>
-                  <p className="eyebrow">Application queue</p>
-                  <h2 id="queue-title">Active applicants</h2>
-                </div>
-                <span>{visibleApplications.length} shown</span>
-              </div>
-
-              <div className="queue-controls">
-                <label className="admission-search">
-                  <span aria-hidden="true">⌕</span>
-                  <input
-                    aria-label="Search applicants"
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search name or application number"
-                    value={query}
-                  />
-                </label>
-                <select
-                  aria-label="Filter by application status"
-                  onChange={(event) =>
-                    setStatusFilter(event.target.value as AdmissionStatus | "all")
-                  }
-                  value={statusFilter}
-                >
-                  <option value="all">All statuses</option>
-                  {Object.entries(statusNames).map(([value, label]) => (
-                    <option value={value} key={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="application-list">
-                {visibleApplications.map((application) => (
-                  <button
-                    className={application.id === selected.id ? "selected" : ""}
-                    key={application.id}
-                    onClick={() => {
-                      setSelectedId(application.id);
-                      setNotice("");
-                    }}
-                    type="button"
-                  >
-                    <span className="applicant-avatar">{initials(fullName(application))}</span>
-                    <span className="application-summary">
-                      <strong>{fullName(application)}</strong>
-                      <small>{application.applicationNumber} · {className(application.desiredClassGroupId)}</small>
-                    </span>
-                    <span className={`admission-status status-${application.status}`}>
-                      {statusNames[application.status]}
-                    </span>
-                    <span className="application-date">
-                      <small>Applied</small>
-                      {formatDate(application.submittedAt)}
-                    </span>
-                    <b aria-hidden="true">›</b>
-                  </button>
+          <div className="queue-controls">
+            <label className="admission-search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                aria-label="Search applicants"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search name or guardian"
+                value={query}
+              />
+            </label>
+            <select
+              aria-label="Filter by application status"
+              onChange={(event) =>
+                setStatusFilter(event.target.value as ApplicationStatus | "all")
+              }
+              value={statusFilter}
+            >
+              <option value="all">All statuses</option>
+              {Object.entries(statusNames)
+                .filter(([value]) => value !== "draft")
+                .map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
-                {visibleApplications.length === 0 && (
-                  <p className="empty-queue">No applications match this filter.</p>
-                )}
-              </div>
-            </section>
+            </select>
+          </div>
 
-            <aside className="applicant-detail" aria-labelledby="applicant-title">
-              <div className="applicant-detail-head">
-                <span className="detail-avatar">{initials(fullName(selected))}</span>
+          <div className="application-list">
+            {visibleApplications.map((application) => (
+              <button
+                className={application.id === selected?.id ? "selected" : ""}
+                key={application.id}
+                onClick={() => {
+                  setSelectedId(application.id);
+                  setNotice("");
+                }}
+                type="button"
+              >
+                <span className="applicant-avatar">
+                  {initials(fullName(application))}
+                </span>
+                <span className="application-summary">
+                  <strong>{fullName(application)}</strong>
+                  <small>
+                    {reference(application.id)} ·{" "}
+                    {application.desiredClass || "Class not stated"}
+                  </small>
+                </span>
+                <span
+                  className={`admission-status status-${application.status}`}
+                >
+                  {statusNames[application.status]}
+                </span>
+                <span className="application-date">
+                  <small>Applied</small>
+                  {formatDate(application.submittedAt)}
+                </span>
+                <b aria-hidden="true">›</b>
+              </button>
+            ))}
+            {visibleApplications.length === 0 && (
+              <p className="empty-queue">
+                {applications.length === 0
+                  ? activeIntake?.status === "open"
+                    ? "No applications yet. The form is open, so they will appear here as families submit them."
+                    : "No applications yet, and the intake is not open — families cannot apply until it is."
+                  : "No applications match this filter."}
+              </p>
+            )}
+          </div>
+        </section>
+
+        {selected ? (
+          <aside className="applicant-detail" aria-labelledby="applicant-title">
+            <div className="applicant-detail-head">
+              <span className="detail-avatar">
+                {initials(fullName(selected))}
+              </span>
+              <div>
+                <p>{reference(selected.id)}</p>
+                <h2 id="applicant-title">{fullName(selected)}</h2>
+                <span className={`admission-status status-${selected.status}`}>
+                  {statusNames[selected.status]}
+                </span>
+              </div>
+            </div>
+
+            <div className="detail-section">
+              <div className="detail-section-title">
+                <h3>Application details</h3>
+              </div>
+              <dl className="applicant-data">
                 <div>
-                  <p>{selected.applicationNumber}</p>
-                  <h2 id="applicant-title">{fullName(selected)}</h2>
-                  <span className={`admission-status status-${selected.status}`}>
-                    {statusNames[selected.status]}
-                  </span>
+                  <dt>Applying to</dt>
+                  <dd>{selected.desiredClass || "Not stated"}</dd>
+                </div>
+                <div>
+                  <dt>Entry term</dt>
+                  <dd>{selected.entryTerm || "Not stated"}</dd>
+                </div>
+                <div>
+                  <dt>Date of birth</dt>
+                  <dd>{formatDate(selected.dateOfBirth)}</dd>
+                </div>
+                <div>
+                  <dt>Previous school</dt>
+                  <dd>{selected.previousSchool || "Not provided"}</dd>
+                </div>
+                <div>
+                  <dt>Application date</dt>
+                  <dd>{formatDate(selected.submittedAt)}</dd>
+                </div>
+                <div>
+                  <dt>Nationality</dt>
+                  <dd>{selected.nationality || "Not stated"}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="detail-section">
+              <div className="detail-section-title">
+                <h3>Guardian</h3>
+                <span>Primary contact</span>
+              </div>
+              <div className="guardian-card">
+                <span>{initials(selected.guardianName || "?")}</span>
+                <div>
+                  <strong>{selected.guardianName || "Not provided"}</strong>
+                  <small>
+                    {selected.guardianRelationship || "Guardian"}
+                    {selected.guardianPhone ? ` · ${selected.guardianPhone}` : ""}
+                  </small>
+                  {selected.guardianEmail && (
+                    <a href={`mailto:${selected.guardianEmail}`}>
+                      {selected.guardianEmail}
+                    </a>
+                  )}
                 </div>
               </div>
+            </div>
 
+            {(selected.allergies ||
+              selected.medicalConditions ||
+              selected.supportNeeds) && (
               <div className="detail-section">
                 <div className="detail-section-title">
-                  <h3>Application details</h3>
-                  <span>Verified profile</span>
+                  <h3>Health and support</h3>
                 </div>
                 <dl className="applicant-data">
-                  <div><dt>Applying to</dt><dd>{selectedClass}</dd></div>
-                  <div><dt>Date of birth</dt><dd>{formatDate(selected.applicant.dateOfBirth)}</dd></div>
-                  <div><dt>Previous school</dt><dd>{selected.applicant.previousSchool ?? "Not provided"}</dd></div>
-                  <div><dt>Application date</dt><dd>{formatDate(selected.submittedAt)}</dd></div>
+                  {selected.allergies && (
+                    <div>
+                      <dt>Allergies</dt>
+                      <dd>{selected.allergies}</dd>
+                    </div>
+                  )}
+                  {selected.medicalConditions && (
+                    <div>
+                      <dt>Medical conditions</dt>
+                      <dd>{selected.medicalConditions}</dd>
+                    </div>
+                  )}
+                  {selected.supportNeeds && (
+                    <div>
+                      <dt>Support needs</dt>
+                      <dd>{selected.supportNeeds}</dd>
+                    </div>
+                  )}
                 </dl>
               </div>
+            )}
 
-              <div className="detail-section">
-                <div className="detail-section-title">
-                  <h3>Guardian</h3>
-                  <span>Primary contact</span>
-                </div>
-                <div className="guardian-card">
-                  <span>{initials(selected.guardian.fullName)}</span>
-                  <div>
-                    <strong>{selected.guardian.fullName}</strong>
-                    <small>{selected.guardian.relationship} · {selected.guardian.phone}</small>
-                    <a href={`mailto:${selected.guardian.email}`}>{selected.guardian.email}</a>
-                  </div>
-                </div>
-              </div>
-
-              <div className="detail-section">
-                <div className="detail-section-title">
-                  <h3>Documents</h3>
-                  <span>{selected.submittedDocumentTypes.length} received</span>
-                </div>
-                <ul className="document-list">
-                  {(["birth-certificate", "previous-report", "passport-photo"] as AdmissionDocumentType[]).map((documentType) => {
-                    const received = selected.submittedDocumentTypes.includes(documentType);
-                    return (
-                      <li className={received ? "received" : "missing"} key={documentType}>
-                        <span aria-hidden="true">{received ? "✓" : "!"}</span>
-                        <p><strong>{documentNames[documentType]}</strong><small>{received ? "Received and ready for review" : "Still required"}</small></p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-
-              {selected.decision?.note && (
-                <div className="review-note">
-                  <span aria-hidden="true">“</span>
-                  <p><strong>Review note</strong>{selected.decision.note}</p>
-                </div>
-              )}
-
-              <div className="detail-actions">
+            <div className="detail-actions">
+              {nextStep[selected.status] ? (
                 <button
                   className="primary-action"
-                  disabled={
-                    saving ||
-                    selected.status === "enrolled" ||
-                    selected.status === "rejected"
-                  }
-                  onClick={() => void advanceApplication()}
+                  disabled={busy}
+                  onClick={() => void advance(selected)}
                   type="button"
                 >
-                  {saving ? "Saving…" : nextAction(selected.status)}{" "}
+                  {busy ? "Saving…" : nextStep[selected.status]?.label}{" "}
                   <span aria-hidden="true">→</span>
                 </button>
-              </div>
-            </aside>
-          </div>
-        </div>
-
-    </>
+              ) : (
+                <p className="form-hint">
+                  {selected.status === "enrolled"
+                    ? "This applicant has a student record."
+                    : "This application is closed."}
+                </p>
+              )}
+            </div>
+          </aside>
+        ) : (
+          <aside className="applicant-detail">
+            <p className="form-hint">
+              Select an application to see the family’s details.
+            </p>
+          </aside>
+        )}
+      </div>
+    </div>
   );
 }
 
-function className(classGroupId: string) {
-  return academicClasses.find((item) => item.id === classGroupId)?.name ??
-    "Class pending";
+function IntakePanel({
+  applicationCount,
+  busy,
+  editing,
+  intake,
+  intakes,
+  onCreate,
+  onSetEditing,
+  onSetStatus,
+  onUpdate,
+  years,
+}: {
+  applicationCount: number;
+  busy: boolean;
+  editing: boolean;
+  intake: AdmissionIntake | null;
+  intakes: AdmissionIntake[];
+  onCreate: (intake: IntakeDraft) => void | Promise<void>;
+  onSetEditing: (editing: boolean) => void;
+  onSetStatus: (status: AdmissionIntake["status"]) => void;
+  onUpdate: (intake: IntakeDraft) => void | Promise<void>;
+  years: AcademicYear[];
+}) {
+  if (!intake || editing) {
+    return (
+      <IntakeForm
+        busy={busy}
+        intake={editing ? intake : null}
+        onCancel={intake ? () => onSetEditing(false) : undefined}
+        onSubmit={intake && editing ? onUpdate : onCreate}
+        years={years}
+      />
+    );
+  }
+
+  return (
+    <section className="intake-panel" aria-label="Admissions intake">
+      <div className="intake-headline">
+        <div>
+          <p className="eyebrow">Public admissions</p>
+          <h2>{intake.label}</h2>
+          <p className="intake-dates">
+            {formatDate(intake.opensOn)} – {formatDate(intake.closesOn)}
+            {intake.capacity > 0 ? ` · ${intake.capacity} places` : ""}
+            {intakes.length > 1 ? ` · ${intakes.length} intakes on record` : ""}
+          </p>
+        </div>
+        <span className={`intake-state is-${intake.status}`}>
+          {intakeStatusNames[intake.status]}
+        </span>
+      </div>
+
+      <p className="intake-explainer">
+        {intake.status === "open"
+          ? `Families can apply from the public site right now. ${applicationCount} ${applicationCount === 1 ? "application has" : "applications have"} come in.`
+          : `The public form is refusing new applications. The ${applicationCount} already received ${applicationCount === 1 ? "stays" : "stay"} here to review.`}
+      </p>
+
+      <div className="form-actions">
+        {intake.status === "open" ? (
+          <button
+            className="danger-button"
+            disabled={busy}
+            onClick={() => onSetStatus("closed")}
+            type="button"
+          >
+            Close admissions
+          </button>
+        ) : (
+          <button
+            disabled={busy}
+            onClick={() => onSetStatus("open")}
+            type="button"
+          >
+            Open admissions
+          </button>
+        )}
+        <button
+          className="ghost-button"
+          disabled={busy}
+          onClick={() => onSetEditing(true)}
+          type="button"
+        >
+          Edit dates and places
+        </button>
+      </div>
+    </section>
+  );
 }
 
-function fullName(application: AdmissionApplication) {
-  return `${application.applicant.firstName} ${application.applicant.lastName}`;
+type IntakeDraft = {
+  academicYearId: string;
+  capacity: number;
+  closesOn: string;
+  label: string;
+  opensOn: string;
+};
+
+function IntakeForm({
+  busy,
+  intake,
+  onCancel,
+  onSubmit,
+  years,
+}: {
+  busy: boolean;
+  intake: AdmissionIntake | null;
+  onCancel?: () => void;
+  onSubmit: (intake: IntakeDraft) => void | Promise<void>;
+  years: AcademicYear[];
+}) {
+  const currentYear =
+    years.find((year) => year.status === "current") ?? years[0] ?? null;
+  const [label, setLabel] = useState(intake?.label ?? "");
+  const [opensOn, setOpensOn] = useState(intake?.opensOn ?? "");
+  const [closesOn, setClosesOn] = useState(intake?.closesOn ?? "");
+  const [capacity, setCapacity] = useState(String(intake?.capacity ?? 0));
+  const [academicYearId, setAcademicYearId] = useState(
+    intake?.academicYearId ?? currentYear?.id ?? "",
+  );
+
+  if (years.length === 0) {
+    return (
+      <section className="intake-panel">
+        <h2>An academic year comes first.</h2>
+        <p className="intake-explainer">
+          An intake admits families for a particular year, so there has to be
+          one before admissions can open.
+        </p>
+        <Link className="ghost-button" href="/admin/academic">
+          Set up an academic year
+        </Link>
+      </section>
+    );
+  }
+
+  return (
+    <form
+      className="intake-panel"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        void onSubmit({
+          academicYearId,
+          capacity: Number(capacity) || 0,
+          closesOn,
+          label,
+          opensOn,
+        });
+      }}
+    >
+      <h2>{intake ? "Edit this intake" : "Set up an admissions intake"}</h2>
+      <p className="intake-explainer">
+        {intake
+          ? "Changing the dates does not open or close the intake on its own."
+          : "A new intake starts unpublished. Nothing is public until you open it."}
+      </p>
+      <div className="inline-form-fields">
+        <label>
+          <span>What families see it called</span>
+          <input
+            onChange={(event) => setLabel(event.target.value)}
+            placeholder="2027 / 2028 intake"
+            required
+            value={label}
+          />
+        </label>
+        <label>
+          <span>Academic year</span>
+          <select
+            onChange={(event) => setAcademicYearId(event.target.value)}
+            value={academicYearId}
+          >
+            {years.map((year) => (
+              <option key={year.id} value={year.id}>
+                {year.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Opens</span>
+          <input
+            onChange={(event) => setOpensOn(event.target.value)}
+            required
+            type="date"
+            value={opensOn}
+          />
+        </label>
+        <label>
+          <span>Closes</span>
+          <input
+            onChange={(event) => setClosesOn(event.target.value)}
+            required
+            type="date"
+            value={closesOn}
+          />
+        </label>
+        <label>
+          <span>Places available</span>
+          <input
+            min={0}
+            onChange={(event) => setCapacity(event.target.value)}
+            type="number"
+            value={capacity}
+          />
+        </label>
+      </div>
+      <div className="form-actions">
+        <button disabled={busy} type="submit">
+          {intake ? "Save changes" : "Create intake"}
+        </button>
+        {onCancel && (
+          <button className="ghost-button" onClick={onCancel} type="button">
+            Cancel
+          </button>
+        )}
+      </div>
+      <p className="form-hint">
+        The closing date is what the public site advertises and what the form
+        enforces — past it, applications are refused whether or not anyone
+        remembers to press Close.
+      </p>
+    </form>
+  );
+}
+
+function fullName(application: ApplicantApplication) {
+  return (
+    `${application.applicantFirstName} ${application.applicantLastName}`.trim() ||
+    "Unnamed applicant"
+  );
+}
+
+/** A short reference a family can quote on the phone. */
+function reference(id: string) {
+  return `GA-${id.slice(0, 6).toUpperCase()}`;
 }
 
 function formatDate(date?: string) {
   if (!date) return "Not submitted";
-  const parsed = date.includes("T") ? new Date(date) : new Date(`${date}T00:00:00.000Z`);
+  const parsed = date.includes("T")
+    ? new Date(date)
+    : new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return "Not provided";
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -444,53 +883,12 @@ function formatDate(date?: string) {
 }
 
 function initials(name: string) {
-  return name.split(" ").map((part) => part[0]).slice(0, 2).join("");
-}
-
-function nextAction(status: AdmissionStatus) {
-  const actions: Record<AdmissionStatus, string> = {
-    draft: "Submit application",
-    submitted: "Start review",
-    "under-review": "Make offer",
-    offered: "Record acceptance",
-    accepted: "Create student record",
-    enrolled: "Student record created",
-    rejected: "Application closed",
-  };
-  return actions[status];
-}
-
-function mapApplicantApplication(
-  application: ApplicantApplication,
-): AdmissionApplication {
-  return {
-    applicant: {
-      dateOfBirth: application.dateOfBirth,
-      firstName: application.applicantFirstName,
-      lastName: application.applicantLastName,
-      previousSchool: application.previousSchool || undefined,
-    },
-    applicationNumber: `GA-2026-${application.id.slice(0, 6).toUpperCase()}`,
-    desiredClassGroupId: desiredClassId(application.desiredClass),
-    guardian: {
-      email: application.guardianEmail,
-      fullName: application.guardianName,
-      phone: application.guardianPhone,
-      relationship: "Parent or guardian",
-    },
-    id: application.id,
-    status: application.status,
-    submittedAt: application.submittedAt,
-    submittedDocumentTypes: [],
-    tenantId: "tenant-greenfield",
-  };
-}
-
-function desiredClassId(desiredClass: string) {
-  const classIds: Record<string, string> = {
-    "JHS 1": "class-jhs1-blue",
-    "JHS 2": "class-jhs2-gold",
-    "SHS 1 General Arts": "class-shs1-arts",
-  };
-  return classIds[desiredClass] ?? "";
+  return (
+    name
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .slice(0, 2)
+      .join("") || "?"
+  );
 }

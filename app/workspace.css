@@ -630,6 +630,38 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
   color: var(--workspace-muted);
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+
+/* What an unfinished step still needs, on its own line under the label
+   rather than in the status column — that column is sized for the word
+   "Complete" and a sentence in it would crush the label beside it. Only
+   rendered for incomplete steps, so a finished list stays one line per row. */
+.readiness-list em {
+  color: var(--workspace-muted);
+  font-size: var(--fs-13);
+  font-style: normal;
+  grid-column: 2 / -1;
+  line-height: var(--lh-snug);
+  margin-top: -6px;
+  padding-bottom: 12px;
+}
+
+.readiness-list li:has(em) {
+  align-items: start;
+  padding-top: 12px;
+}
+
+.readiness-list li:has(em) > span {
+  margin-top: 2px;
+}
+
+.attention-empty {
+  color: var(--workspace-muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+  padding: 16px 0;
 }
 
 .attention-list {

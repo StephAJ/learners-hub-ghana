@@ -7,11 +7,31 @@ import {
 } from "../domain/admissions/application-form";
 import { AuthorizationError, canPerform } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
+import {
+  requireOpenIntakeId,
+  resolveCurrentIntakeId,
+} from "./intake-repository";
 import { ensurePlatformReady } from "../server/platform-ready";
 import { getPostgresPool } from "./postgres";
 
 const GREENFIELD_TENANT_ID = "tenant-greenfield";
-const CURRENT_INTAKE_ID = "2026-2027";
+
+/* ==========================================================================
+   Which intake an application belongs to
+
+   This was `const CURRENT_INTAKE_ID = "2026-2027"`. Every statement below
+   bound it, which meant the year a school was admitting for was decided when
+   the bundle was built: opening next year's admissions needed a developer,
+   and closing this year's was not possible at all — the form went on
+   accepting applications past its own advertised closing date.
+
+   Reads and writes ask different questions of the intake record, and the
+   difference matters. A write asks "may this family apply right now", and is
+   refused once the intake closes. A read asks "which intake am I looking
+   at", and must keep working afterwards: an admissions officer reviews the
+   applications for weeks after the door shuts, and a queue that emptied on
+   the closing date would lose them the entire year's work.
+   ========================================================================== */
 
 export type ApplicantApplication = ApplicationDraft & {
   applicantEmail: string;
@@ -115,15 +135,14 @@ export async function getApplicantApplication(
   user: AuthenticatedUser,
 ): Promise<ApplicantApplication | null> {
   await ensurePlatformReady();
+  const intakeId = await resolveCurrentIntakeId(GREENFIELD_TENANT_ID);
+  if (!intakeId) return null;
+
   const result = await getPostgresPool().query<ApplicationRow>(
     `${applicationSelect}
      WHERE tenant_id = $1 AND intake_id = $2 AND applicant_email = $3
      LIMIT 1`,
-    [
-      GREENFIELD_TENANT_ID,
-      CURRENT_INTAKE_ID,
-      user.email.trim().toLowerCase(),
-    ],
+    [GREENFIELD_TENANT_ID, intakeId, user.email.trim().toLowerCase()],
   );
   const row = result.rows[0];
   return row ? mapApplication(row) : null;
@@ -131,6 +150,7 @@ export async function getApplicantApplication(
 
 export async function listApplicantApplications(
   access: AccessContext,
+  intakeIdOverride?: string,
 ): Promise<ApplicantApplication[]> {
   if (!canPerform(access, "admissions:manage")) {
     throw new AuthorizationError(
@@ -139,11 +159,15 @@ export async function listApplicantApplications(
   }
 
   await ensurePlatformReady();
+  const intakeId =
+    intakeIdOverride ?? (await resolveCurrentIntakeId(access.tenantId));
+  if (!intakeId) return [];
+
   const result = await getPostgresPool().query<ApplicationRow>(
     `${applicationSelect}
      WHERE tenant_id = $1 AND intake_id = $2 AND status <> 'draft'
      ORDER BY COALESCE(submitted_at, updated_at) DESC`,
-    [access.tenantId, CURRENT_INTAKE_ID],
+    [access.tenantId, intakeId],
   );
   return result.rows.map(mapApplication);
 }
@@ -165,6 +189,11 @@ export async function saveApplicantApplication(
 
   await ensurePlatformReady();
 
+  /* Throws IntakeClosedError when the school is not taking applications. On
+     the save path as well as the submit path deliberately: a family part-way
+     through the form when the intake closes is stopped at their next save,
+     rather than filling in four more sections and being refused at the end. */
+  const intakeId = await requireOpenIntakeId(GREENFIELD_TENANT_ID);
   const database = getPostgresPool();
   const email = user.email.trim().toLowerCase();
   const existing = await database.query<{
@@ -175,7 +204,7 @@ export async function saveApplicantApplication(
      FROM admission_application_records
      WHERE tenant_id = $1 AND intake_id = $2 AND applicant_email = $3
      LIMIT 1`,
-    [GREENFIELD_TENANT_ID, CURRENT_INTAKE_ID, email],
+    [GREENFIELD_TENANT_ID, intakeId, email],
   );
   const current = existing.rows[0];
 
@@ -194,7 +223,7 @@ export async function saveApplicantApplication(
   const values = [
     applicationId,
     GREENFIELD_TENANT_ID,
-    CURRENT_INTAKE_ID,
+    intakeId,
     email,
     ...DRAFT_COLUMNS.map(([field]) => normalise(field, input[field])),
     status,
@@ -256,11 +285,16 @@ export async function updateApplicantApplicationStatus(
 
   await ensurePlatformReady();
   const database = getPostgresPool();
+  /* Deliberately not scoped to an intake. Reviewing an application is
+     something an officer does long after its intake closed, and often after
+     the next one has opened — scoping this would make last year's decisions
+     unrecordable the moment a new intake began. The tenant check is what
+     keeps it safe; the id is already unique. */
   const currentResult = await database.query<ApplicationRow>(
     `${applicationSelect}
-     WHERE tenant_id = $1 AND intake_id = $2 AND id = $3
+     WHERE tenant_id = $1 AND id = $2
      LIMIT 1`,
-    [access.tenantId, CURRENT_INTAKE_ID, applicationId],
+    [access.tenantId, applicationId],
   );
   const current = currentResult.rows[0];
   if (!current) {
@@ -278,9 +312,9 @@ export async function updateApplicantApplicationStatus(
     const updated = await client.query<ApplicationRow>(
       `UPDATE admission_application_records
        SET status = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE tenant_id = $2 AND intake_id = $3 AND id = $4
+       WHERE tenant_id = $2 AND id = $3
        RETURNING${applicationColumns}`,
-      [nextStatus, access.tenantId, CURRENT_INTAKE_ID, applicationId],
+      [nextStatus, access.tenantId, applicationId],
     );
     await client.query(
       `INSERT INTO audit_events
@@ -318,6 +352,12 @@ export async function listAbandonedDrafts(
   quietDays: number,
 ): Promise<AbandonedDraft[]> {
   await ensurePlatformReady();
+  /* Nudging someone to finish a draft for an intake that has closed would be
+     worse than saying nothing, so a school with no live intake gets no
+     reminders sent at all. */
+  const intakeId = await resolveCurrentIntakeId(GREENFIELD_TENANT_ID);
+  if (!intakeId) return [];
+
   const result = await getPostgresPool().query<
     ApplicationRow & { days_since_update: number }
   >(
@@ -331,7 +371,7 @@ export async function listAbandonedDrafts(
        AND updated_at < CURRENT_TIMESTAMP - make_interval(days => $3::int)
        AND guardian_email <> ''
      ORDER BY updated_at`,
-    [GREENFIELD_TENANT_ID, CURRENT_INTAKE_ID, quietDays],
+    [GREENFIELD_TENANT_ID, intakeId, quietDays],
   );
 
   return result.rows.map((row) => {

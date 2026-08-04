@@ -6,9 +6,12 @@
    supplies its own photographs, its own results, and its own news. The page
    renders whatever profile it is handed.
 
-   `greenfieldProfile` is the seeded demo tenant. Swapping it for a record
-   loaded per host is the only change the public site needs to serve a second
-   school.
+   `greenfieldProfile` is no longer what the site renders — it is the default
+   a school starts from, written into `school_profiles` the first time a
+   tenant is seeded and edited from /admin/school after that. It stays here
+   rather than in a seed file because it doubles as the worked example of a
+   filled-in profile, and because a school whose stored document is somehow
+   unreadable should still get a page rather than a stack trace.
    ========================================================================== */
 
 export type SchoolImage = {
@@ -70,8 +73,11 @@ export type AdmissionStep = {
 
 export type SchoolProfile = {
   admissions: {
-    closesOn: string;
-    intakeLabel: string;
+    /* The closing date and the intake's name are deliberately not here. They
+       live on the intake record, which is also what decides whether the form
+       accepts an application — see domain/academic/structure.ts. Held in two
+       places they disagree, and the version a family reads on the way in is
+       the one that is wrong. */
     note: string;
     steps: AdmissionStep[];
   };
@@ -95,8 +101,6 @@ export type SchoolProfile = {
 
 export const greenfieldProfile: SchoolProfile = {
   admissions: {
-    closesOn: "2026-08-28",
-    intakeLabel: "2026 / 2027 intake",
     note: "Applying is free. Most families finish the form in about twenty minutes, and you can save it and come back.",
     steps: [
       {
@@ -290,3 +294,176 @@ export const greenfieldProfile: SchoolProfile = {
     },
   ],
 };
+
+/* ==========================================================================
+   Reading and writing a stored profile
+
+   The profile is held as one JSON document per school. That makes reading it
+   an act of trust in a blob, so nothing below trusts it: `parseSchoolProfile`
+   takes unknown input and returns a complete, renderable profile whatever it
+   is handed, falling back field by field rather than all at once. A school
+   that has filled in its address but not yet its programmes gets its own
+   address and the default programmes, not the default address.
+
+   The alternative — throwing on a malformed document — means one bad edit
+   takes down the public site of a school that is otherwise fine.
+   ========================================================================== */
+
+/** What /admin/school lets a school change. */
+export type SchoolProfileEdit = {
+  admissionsNote: string;
+  contactAddress: string[];
+  contactEmail: string;
+  established: number;
+  location: string;
+  name: string;
+  officeHours: string;
+  strapline: string;
+  telephone: string;
+};
+
+export class SchoolProfileError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SchoolProfileError";
+  }
+}
+
+export function parseSchoolProfile(
+  value: unknown,
+  fallback: SchoolProfile = greenfieldProfile,
+): SchoolProfile {
+  const source = isRecord(value) ? value : {};
+  const admissions = isRecord(source.admissions) ? source.admissions : {};
+  const contact = isRecord(source.contact) ? source.contact : {};
+
+  return {
+    admissions: {
+      note: text(admissions.note, fallback.admissions.note),
+      steps: array(admissions.steps, fallback.admissions.steps),
+    },
+    contact: {
+      address: stringArray(contact.address, fallback.contact.address),
+      email: text(contact.email, fallback.contact.email),
+      officeHours: text(contact.officeHours, fallback.contact.officeHours),
+      telephone: text(contact.telephone, fallback.contact.telephone),
+    },
+    established: wholeNumber(source.established, fallback.established),
+    heroSlides: array(source.heroSlides, fallback.heroSlides),
+    location: text(source.location, fallback.location),
+    name: text(source.name, fallback.name),
+    news: array(source.news, fallback.news),
+    programmes: array(source.programmes, fallback.programmes),
+    quickLinks: array(source.quickLinks, fallback.quickLinks),
+    strapline: text(source.strapline, fallback.strapline),
+    testimonials: array(source.testimonials, fallback.testimonials),
+  };
+}
+
+/**
+ * Applies an administrator's edit to a profile.
+ *
+ * Validates only what the form can change. The parts a school cannot yet edit
+ * — hero slides, programmes, news, testimonials — are carried through
+ * untouched rather than being re-validated, so adding a screen for them later
+ * does not need this function to change.
+ */
+export function applySchoolProfileEdit(
+  current: SchoolProfile,
+  edit: SchoolProfileEdit,
+): SchoolProfile {
+  const name = requireProfileText(edit.name, "The school needs a name.");
+  const email = requireProfileText(
+    edit.contactEmail,
+    "The school needs a contact email address.",
+  );
+  if (!email.includes("@")) {
+    throw new SchoolProfileError(
+      `${email} does not look like an email address.`,
+    );
+  }
+
+  const thisYear = new Date().getUTCFullYear();
+  if (
+    !Number.isInteger(edit.established) ||
+    edit.established < 1800 ||
+    edit.established > thisYear
+  ) {
+    throw new SchoolProfileError(
+      `The year the school was established has to be between 1800 and ${thisYear}.`,
+    );
+  }
+
+  /* Blank address lines are dropped rather than refused: the form offers a
+     fixed number of lines and most schools do not fill all of them. */
+  const address = edit.contactAddress
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (address.length === 0) {
+    throw new SchoolProfileError("The school needs a postal address.");
+  }
+
+  return {
+    ...current,
+    admissions: { ...current.admissions, note: edit.admissionsNote.trim() },
+    contact: {
+      address,
+      email: email.toLowerCase(),
+      officeHours: edit.officeHours.trim(),
+      telephone: edit.telephone.trim(),
+    },
+    established: edit.established,
+    location: edit.location.trim(),
+    name,
+    strapline: edit.strapline.trim(),
+  };
+}
+
+export function toSchoolProfileEdit(profile: SchoolProfile): SchoolProfileEdit {
+  return {
+    admissionsNote: profile.admissions.note,
+    contactAddress: profile.contact.address,
+    contactEmail: profile.contact.email,
+    established: profile.established,
+    location: profile.location,
+    name: profile.name,
+    officeHours: profile.contact.officeHours,
+    strapline: profile.strapline,
+    telephone: profile.contact.telephone,
+  };
+}
+
+function requireProfileText(value: string, message: string): string {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) throw new SchoolProfileError(message);
+  return trimmed;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function text(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function wholeNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value)
+    ? value
+    : fallback;
+}
+
+/* A present but empty list is honoured — a school with no news items has
+   chosen to have none, and substituting someone else's would be worse than
+   an empty section. Only a missing or non-list value falls back. */
+function array<Item>(value: unknown, fallback: Item[]): Item[] {
+  return Array.isArray(value) ? (value as Item[]) : fallback;
+}
+
+function stringArray(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback;
+  const lines = value.filter(
+    (line): line is string => typeof line === "string" && line.trim().length > 0,
+  );
+  return lines.length > 0 ? lines : fallback;
+}

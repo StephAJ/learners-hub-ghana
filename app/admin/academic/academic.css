@@ -269,7 +269,7 @@
 }
 
 .admin-stats em {
-  color: #66837c;
+  color: var(--muted);
   font-size: var(--fs-13);
   font-style: normal;
   grid-column: 2;
@@ -291,7 +291,7 @@
 }
 
 .admin-panel,
-.placement-card {
+.subject-library {
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -309,20 +309,20 @@
 }
 
 .admin-panel-heading h2,
-.placement-card h2 {
+.subject-library h2 {
   font-size: var(--fs-18);
   letter-spacing: var(--tracking-display);
   margin: 0;
 }
 
 .admin-panel-heading .eyebrow,
-.placement-card .eyebrow {
+.subject-library .eyebrow {
   margin-bottom: 4px;
 }
 
 .admin-panel-heading > button {
-  background: #eef5f1;
-  border: 1px solid #d3e2dc;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
   border-radius: var(--radius-sm);
   color: var(--primary);
   cursor: pointer;
@@ -488,7 +488,7 @@
 
 .policy-icon.required {
   background: #dceee7;
-  color: #126453;
+  color: var(--brand-strong);
 }
 
 .policy-icon.optional {
@@ -523,55 +523,10 @@
   width: 28px;
 }
 
-.policy-subjects {
-  display: flex;
-  flex-direction: column;
-  margin-top: 12px;
-}
-
-.policy-subjects > span {
-  align-items: center;
-  border-top: 1px solid #edf0eb;
-  display: grid;
-  font-size: var(--fs-13);
-  gap: 8px;
-  grid-template-columns: 27px 1fr auto;
-  min-height: 36px;
-}
-
-.policy-subjects b {
-  align-items: center;
-  background: #edf4f0;
-  border-radius: var(--radius-xs);
-  color: var(--primary);
-  display: flex;
-  font-size: var(--fs-13);
-  height: 28px;
-  justify-content: center;
-}
-
-.policy-subjects i {
-  color: #7aa79c;
-  font-size: var(--fs-13);
-  font-style: normal;
-}
-
-.optional-list b {
-  background: #f6edda;
-  color: #8e691e;
-}
-
-.optional-list i {
-  background: #f6edda;
-  border-radius: 999px;
-  color: #85611d;
-  padding: 4px 8px;
-}
-
 .policy-rule {
   align-items: center;
-  background: #edf5f1;
-  border: 1px solid #d5e5de;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
   border-radius: var(--radius-md);
   display: grid;
   gap: 12px;
@@ -595,7 +550,7 @@
 }
 
 .policy-rule p {
-  color: #5d716c;
+  color: var(--muted);
   font-size: var(--fs-14);
   line-height: 1.45;
   margin: 0;
@@ -605,118 +560,19 @@
   color: var(--primary-dark);
 }
 
-.placement-heading {
-  gap: 20px;
-}
-
-.table-filter {
-  align-items: center;
-  background: #f4f6f2;
-  border: 1px solid #e0e5de;
-  border-radius: var(--radius-sm);
-  display: flex;
-  padding: 0 8px;
-}
-
-.table-filter input {
-  background: transparent;
-  border: 0;
-  font-size: var(--fs-14);
-  height: 32px;
-  outline: none;
-  width: 130px;
-}
-
-.placement-table-wrap {
-  overflow-x: auto;
-}
-
-.placement-table {
-  border-collapse: collapse;
-  margin-top: 16px;
-  min-width: 680px;
-  width: 100%;
-}
-
-.placement-table th {
-  border-bottom: 1px solid #e4e8e2;
-  color: #7a8783;
-  font-size: var(--fs-13);
-  letter-spacing: var(--tracking-label);
-  padding: 8px 8px;
-  text-align: left;
-  text-transform: uppercase;
-}
-
-.placement-table td {
-  border-bottom: 1px solid #edf0eb;
-  color: #4e5e5a;
-  font-size: var(--fs-14);
-  padding: 12px 8px;
-}
-
-.placement-table tr:last-child td {
-  border-bottom: 0;
-}
-
-.placement-table td:first-child {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.table-avatar {
-  align-items: center;
-  background: #e4eee9;
-  border-radius: 50%;
-  color: var(--primary);
-  display: flex;
-  flex: 0 0 auto;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  height: 31px;
-  justify-content: center;
-  width: 31px;
-}
-
-.placement-table td strong,
-.placement-table td small {
-  display: block;
-}
-
-.placement-table td strong {
-  color: var(--ink);
-  font-size: var(--fs-14);
-}
-
-.placement-table td small {
-  color: #7c8985;
-  font-size: var(--fs-14);
-  margin-top: 4px;
-}
-
-.status-pill {
-  background: #dceee7;
-  border-radius: 999px;
-  color: #126453;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  padding: 4px 8px;
-}
-
-.placement-card {
+.subject-library {
   padding: 20px;
   position: sticky;
   top: 92px;
 }
 
-.placement-card-heading {
+.library-heading {
   align-items: center;
   display: flex;
   gap: 12px;
 }
 
-.placement-card-heading > span {
+.library-heading > span {
   align-items: center;
   background: var(--primary);
   border-radius: var(--radius-md);
@@ -728,155 +584,11 @@
   width: 38px;
 }
 
-.placement-intro {
+.library-intro {
   color: var(--muted);
   font-size: var(--fs-13);
   line-height: 1.5;
   margin: 12px 0 20px;
-}
-
-.placement-card form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.placement-card form > label > span,
-.placement-card legend {
-  color: #52625e;
-  display: block;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  margin-bottom: 8px;
-}
-
-.placement-card select,
-.placement-card input[type="date"] {
-  background: #f8faf7;
-  border: 1px solid #dbe1da;
-  border-radius: var(--radius-sm);
-  color: var(--ink);
-  font-size: var(--fs-14);
-  height: 38px;
-  padding: 0 8px;
-  width: 100%;
-}
-
-.auto-entitlement {
-  background: #edf5f1;
-  border: 1px solid #d3e5dc;
-  border-radius: var(--radius-md);
-  padding: 12px;
-}
-
-.auto-entitlement > div {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.auto-entitlement strong,
-.auto-entitlement small {
-  display: block;
-}
-
-.auto-entitlement strong {
-  font-size: var(--fs-13);
-}
-
-.auto-entitlement small {
-  color: #6f807b;
-  font-size: var(--fs-13);
-  margin-top: 4px;
-}
-
-.auto-entitlement ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  list-style: none;
-  margin: 12px 0 0 40px;
-  padding: 0;
-}
-
-.auto-entitlement li {
-  background: #ffffff;
-  border: 1px solid #d9e4de;
-  border-radius: var(--radius-xs);
-  color: var(--primary);
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  padding: 4px 4px;
-}
-
-.placement-card fieldset {
-  border: 0;
-  margin: 0;
-  padding: 0;
-}
-
-.option-check {
-  align-items: center;
-  border: 1px solid #e1e5df;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 18px 1fr;
-  margin-top: 8px;
-  padding: 8px;
-}
-
-.option-check input {
-  accent-color: var(--primary);
-  height: 15px;
-  width: 15px;
-}
-
-.option-check strong,
-.option-check small {
-  display: block;
-}
-
-.option-check strong {
-  font-size: var(--fs-13);
-}
-
-.option-check small {
-  color: var(--muted);
-  font-size: var(--fs-13);
-  margin-top: 4px;
-}
-
-.place-button {
-  align-items: center;
-  background: var(--primary);
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  justify-content: space-between;
-  min-height: 40px;
-  padding: 0 12px;
-}
-
-.place-button:hover,
-.place-button:focus-visible {
-  background: var(--primary-dark);
-  outline: 3px solid rgba(13, 95, 85, 0.16);
-}
-
-.placement-notice {
-  background: #f5edda;
-  border-radius: var(--radius-sm);
-  color: #70561d;
-  font-size: var(--fs-13);
-  line-height: 1.45;
-  margin: 0;
-  padding: 8px;
 }
 
 .admin-mobile-nav {
@@ -888,21 +600,10 @@
     grid-template-columns: 1fr;
   }
 
-  .placement-card {
+  .subject-library {
     position: static;
   }
 
-  .placement-card form {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .auto-entitlement,
-  .placement-card fieldset,
-  .place-button,
-  .placement-notice {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 900px) {
@@ -1017,9 +718,6 @@
     grid-template-columns: 1fr;
   }
 
-  .placement-card form {
-    display: flex;
-  }
 }
 
 @media (max-width: 460px) {
@@ -1048,15 +746,646 @@
     gap: 12px;
   }
 
-  .placement-heading {
+}
+
+/* ==========================================================================
+   Editing the structure
+
+   Everything below belongs to controls the screen did not have while its
+   classes were a hardcoded array: the year picker, the inline add-forms, the
+   empty states a school sees before it has set anything up, and the remove
+   buttons on a class's subjects.
+   ========================================================================== */
+
+.academic-loading {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  padding: var(--space-8) 0;
+  text-align: center;
+}
+
+.academic-empty {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  margin: var(--space-6) 0;
+  padding: var(--space-10);
+  text-align: center;
+}
+
+.academic-empty h2 {
+  font-size: var(--fs-22);
+  letter-spacing: var(--tracking-display);
+  margin: 0 0 var(--space-2);
+}
+
+.academic-empty p {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0 auto var(--space-5);
+  max-width: 46ch;
+}
+
+.panel-empty {
+  background: var(--brand-tint);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+  padding: var(--space-5);
+}
+
+.panel-empty p {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.panel-empty strong {
+  color: var(--ink);
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.academic-notice,
+.academic-problem {
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+}
+
+.academic-notice {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+/* Not red-on-white: this is a form telling an administrator they have typed
+   a duplicate class name, not an outage. The accent tint reads as "look at
+   this" without reading as "something has broken". */
+.academic-problem {
+  background: color-mix(in srgb, var(--brand-accent) 18%, var(--card));
+  color: var(--brand-accent-ink);
+}
+
+.year-controls {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.year-picker {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: block;
+  padding: var(--space-2) var(--space-3);
+}
+
+.year-picker small {
+  color: var(--muted);
+  display: block;
+  font-size: var(--fs-13);
+  margin-bottom: var(--space-1);
+}
+
+.year-picker select {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  padding: 0;
+}
+
+.year-buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.year-buttons button,
+.form-actions button,
+.add-offering-form button,
+.add-subject-form button,
+.academic-empty button {
+  background: var(--primary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--card);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-height: 38px;
+  padding: 0 var(--space-4);
+}
+
+.year-buttons button:hover,
+.form-actions button:hover,
+.add-offering-form button:hover,
+.add-subject-form button:hover,
+.academic-empty button:hover {
+  background: var(--primary-dark);
+}
+
+.year-buttons button:disabled,
+.form-actions button:disabled,
+.add-offering-form button:disabled,
+.add-subject-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ghost-button {
+  background: var(--brand-tint);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-sm);
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-height: 38px;
+  padding: 0 var(--space-4);
+}
+
+.ghost-button:hover {
+  background: var(--brand-soft);
+}
+
+/* Archiving a class is reversible and keeps every record, so it is not
+   styled as a destruction. It is set apart from "Save changes" so it cannot
+   be hit by accident, and no further. */
+.danger-button {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  min-height: 38px;
+  padding: 0 var(--space-4);
+}
+
+.danger-button:hover {
+  border-color: var(--brand-accent);
+  color: var(--brand-accent-ink);
+}
+
+.inline-form {
+  background: var(--brand-tint);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+  padding: var(--space-5);
+}
+
+.inline-form h2 {
+  font-size: var(--fs-18);
+  letter-spacing: var(--tracking-display);
+  margin: 0 0 var(--space-4);
+}
+
+.inline-form-fields {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  margin-bottom: var(--space-4);
+}
+
+.inline-form-fields label,
+.add-offering-form label,
+.add-subject-form label {
+  display: block;
+}
+
+.inline-form-fields span,
+.add-offering-form span,
+.add-subject-form span {
+  color: var(--ink-soft);
+  display: block;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  margin-bottom: var(--space-2);
+}
+
+.inline-form-fields input,
+.inline-form-fields select,
+.add-offering-form select,
+.add-subject-form input {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-14);
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  width: 100%;
+}
+
+.inline-form-fields input:focus-visible,
+.inline-form-fields select:focus-visible,
+.add-offering-form select:focus-visible,
+.add-subject-form input:focus-visible {
+  border-color: var(--primary);
+  outline: 2px solid var(--brand-line);
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.form-hint {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+  margin: var(--space-3) 0 0;
+}
+
+.class-edit-form {
+  border-top: 1px solid var(--line);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+}
+
+.teacher-assignment strong.unassigned {
+  color: var(--muted);
+  font-weight: var(--fw-regular);
+}
+
+.policy-empty {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  margin: 0;
+}
+
+/* Sits inside the subject chip, so it inherits the chip's line rather than
+   introducing a control of its own height. */
+.offering-remove {
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--fs-16);
+  line-height: 1;
+  margin-left: var(--space-1);
+  padding: var(--space-1);
+}
+
+.offering-remove:hover {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.offering-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.add-offering-form {
+  align-items: end;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+}
+
+.add-offering-form .form-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.add-subject-form {
+  align-items: end;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  margin-bottom: var(--space-5);
+}
+
+.subject-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.subject-list li {
+  align-items: center;
+  background: var(--brand-tint);
+  border-radius: var(--radius-sm);
+  display: flex;
+  font-size: var(--fs-14);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.subject-list b {
+  background: var(--card);
+  border-radius: var(--radius-xs);
+  color: var(--primary-dark);
+  font-size: var(--fs-12);
+  letter-spacing: var(--tracking-label);
+  padding: var(--space-1) var(--space-2);
+}
+
+.library-empty {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .add-offering-form,
+  .add-subject-form {
+    grid-template-columns: 1fr;
+  }
+
+  .year-controls {
+    align-items: stretch;
     flex-direction: column;
   }
+}
 
-  .table-filter {
-    width: 100%;
+/* ==========================================================================
+   Staffing a subject
+
+   The subject chips these replace could say what a subject was called and
+   nothing else. A class's subjects are the place an administrator finds out
+   that nobody is teaching Integrated Science, so the row has to have room to
+   say so.
+
+   The teacher names are a button with no chrome until pressed — the same
+   treatment the rest of this screen's inline edits use, so a row reads as a
+   line of information rather than as a form control sitting in a list.
+   ========================================================================== */
+
+.offering-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.offering-row {
+  align-items: center;
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 2.5rem minmax(6rem, 1fr) minmax(0, 1.4fr) auto;
+  padding: var(--space-2);
+}
+
+.offering-row:hover {
+  background: var(--brand-tint);
+}
+
+/* The picker needs the full row, so the grid collapses to one column while it
+   is open rather than squeezing a checkbox list into a third of the width. */
+.offering-row:has(.teacher-picker) {
+  background: var(--brand-tint);
+  grid-template-columns: 2.5rem minmax(6rem, 1fr) auto;
+}
+
+.offering-row:has(.teacher-picker) .teacher-picker {
+  grid-column: 1 / -1;
+}
+
+.offering-code {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  color: var(--primary-dark);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  padding: var(--space-1) var(--space-2);
+  text-align: center;
+}
+
+.offering-name {
+  font-size: var(--fs-14);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offering-teachers {
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offering-teachers:hover,
+.offering-teachers:focus-visible {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* Unstaffed is the state this row exists to make visible, so it is set apart
+   rather than left as ordinary grey — but it is not an error. A subject with
+   no teacher in March is normal; in September it is not, and the reader is
+   the one who knows which it is. */
+.offering-teachers.is-empty {
+  color: var(--brand-accent-ink);
+  font-weight: var(--fw-medium);
+}
+
+.teacher-picker {
+  background: var(--card);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+}
+
+.teacher-options {
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  margin-bottom: var(--space-3);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.teacher-options label {
+  align-items: center;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+
+.teacher-options label:hover {
+  background: var(--brand-tint);
+}
+
+.teacher-options input {
+  accent-color: var(--primary);
+  flex: 0 0 auto;
+  height: 1rem;
+  width: 1rem;
+}
+
+.teacher-options strong {
+  display: block;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.teacher-options small {
+  color: var(--muted);
+  display: block;
+  font-size: var(--fs-12);
+}
+
+.teacher-picker-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.teacher-picker-actions button {
+  background: var(--primary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--card);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  min-height: 34px;
+  padding: 0 var(--space-4);
+}
+
+.teacher-picker-actions button:hover {
+  background: var(--primary-dark);
+}
+
+.teacher-picker-actions .ghost-button {
+  background: var(--brand-tint);
+  border-color: var(--brand-line);
+  color: var(--primary-dark);
+}
+
+/* ==========================================================================
+   Teaching load
+
+   The same join read by person rather than by subject. Its job is noticing —
+   who is carrying nothing, and who is carrying everything.
+   ========================================================================== */
+
+.unstaffed-count {
+  background: color-mix(in srgb, var(--brand-accent) 20%, var(--card));
+  border-radius: var(--radius-pill);
+  color: var(--brand-accent-ink);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-1) var(--space-3);
+  white-space: nowrap;
+}
+
+.teaching-load {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+}
+
+.teaching-load li {
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-2) var(--space-4);
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  padding: var(--space-3) 0;
+}
+
+.teaching-load li:first-child {
+  border-top: 0;
+}
+
+.teaching-load strong {
+  display: block;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.teaching-load small {
+  color: var(--muted);
+  display: block;
+  font-size: var(--fs-12);
+}
+
+.load-none {
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+.load-subjects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Subject over class, because the subject is what the person teaches and the
+   class is where — and a teacher holding the same subject in three classes
+   should read as three of one thing, not three unrelated things. */
+.load-subjects b {
+  background: var(--brand-tint);
+  border-radius: var(--radius-sm);
+  display: grid;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-medium);
+  padding: var(--space-1) var(--space-3);
+}
+
+.load-subjects i {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  font-style: normal;
+}
+
+@media (max-width: 900px) {
+  .offering-row,
+  .offering-row:has(.teacher-picker) {
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
   }
 
-  .table-filter input {
-    width: 100%;
+  .offering-teachers {
+    grid-column: 2 / -1;
+  }
+
+  .teaching-load li {
+    grid-template-columns: 1fr;
   }
 }

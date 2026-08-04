@@ -660,3 +660,103 @@
   }
 }
 
+
+/* ==========================================================================
+   The intake panel
+
+   The control the admin workspace was missing: whether the public form is
+   accepting applications. It sits above the queue because it is the decision
+   that governs everything below it — there is no point reviewing a pipeline
+   without knowing whether more is coming into it.
+   ========================================================================== */
+
+.intake-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  margin-bottom: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+}
+
+.intake-panel h2 {
+  font-size: var(--fs-22);
+  letter-spacing: var(--tracking-display);
+  margin: 0;
+}
+
+.intake-headline {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+
+.intake-dates {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  margin: var(--space-2) 0 0;
+}
+
+/* The one thing an administrator scans this panel for. Reads as a state
+   rather than as a button, because it is not one — the buttons below it are
+   what change it. */
+.intake-state {
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  padding: var(--space-1) var(--space-3);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.intake-state.is-open {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.intake-state.is-closed {
+  background: color-mix(in srgb, var(--muted) 14%, var(--card));
+  color: var(--ink-soft);
+}
+
+.intake-state.is-draft {
+  background: color-mix(in srgb, var(--brand-accent) 22%, var(--card));
+  color: var(--brand-accent-ink);
+}
+
+.intake-explainer {
+  color: var(--ink-soft);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: var(--space-4) 0;
+  max-width: 62ch;
+}
+
+/* The intake form reuses the shared field grid from academic.css, so it only
+   needs its own spacing here. */
+.intake-panel .inline-form-fields {
+  margin-top: var(--space-4);
+}
+
+.intake-panel a.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* The empty queue now carries a sentence rather than a phrase — it explains
+   whether applications are even possible — so it needs a readable measure
+   that the original one-liner did not. */
+.empty-queue {
+  line-height: var(--lh-body);
+  margin: 0 auto;
+  max-width: 46ch;
+}
+
+@media (max-width: 900px) {
+  .intake-headline {
+    flex-direction: column;
+  }
+}

@@ -19,6 +19,7 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
     { href: "/admin/admissions", icon: "admissions", label: "Admissions" },
     { href: "/admin/people", icon: "classes", label: "People" },
     { href: "/admin/academic", icon: "academics", label: "Academics" },
+    { href: "/admin/school", icon: "school", label: "School details" },
     { href: "/admin/messages", icon: "messages", label: "Reported" },
   ],
   applicant: [

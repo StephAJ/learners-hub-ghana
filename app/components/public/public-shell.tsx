@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BrandMark } from "../brand-mark";
-import { greenfieldProfile } from "../../../domain/school/public-profile";
+import type { SchoolProfile } from "../../../domain/school/public-profile";
 
 /**
  * The frame around every public page that is not the home page.
@@ -15,13 +15,17 @@ export function PublicShell({
   children,
   /** Shown on the right of the header — a name, a sign-out, whatever fits. */
   headerAside,
+  school,
   wide = false,
 }: {
   children: ReactNode;
   headerAside?: ReactNode;
+  /* Handed in rather than imported. Every public page is already a server
+     component that loads it, and a shell that reached for a constant would
+     put the wrong school's name above the right school's page. */
+  school: SchoolProfile;
   wide?: boolean;
 }) {
-  const school = greenfieldProfile;
 
   return (
     <div className="pub">

@@ -56,6 +56,20 @@ export function BooksIcon(props: IconProps) {
   );
 }
 
+/* The school itself — its name, address and public page — rather than a
+   classroom in it. A building with a flag, which is what a basic school looks
+   like from the road. */
+export function SchoolIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3v4" />
+      <path d="M12 4h5v3h-5" />
+      <path d="M4 21V10l8-3 8 3v11" />
+      <path d="M10 21v-5h4v5" />
+    </Icon>
+  );
+}
+
 export function CalendarIcon(props: IconProps) {
   return (
     <Icon {...props}>

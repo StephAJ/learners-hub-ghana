@@ -11,7 +11,32 @@
    import.meta.url does not reliably survive the Next standalone build that
    the Docker image is built from. */
 
-export const learningSchema = `CREATE TABLE IF NOT EXISTS "subjects" (
+export const learningSchema = `CREATE TABLE IF NOT EXISTS "academic_years" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "name" text NOT NULL,
+  "starts_on" text NOT NULL,
+  "ends_on" text NOT NULL,
+  "status" text NOT NULL DEFAULT 'planned',
+  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "admission_intakes" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "academic_year_id" text NOT NULL,
+  "label" text NOT NULL,
+  "opens_on" text NOT NULL,
+  "closes_on" text NOT NULL,
+  "status" text NOT NULL DEFAULT 'draft',
+  "capacity" bigint NOT NULL DEFAULT 0,
+  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("academic_year_id") REFERENCES "academic_years" ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "subjects" (
   "id" text PRIMARY KEY,
   "tenant_id" text NOT NULL,
   "code" text NOT NULL,
@@ -263,6 +288,21 @@ CREATE TABLE IF NOT EXISTS "attendance_corrections" (
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
   FOREIGN KEY ("attendance_record_id") REFERENCES "attendance_records" ("id"),
   FOREIGN KEY ("corrected_by_person_id") REFERENCES "people" ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "class_groups" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "academic_year_id" text NOT NULL,
+  "name" text NOT NULL,
+  "level" text NOT NULL DEFAULT '',
+  "room" text NOT NULL DEFAULT '',
+  "class_teacher_person_id" text,
+  "status" text NOT NULL DEFAULT 'active',
+  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("academic_year_id") REFERENCES "academic_years" ("id"),
+  FOREIGN KEY ("class_teacher_person_id") REFERENCES "people" ("id")
 );
 
 CREATE TABLE IF NOT EXISTS "curriculum_standards" (
@@ -696,6 +736,13 @@ CREATE TABLE IF NOT EXISTS "rubric_scores" (
   FOREIGN KEY ("marked_by_person_id") REFERENCES "people" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "school_profiles" (
+  "tenant_id" text PRIMARY KEY,
+  "document" text NOT NULL,
+  "updated_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "submission_attachments" (
   "id" text PRIMARY KEY,
   "tenant_id" text NOT NULL,
@@ -750,6 +797,15 @@ CREATE TABLE IF NOT EXISTS "timetable_entries" (
   FOREIGN KEY ("substitute_teacher_person_id") REFERENCES "people" ("id")
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS "academic_years_tenant_name_idx"
+  ON "academic_years" ("tenant_id", "name");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "admission_intakes_tenant_label_idx"
+  ON "admission_intakes" ("tenant_id", "label");
+
+CREATE INDEX IF NOT EXISTS "admission_intakes_tenant_status_idx"
+  ON "admission_intakes" ("tenant_id", "status");
+
 CREATE INDEX IF NOT EXISTS "attempts_learner_assessment_idx"
   ON "assessment_attempts" ("tenant_id", "learner_person_id", "assessment_id");
 
@@ -791,6 +847,12 @@ CREATE INDEX IF NOT EXISTS "attendance_learner_idx"
 
 CREATE UNIQUE INDEX IF NOT EXISTS "attendance_class_date_mode_idx"
   ON "attendance_sessions" ("tenant_id", "class_group_id", "session_date", "mode");
+
+CREATE INDEX IF NOT EXISTS "class_groups_tenant_year_idx"
+  ON "class_groups" ("tenant_id", "academic_year_id");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "class_groups_tenant_year_name_idx"
+  ON "class_groups" ("tenant_id", "academic_year_id", "name");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "standards_offering_code_idx"
   ON "curriculum_standards" ("tenant_id", "offering_id", "code");

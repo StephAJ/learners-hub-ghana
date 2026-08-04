@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, Check, Mail, Phone } from "lucide-react";
 import { PublicShell } from "./public-shell";
-import { greenfieldProfile } from "../../../domain/school/public-profile";
+import type { SchoolProfile } from "../../../domain/school/public-profile";
+import type { PublicIntakeState } from "../../../db/intake-repository";
 import { registrationPath } from "../../auth";
 import "../../admissions/admissions.css";
 
@@ -39,8 +40,15 @@ const CHECKLIST = [
  * Presentation only, so it renders without a session lookup — the route above
  * decides whether the visitor is signed in and hands the answer down.
  */
-export function AdmissionsInfo({ signedIn }: { signedIn: boolean }) {
-  const school = greenfieldProfile;
+export function AdmissionsInfo({
+  intake,
+  school,
+  signedIn,
+}: {
+  intake: PublicIntakeState;
+  school: SchoolProfile;
+  signedIn: boolean;
+}) {
   const applyHref = signedIn
     ? "/admissions/apply"
     : registrationPath("/admissions/apply");
@@ -52,10 +60,13 @@ export function AdmissionsInfo({ signedIn }: { signedIn: boolean }) {
           {signedIn ? "My application" : "Sign in"}
         </Link>
       }
+      school={school}
     >
       <section className="adm-hero">
         <div>
-          <p className="adm-kicker">{school.admissions.intakeLabel}</p>
+          <p className="adm-kicker">
+            {intake.intake?.label ?? "Admissions"}
+          </p>
           <h1>Apply for a place at {school.name}.</h1>
           <p>
             Kindergarten through JHS 3, for entry from September 2026. The form
@@ -63,10 +74,20 @@ export function AdmissionsInfo({ signedIn }: { signedIn: boolean }) {
             come back to it whenever you like.
           </p>
           <div className="adm-hero-actions">
-            <Link className="apply-button apply-button-solid" href={applyHref}>
-              {signedIn ? "Continue my application" : "Start an application"}
-              <ArrowRight aria-hidden="true" size={16} />
-            </Link>
+            {intake.isOpen ? (
+              <Link className="apply-button apply-button-solid" href={applyHref}>
+                {signedIn ? "Continue my application" : "Start an application"}
+                <ArrowRight aria-hidden="true" size={16} />
+              </Link>
+            ) : (
+              /* No button at all rather than one that leads to a refusal. A
+                 family that cannot apply today should be told so here, where
+                 they are still reading, not after signing up for an account
+                 they turn out not to need. */
+              <p className="adm-closed-note" role="status">
+                {intake.closedReason}
+              </p>
+            )}
             <a className="apply-button apply-button-ghost" href="#checklist">
               What you will need
             </a>
@@ -74,8 +95,12 @@ export function AdmissionsInfo({ signedIn }: { signedIn: boolean }) {
         </div>
 
         <aside className="adm-deadline">
-          <small>Applications close</small>
-          <strong>{formatDate(school.admissions.closesOn)}</strong>
+          <small>{intake.isOpen ? "Applications close" : "Applications"}</small>
+          <strong>
+            {intake.intake && intake.isOpen
+              ? formatDate(intake.intake.closesOn)
+              : "Closed"}
+          </strong>
           <span>For entry from September 2026</span>
           <dl>
             <div>
