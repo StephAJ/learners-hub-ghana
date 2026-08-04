@@ -68,11 +68,19 @@ export async function resolveAuthenticatedSchoolUser(
         preferredRoles.includes(membership.role),
     ) ?? primaryIdentity;
 
+  const scopes = await loadAccessScopes(
+    identity.tenant_id,
+    identity.person_id,
+  );
+
   return {
     access: {
       actorPersonId: identity.person_id,
+      classGroupIds: scopes.classGroupIds,
+      linkedLearnerIds: scopes.linkedLearnerIds,
       membershipStatus: identity.membership_status,
       role: identity.role,
+      subjectOfferingIds: scopes.subjectOfferingIds,
       tenantId: identity.tenant_id,
     },
     availableRoles: Array.from(
@@ -94,6 +102,90 @@ export async function resolveAuthenticatedSchoolUser(
     photoUrl: identity.photo_url,
     primaryRole: primaryIdentity.role,
     schoolName: identity.school_name,
+  };
+}
+
+/* The one place record scope is resolved. See the note on AccessContext.
+
+   Asked of everybody rather than switched on role. A role is not a reliable
+   guide to which lists matter — an academic administrator may also teach two
+   subjects, a class teacher is a teacher, and a member of staff may be a
+   parent at the same school. Branching on role here would answer those cases
+   by accident. Each list is simply empty for someone it does not apply to,
+   which is also the correct answer.
+
+   One round trip. Three correlated subqueries cost less than the three
+   sequential awaits they replace, and this sits in front of every
+   authenticated request. */
+async function loadAccessScopes(
+  tenantId: string,
+  personId: string,
+): Promise<{
+  classGroupIds: string[];
+  linkedLearnerIds: string[];
+  subjectOfferingIds: string[];
+}> {
+  const result = await getPostgresPool().query<{
+    class_group_ids: string[];
+    learner_ids: string[];
+    offering_ids: string[];
+  }>(
+    `SELECT
+       COALESCE((
+         SELECT array_agg(DISTINCT assignment.offering_id)
+         FROM teacher_assignments AS assignment
+         WHERE assignment.tenant_id = $1
+           AND assignment.teacher_person_id = $2
+           AND assignment.status = 'active'
+       ), '{}'::text[]) AS offering_ids,
+       COALESCE((
+         SELECT array_agg(DISTINCT link.learner_person_id)
+         FROM guardian_relationships AS link
+         WHERE link.tenant_id = $1
+           AND link.guardian_person_id = $2
+       ), '{}'::text[]) AS learner_ids,
+       COALESCE((
+         SELECT array_agg(DISTINCT class_group.id)
+         FROM class_groups AS class_group
+         WHERE class_group.tenant_id = $1
+           AND (
+             class_group.id IN (
+               SELECT offering.class_group_id
+               FROM subject_offerings AS offering
+               INNER JOIN teacher_assignments AS assignment
+                 ON assignment.offering_id = offering.id
+               WHERE assignment.tenant_id = $1
+                 AND assignment.teacher_person_id = $2
+                 AND assignment.status = 'active'
+             )
+             OR EXISTS (
+               SELECT 1
+               FROM tenant_memberships AS membership
+               WHERE membership.tenant_id = $1
+                 AND membership.person_id = $2
+                 AND membership.status = 'active'
+                 AND membership.scope_type = 'class'
+                 /* A membership's scope_id is whatever the invitation put
+                    there, and the invite form takes free text: every class
+                    membership in the demo school holds "JHS 2 Gold" rather
+                    than class-jhs2-gold. Both are matched because both exist
+                    in the wild. Narrowing this to ids belongs with a
+                    migration that rewrites the memberships. */
+                 AND (
+                   membership.scope_id = class_group.id
+                   OR membership.scope_id = class_group.name
+                 )
+             )
+           )
+       ), '{}'::text[]) AS class_group_ids`,
+    [tenantId, personId],
+  );
+
+  const scopes = result.rows[0];
+  return {
+    classGroupIds: scopes?.class_group_ids ?? [],
+    linkedLearnerIds: scopes?.learner_ids ?? [],
+    subjectOfferingIds: scopes?.offering_ids ?? [],
   };
 }
 

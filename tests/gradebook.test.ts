@@ -36,8 +36,11 @@ const entries: GradeEntry[] = [
 
 const administrator: AccessContext = {
   actorPersonId: "admin-1",
+  classGroupIds: [],
+  linkedLearnerIds: [],
   membershipStatus: "active",
   role: "academic-admin",
+  subjectOfferingIds: [],
   tenantId: "tenant-greenfield",
 };
 
@@ -111,9 +114,11 @@ describe("gradebook and reports", () => {
   it("allows only linked guardians to view released reports", () => {
     const guardian: AccessContext = {
       actorPersonId: "guardian-1",
+      classGroupIds: [],
       linkedLearnerIds: ["learner-1"],
       membershipStatus: "active",
       role: "guardian",
+      subjectOfferingIds: [],
       tenantId: "tenant-greenfield",
     };
 

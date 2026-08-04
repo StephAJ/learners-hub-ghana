@@ -205,10 +205,9 @@ export async function getTeacherOperationsWorkspace(
   if (access.role === "class-teacher") {
     await requireDailyAttendanceScope(access);
   }
-  const scopedAccess = await withTeacherAssignments(access);
   if (
     access.role !== "class-teacher" &&
-    !canTeachOffering(scopedAccess, SCIENCE_OFFERING_ID)
+    !canTeachOffering(access, SCIENCE_OFFERING_ID)
   ) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
@@ -239,8 +238,7 @@ export async function createPersistentAssignment(
 ) {
   requirePermission(access, "assignment:manage");
   await ensureOperationsFoundation();
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, SCIENCE_OFFERING_ID)) {
+  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -520,8 +518,7 @@ export async function releasePersistentRubric(
     access.tenantId,
     input.submissionId,
   );
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, submission.offering_id)) {
+  if (!canTeachOffering(access, submission.offering_id)) {
     throw new AuthorizationError(
       "You are not assigned to this assignment's subject offering.",
     );
@@ -1039,8 +1036,7 @@ export async function getSubmissionAttachmentResponse(
   if (!row) return new Response("Attachment not found.", { status: 404 });
 
   const isOwner = access.actorPersonId === row.learner_person_id;
-  const scoped = isOwner ? access : await withTeacherAssignments(access);
-  if (!isOwner && !canTeachOffering(scoped, row.offering_id)) {
+  if (!isOwner && !canTeachOffering(access, row.offering_id)) {
     throw new AuthorizationError(
       "You are not authorised to read this submission.",
     );
@@ -1122,11 +1118,7 @@ export async function getGuardianSchoolDay(
         : "person-kwame";
   const learnerId =
     requestedLearnerId ?? defaultLearnerId ?? access.actorPersonId;
-  const scopedAccess = {
-    ...access,
-    linkedLearnerIds: linkedChildren.map((child) => child.id),
-  };
-  if (!canAccessLearner(scopedAccess, learnerId)) {
+  if (!canAccessLearner(access, learnerId)) {
     throw new AuthorizationError(
       "You are not authorised to view this learner's school day.",
     );
@@ -1834,7 +1826,6 @@ async function loadAccessibleChildren(
         FROM guardian_relationships g
         INNER JOIN people p ON p.id = g.learner_person_id
         WHERE g.tenant_id = ? AND g.guardian_person_id = ?
-          AND g.status = 'active'
         ORDER BY p.first_name, p.last_name`,
       )
       .bind(access.tenantId, access.actorPersonId)
@@ -1870,10 +1861,15 @@ async function loadGuardianAlerts(
 ) {
   const result = await database
     .prepare(
+      /* The cast is load-bearing. A bare `? IS NULL` gives PostgreSQL nothing
+         to infer the parameter's type from — it raises "could not determine
+         data type of parameter $3" and the whole guardian school day fails.
+         SQLite inferred it, so this survived the port unnoticed behind the
+         view's fixture fallback. */
       `SELECT id, title, message, status, issued_at
       FROM guardian_alerts
       WHERE tenant_id = ? AND learner_person_id = ?
-        AND (? IS NULL OR guardian_person_id = ?)
+        AND (?::text IS NULL OR guardian_person_id = ?)
       ORDER BY issued_at DESC`,
     )
     .bind(
@@ -1985,24 +1981,6 @@ async function loadClassLearnerIds(
     .bind(tenantId, CLASS_NAME, CLASS_GROUP_ID)
     .all<{ id: string }>();
   return result.results.map((row) => row.id);
-}
-
-async function withTeacherAssignments(access: AccessContext) {
-  if (access.role === "school-admin" || access.role === "academic-admin") {
-    return access;
-  }
-  const database = await getSchoolDatabase();
-  const result = await database
-    .prepare(
-      `SELECT offering_id FROM teacher_assignments
-      WHERE tenant_id = ? AND teacher_person_id = ? AND status = 'active'`,
-    )
-    .bind(access.tenantId, access.actorPersonId)
-    .all<{ offering_id: string }>();
-  return {
-    ...access,
-    subjectOfferingIds: result.results.map((row) => row.offering_id),
-  };
 }
 
 function resolveLearnerId(

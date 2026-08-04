@@ -249,8 +249,7 @@ export async function createPersistentLessonDraft(
 ): Promise<LessonSummary> {
   await ensureLearningFoundation();
   validateDraftInput(input);
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, input.offeringId)) {
+  if (!canTeachOffering(access, input.offeringId)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -434,8 +433,7 @@ export async function updatePersistentLessonDraft(
 ): Promise<LessonSummary> {
   await ensureLearningFoundation();
   validateDraftInput(input);
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, input.offeringId)) {
+  if (!canTeachOffering(access, input.offeringId)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -604,14 +602,9 @@ export async function publishPersistentLesson(
   lessonId: string,
 ): Promise<LessonSummary> {
   await ensureLearningFoundation();
-  const scopedAccess = await withTeacherAssignments(access);
   const database = await getSchoolDatabase();
   const draft = await loadLesson(database, access.tenantId, lessonId);
-  const published = publishLesson(
-    scopedAccess,
-    draft,
-    new Date().toISOString(),
-  );
+  const published = publishLesson(access, draft, new Date().toISOString());
   const publishedVersionId = `${lessonId}:v${published.version}`;
 
   await database.batch([
@@ -703,10 +696,9 @@ export async function duplicatePersistentLesson(
   lessonId: string,
 ): Promise<LessonSummary> {
   await ensureLearningFoundation();
-  const scopedAccess = await withTeacherAssignments(access);
   const database = await getSchoolDatabase();
   const source = await loadLesson(database, access.tenantId, lessonId);
-  if (!canTeachOffering(scopedAccess, source.offeringId)) {
+  if (!canTeachOffering(access, source.offeringId)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -1356,27 +1348,6 @@ async function findAccessibleOffering(access: AccessContext) {
     );
   }
   return offering;
-}
-
-async function withTeacherAssignments(
-  access: AccessContext,
-): Promise<AccessContext> {
-  if (access.role === "school-admin" || access.role === "academic-admin") {
-    return access;
-  }
-  const database = await getSchoolDatabase();
-  const result = await database
-    .prepare(
-      `SELECT offering_id
-      FROM teacher_assignments
-      WHERE tenant_id = ? AND teacher_person_id = ? AND status = 'active'`,
-    )
-    .bind(access.tenantId, access.actorPersonId)
-    .all<{ offering_id: string }>();
-  return {
-    ...access,
-    subjectOfferingIds: result.results.map((row) => row.offering_id),
-  };
 }
 
 async function loadLesson(

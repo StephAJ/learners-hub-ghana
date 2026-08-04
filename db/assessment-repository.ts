@@ -149,8 +149,7 @@ export async function listTeacherAssessmentWorkspace(
 ): Promise<TeacherAssessmentWorkspace> {
   requireAssessmentPermission(access);
   await ensureAssessmentFoundation();
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, SCIENCE_OFFERING_ID)) {
+  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
     throw new AuthorizationError(
       "No active assessment subject is assigned to your account.",
     );
@@ -180,8 +179,7 @@ export async function createBankQuestion(
 ): Promise<QuestionBankSummary> {
   await ensureAssessmentFoundation();
   validateQuestionInput(input);
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, SCIENCE_OFFERING_ID)) {
+  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -260,8 +258,7 @@ export async function createPersistentAssessmentDraft(
 ): Promise<AssessmentSummary> {
   await ensureAssessmentFoundation();
   validateAssessmentInput(input);
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, SCIENCE_OFFERING_ID)) {
+  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -419,7 +416,6 @@ export async function publishPersistentAssessment(
   assessmentId: string,
 ): Promise<AssessmentSummary> {
   await ensureAssessmentFoundation();
-  const scopedAccess = await withTeacherAssignments(access);
   const database = await getSchoolDatabase();
   const draft = await loadAssessment(
     database,
@@ -431,11 +427,7 @@ export async function publishPersistentAssessment(
       "File-response quizzes require secure school file storage before publication.",
     );
   }
-  const published = publishAssessment(
-    scopedAccess,
-    draft,
-    new Date().toISOString(),
-  );
+  const published = publishAssessment(access, draft, new Date().toISOString());
   const versionId = `${assessmentId}:v${published.version}`;
 
   await database.batch([
@@ -863,8 +855,7 @@ export async function markPersistentResponse(
       response: string;
     }>();
   if (!row) throw new AssessmentPolicyError("Response was not found.");
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, row.offering_id)) {
+  if (!canTeachOffering(access, row.offering_id)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -949,8 +940,7 @@ export async function releasePersistentResult(
     .bind(attemptId, access.tenantId)
     .first<{ offering_id: string; status: AssessmentAttemptStatus }>();
   if (!attempt) throw new AssessmentPolicyError("Attempt was not found.");
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, attempt.offering_id)) {
+  if (!canTeachOffering(access, attempt.offering_id)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -1650,25 +1640,6 @@ function responseMarkStatement(
       marked.autoMarks,
       marked.markingStatus,
     );
-}
-
-async function withTeacherAssignments(access: AccessContext) {
-  if (access.role === "school-admin" || access.role === "academic-admin") {
-    return access;
-  }
-  const database = await getSchoolDatabase();
-  const result = await database
-    .prepare(
-      `SELECT offering_id
-      FROM teacher_assignments
-      WHERE tenant_id = ? AND teacher_person_id = ? AND status = 'active'`,
-    )
-    .bind(access.tenantId, access.actorPersonId)
-    .all<{ offering_id: string }>();
-  return {
-    ...access,
-    subjectOfferingIds: result.results.map((row) => row.offering_id),
-  };
 }
 
 function requireAssessmentPermission(access: AccessContext) {

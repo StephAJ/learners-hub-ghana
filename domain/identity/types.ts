@@ -38,13 +38,28 @@ export type SchoolBrand = {
   brandDeep: string;
 };
 
+/* A role says what kind of thing someone may do. These three lists say which
+   records they may do it to, and together they are the whole of record scope:
+   the subjects a teacher teaches, the classes they stand in front of, and the
+   children a guardian is answerable for.
+
+   Required, not optional, and that is the point. They were optional, and so
+   nothing resolved them: `resolveAuthenticatedSchoolUser()` left them
+   undefined and six repository-private helpers each re-derived one with their
+   own copy of the same query. `canTeachOffering()` reads subjectOfferingIds
+   and falls to `false` when it is missing, so any caller that forgot the
+   incantation refused a teacher who was in fact assigned — silently, and
+   looking exactly like a permission decision. Optional made forgetting
+   invisible. Required makes it a type error.
+
+   Resolved in one place: loadAccessScopes() in db/people-repository.ts. */
 export type AccessContext = {
   actorPersonId: string;
-  classGroupIds?: string[];
-  linkedLearnerIds?: string[];
+  classGroupIds: string[];
+  linkedLearnerIds: string[];
   membershipStatus: MembershipStatus;
   role: SchoolRole;
-  subjectOfferingIds?: string[];
+  subjectOfferingIds: string[];
   tenantId: string;
 };
 

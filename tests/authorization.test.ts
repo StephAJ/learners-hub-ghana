@@ -2,14 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   canAccessLearner,
   canPerform,
+  canTeachOffering,
   requireTenantMatch,
 } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
 
 const administrator: AccessContext = {
   actorPersonId: "person-admin",
+  classGroupIds: [],
+  linkedLearnerIds: [],
   membershipStatus: "active",
   role: "school-admin",
+  subjectOfferingIds: [],
   tenantId: "school-1",
 };
 
@@ -67,5 +71,56 @@ describe("tenant-scoped authorisation", () => {
     expect(() => requireTenantMatch(administrator, "school-2")).toThrow(
       "The requested record belongs to another school.",
     );
+  });
+});
+
+describe("teaching a subject offering", () => {
+  const teacher: AccessContext = {
+    ...administrator,
+    actorPersonId: "teacher-1",
+    role: "teacher",
+    subjectOfferingIds: [
+      "offering-maths-jhs1",
+      "offering-maths-jhs2",
+      "offering-science-jhs2",
+    ],
+  };
+
+  it("lets a teacher reach every offering they hold, not only the first", () => {
+    for (const offeringId of teacher.subjectOfferingIds) {
+      expect(canTeachOffering(teacher, offeringId)).toBe(true);
+    }
+  });
+
+  it("refuses an offering the teacher does not hold", () => {
+    expect(canTeachOffering(teacher, "offering-english-jhs2")).toBe(false);
+  });
+
+  /* The failure this whole arrangement exists to prevent. An unresolved list
+     is indistinguishable from "assigned to nothing", so a teacher who is in
+     fact assigned gets an authorisation error. It used to be reachable by
+     forgetting a call; it is now only reachable by passing [] on purpose. */
+  it("refuses everything when the list was never resolved", () => {
+    expect(
+      canTeachOffering({ ...teacher, subjectOfferingIds: [] }, "offering-maths-jhs2"),
+    ).toBe(false);
+  });
+
+  it("lets an academic administrator reach an offering they do not teach", () => {
+    expect(
+      canTeachOffering(
+        { ...administrator, role: "academic-admin" },
+        "offering-maths-jhs2",
+      ),
+    ).toBe(true);
+  });
+
+  it("refuses a teacher whose membership is no longer active", () => {
+    expect(
+      canTeachOffering(
+        { ...teacher, membershipStatus: "revoked" },
+        "offering-maths-jhs2",
+      ),
+    ).toBe(false);
   });
 });

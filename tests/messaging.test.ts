@@ -19,8 +19,11 @@ function access(
 ): AccessContext {
   return {
     actorPersonId,
+    classGroupIds: [],
+    linkedLearnerIds: [],
     membershipStatus,
     role,
+    subjectOfferingIds: [],
     tenantId: "tenant-greenfield",
   };
 }

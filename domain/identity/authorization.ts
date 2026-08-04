@@ -100,7 +100,7 @@ export function canAccessLearner(
   }
 
   if (context.role === "guardian") {
-    return context.linkedLearnerIds?.includes(learnerPersonId) ?? false;
+    return context.linkedLearnerIds.includes(learnerPersonId);
   }
 
   return context.role !== "teacher";
@@ -114,7 +114,7 @@ export function canTeachOffering(
   if (context.role === "school-admin" || context.role === "academic-admin") {
     return true;
   }
-  return context.subjectOfferingIds?.includes(offeringId) ?? false;
+  return context.subjectOfferingIds.includes(offeringId);
 }
 
 export function requireTenantMatch(

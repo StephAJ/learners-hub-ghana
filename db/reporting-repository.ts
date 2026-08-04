@@ -137,8 +137,7 @@ export async function listTeacherGradebookWorkspace(
 ): Promise<TeacherGradebookWorkspace> {
   requireGradebookPermission(access);
   await ensureReportingFoundation();
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, SCIENCE_OFFERING_ID)) {
+  if (!canTeachOffering(access, SCIENCE_OFFERING_ID)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -218,8 +217,7 @@ export async function savePersistentGradeEntry(
       submission_status: string;
     }>();
   if (!row) throw new ReportingPolicyError("Grade entry was not found.");
-  const scopedAccess = await withTeacherAssignments(access);
-  if (!canTeachOffering(scopedAccess, row.offering_id)) {
+  if (!canTeachOffering(access, row.offering_id)) {
     throw new AuthorizationError(
       "You are not assigned to this subject offering.",
     );
@@ -548,11 +546,7 @@ export async function getGuardianReportWorkspace(
         : "person-kwame";
   const learnerId =
     requestedLearnerId ?? defaultLearnerId ?? access.actorPersonId;
-  const scopedAccess: AccessContext = {
-    ...access,
-    linkedLearnerIds: linkedChildren.map((child) => child.id),
-  };
-  if (!canAccessLearner(scopedAccess, learnerId)) {
+  if (!canAccessLearner(access, learnerId)) {
     throw new AuthorizationError(
       "You are not authorised to view this learner's reports.",
     );
@@ -567,11 +561,7 @@ export async function getGuardianReportWorkspace(
     .bind(learnerId, access.tenantId)
     .first<{ id: string; name: string }>();
   if (!child) throw new ReportingPolicyError("Learner was not found.");
-  const reports = await loadReleasedReports(
-    database,
-    scopedAccess,
-    learnerId,
-  );
+  const reports = await loadReleasedReports(database, access, learnerId);
   return {
     child: {
       className: "JHS 2 Gold",
@@ -1285,7 +1275,7 @@ async function resolveAccessibleChildren(
         `SELECT p.id, p.first_name || ' ' || p.last_name AS name
         FROM guardian_relationships g
         INNER JOIN people p ON p.id = g.learner_person_id
-        WHERE g.tenant_id = ? AND g.guardian_person_id = ? AND g.status = 'active'
+        WHERE g.tenant_id = ? AND g.guardian_person_id = ?
         ORDER BY p.first_name, p.last_name`,
       )
       .bind(access.tenantId, access.actorPersonId)
@@ -1412,25 +1402,6 @@ async function loadReleasedReports(
     });
   }
   return reports;
-}
-
-async function withTeacherAssignments(access: AccessContext) {
-  if (access.role === "school-admin" || access.role === "academic-admin") {
-    return access;
-  }
-  const database = await getSchoolDatabase();
-  const result = await database
-    .prepare(
-      `SELECT offering_id
-      FROM teacher_assignments
-      WHERE tenant_id = ? AND teacher_person_id = ? AND status = 'active'`,
-    )
-    .bind(access.tenantId, access.actorPersonId)
-    .all<{ offering_id: string }>();
-  return {
-    ...access,
-    subjectOfferingIds: result.results.map((row) => row.offering_id),
-  };
 }
 
 function requireGradebookPermission(access: AccessContext) {
