@@ -1,255 +1,123 @@
-:root {
-  --grade-green: var(--brand);
-  --grade-green-dark: var(--brand-strong);
-  --grade-ink: #16211c;
-  --grade-muted: #6a746f;
-  --grade-line: #e1e6e3;
-  --grade-warm: #f8f6ef;
-}
-
-.gradebook-shell {
-  min-height: 100vh;
-  background: #f6f8f5;
-  color: var(--grade-ink);
-  display: grid;
-  grid-template-columns: 238px minmax(0, 1fr);
-}
-
-.gradebook-sidebar {
-  min-height: 100vh;
-  position: sticky;
-  top: 0;
-}
-
-.gradebook-sidebar nav a b {
-  margin-left: auto;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #f1bd54;
-  color: #3b2a06;
-  font-size: var(--fs-14);
-}
-
-.gradebook-lock-note {
-  margin-top: auto;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(145deg, #17493b, #0e3028);
-  color: white;
-  display: grid;
-  gap: 4px;
-}
-
-.gradebook-lock-note span,
-.gradebook-lock-note small {
-  color: #bad5ca;
-  font-size: var(--fs-14);
-}
-
-.gradebook-lock-note strong {
-  font-family: var(--font-serif);
-  font-size: var(--fs-22);
-}
-
-.gradebook-main {
-  min-width: 0;
-}
-
-.gradebook-topbar {
-  min-height: 84px;
-  padding: 16px 32px;
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid var(--grade-line);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  backdrop-filter: blur(16px);
-}
-
-.gradebook-topbar p,
-.gradebook-hero p,
-.gradebook-panel-heading p {
-  margin: 0;
-  color: var(--grade-muted);
-  font-size: var(--fs-14);
-  font-weight: var(--fw-regular);
-  letter-spacing: var(--tracking-label);
-}
-
-.gradebook-topbar h1 {
-  margin: 4px 0 0;
-  font-family: var(--font-serif);
-  font-size: var(--fs-28);
-}
-
-.gradebook-account {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.gradebook-account div {
-  text-align: right;
-  display: grid;
-}
-
-.gradebook-account strong {
-  font-size: var(--fs-16);
-}
-
-.gradebook-account small {
-  color: var(--grade-muted);
-  font-size: var(--fs-14);
-}
-
-.gradebook-account > span:last-child {
-  width: 39px;
-  height: 39px;
-  border-radius: var(--radius-md);
-  display: grid;
-  place-items: center;
-  background: #ffd677;
-  font-size: var(--fs-16);
-  font-weight: var(--fw-semibold);
-}
-
-.gradebook-data-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ccd3cf;
-}
-
-.gradebook-data-dot.protected {
-  background: #17a474;
-  box-shadow: 0 0 0 4px #ddf3eb;
-}
-
 .gradebook-content {
   width: min(1320px, calc(100% - 58px));
   margin: 0 auto;
   padding: 28px 0 72px;
 }
 
-.gradebook-hero {
-  min-height: 210px;
-  padding: 36px 40px;
-  border-radius: var(--radius-2xl);
-  background:
-    radial-gradient(circle at 75% 25%, rgba(246, 200, 106, 0.35), transparent 22%),
-    linear-gradient(130deg, #135b49, #173a31);
-  color: white;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 270px;
-  gap: 32px;
-  align-items: end;
+/* ==========================================================================
+   The markbook's context line
+
+   What stood here was a 210px banner — a headline, a paragraph of prose about
+   the product, and a policy card — above four metric cards. Between them they
+   took the entire first screen before a single mark was visible, and a
+   teacher opening their markbook is looking for marks.
+
+   Everything those five surfaces carried is in the two lines below: which
+   subject and term, whether it is still open, the class average, how many
+   marks are missing, the weighting formula, and how many reports have gone
+   out. The one number that decides whether this markbook can be submitted at
+   all — missing marks — is the only one that changes colour.
+   ========================================================================== */
+
+.gradebook-context {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  justify-content: space-between;
+  padding-top: var(--space-2);
 }
 
-.gradebook-hero > div:first-child {
-  max-width: 690px;
+/* The one serif on the screen. It was on the banner headline, the policy
+   card's percentages, all four metric numbers, and every panel heading —
+   seven places, which made it ordinary. Here it marks the subject this
+   markbook is for, and nothing else. */
+.gradebook-identity h2 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-28);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--lh-heading);
+  margin: 0;
 }
 
-.gradebook-code {
-  width: 42px;
-  height: 42px;
-  margin-bottom: 16px;
-  border-radius: var(--radius-md);
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.13);
+.gradebook-identity p {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  margin: var(--space-1) 0 0;
+}
+
+.gradebook-state {
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-1) var(--space-3);
+  white-space: nowrap;
+}
+
+.gradebook-state.is-open {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.gradebook-state.is-submitted,
+.gradebook-state.is-approved {
+  background: color-mix(in srgb, var(--brand-accent) 20%, var(--card));
+  color: var(--brand-accent-ink);
+}
+
+.gradebook-state.is-released,
+.gradebook-state.is-locked {
+  background: color-mix(in srgb, var(--muted) 14%, var(--card));
+  color: var(--ink-soft);
+}
+
+/* One line of separated facts rather than four boxes. Dot separators are
+   drawn between the spans rather than typed into them, so a fact that is not
+   applicable can simply not render. */
+.gradebook-facts {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-14);
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-3) 0 var(--space-5);
+}
+
+.gradebook-facts span + span::before {
+  color: var(--line-strong);
+  content: "·";
+  margin-right: var(--space-3);
+}
+
+.gradebook-facts b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
   font-weight: var(--fw-semibold);
 }
 
-.gradebook-hero p {
-  color: #c7ddd4;
-  line-height: 1.65;
+/* Missing marks block submission, so this is the one fact allowed to raise
+   its voice. Not red: nothing is broken, there is simply work left. */
+.gradebook-facts .is-blocking {
+  color: var(--brand-accent-ink);
+  font-weight: var(--fw-semibold);
 }
 
-.gradebook-hero h2 {
-  margin: 8px 0 12px;
-  font-family: var(--font-serif);
-  font-size: var(--fs-page);
-}
-
-.gradebook-policy-card {
-  padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.gradebook-policy-card > span {
-  color: #c4d9d1;
-  font-size: var(--fs-14);
-}
-
-.gradebook-policy-card > div {
-  display: grid;
-  grid-template-columns: 52px 1fr;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.gradebook-policy-card strong {
-  font-family: var(--font-serif);
-  font-size: var(--fs-22);
-}
-
-.gradebook-policy-card small {
-  color: #d5e4de;
-  font-size: var(--fs-14);
+.gradebook-facts .is-blocking::before {
+  color: var(--line-strong);
+  font-weight: var(--fw-regular);
 }
 
 .gradebook-notice {
   width: 100%;
   margin-top: 12px;
   padding: 12px 16px;
-  border: 1px solid #b8decf;
+  border: 1px solid var(--brand-line);
   border-radius: var(--radius-md);
-  background: #eaf8f2;
-  color: #0b5c45;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
   display: flex;
   justify-content: space-between;
-}
-
-.gradebook-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin: 20px 0;
-}
-
-.gradebook-metrics article {
-  padding: 20px;
-  border: 1px solid var(--grade-line);
-  border-radius: var(--radius-lg);
-  background: white;
-  display: grid;
-  gap: 4px;
-}
-
-.gradebook-metrics span,
-.gradebook-metrics small {
-  color: var(--grade-muted);
-  font-size: var(--fs-14);
-}
-
-.gradebook-metrics strong {
-  font-family: var(--font-serif);
-  font-size: var(--fs-28);
-}
-
-.gradebook-metrics .metric-state {
-  color: var(--grade-green);
-  font-family: inherit;
-  font-size: var(--fs-18);
-  text-transform: capitalize;
 }
 
 .gradebook-tabs {
@@ -257,7 +125,7 @@
   margin: 24px 0 16px;
   padding: 4px;
   border-radius: var(--radius-md);
-  background: #eceedf;
+  background: color-mix(in srgb, var(--muted) 10%, var(--canvas));
   display: flex;
   gap: 4px;
 }
@@ -267,20 +135,20 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: #68726d;
+  color: var(--muted);
   font-weight: var(--fw-semibold);
   cursor: pointer;
 }
 
 .gradebook-tabs button.is-active {
   background: white;
-  color: var(--grade-green-dark);
+  color: var(--brand-strong);
   box-shadow: 0 2px 9px rgba(28, 55, 46, 0.08);
 }
 
 .gradebook-panel {
   padding: 24px;
-  border: 1px solid var(--grade-line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   background: white;
 }
@@ -292,18 +160,22 @@
   align-items: center;
 }
 
+/* Sans, not serif. Three panels each carrying a serif heading turned the
+   display face into the default rather than the exception; the subject name
+   at the top of the page is the only place it earns its keep. */
 .gradebook-panel-heading h2 {
-  margin: 4px 0 0;
-  font-family: var(--font-serif);
-  font-size: var(--fs-22);
+  font-size: var(--fs-18);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-display);
+  margin: var(--space-1) 0 0;
 }
 
 .gradebook-state-pill,
 .policy-version {
   padding: 8px 12px;
   border-radius: 999px;
-  background: #eef6f2;
-  color: var(--grade-green);
+  background: var(--brand-soft);
+  color: var(--brand);
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
   text-transform: capitalize;
@@ -315,7 +187,7 @@
   height: 6px;
   margin-right: 4px;
   border-radius: 50%;
-  background: var(--grade-green);
+  background: var(--brand);
 }
 
 .gradebook-table-wrap {
@@ -331,13 +203,13 @@
 .marks-table th,
 .marks-table td {
   padding: 12px 12px;
-  border-bottom: 1px solid #e7ebe8;
+  border-bottom: 1px solid var(--line);
   text-align: center;
 }
 
 .marks-table th {
-  background: #f7f8f6;
-  color: #49534e;
+  background: var(--canvas);
+  color: var(--ink-soft);
   font-size: var(--fs-14);
 }
 
@@ -354,7 +226,7 @@
 
 .marks-table th small {
   margin-top: 4px;
-  color: var(--grade-muted);
+  color: var(--muted);
   font-size: var(--fs-14);
   font-weight: var(--fw-medium);
 }
@@ -372,8 +244,8 @@
   border-radius: var(--radius-md);
   display: grid;
   place-items: center;
-  background: #edf5f1;
-  color: var(--grade-green);
+  background: var(--brand-soft);
+  color: var(--brand);
   font-size: var(--fs-14);
 }
 
@@ -386,18 +258,21 @@
 }
 
 .gradebook-learner small {
-  color: var(--grade-muted);
+  color: var(--muted);
   font-size: var(--fs-13);
 }
 
+/* Every mark in this table is read down its column against the ones above
+   and below it, so the digits have to line up. */
 .mark-value {
-  font-weight: var(--fw-semibold);
   font-size: var(--fs-16);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
 }
 
 .mark-value.is-adjusted {
+  color: var(--brand-accent-ink);
   display: grid;
-  color: #8a6515;
 }
 
 .mark-value i {
@@ -414,9 +289,9 @@
 .missing-mark-input input {
   width: 58px;
   padding: 8px;
-  border: 1px solid #e2b85d;
+  border: 1px solid var(--brand-accent);
   border-radius: var(--radius-sm);
-  background: #fffaf0;
+  background: color-mix(in srgb, var(--brand-accent) 8%, var(--card));
   text-align: center;
 }
 
@@ -424,7 +299,7 @@
   width: 30px;
   border: 0;
   border-radius: var(--radius-sm);
-  background: var(--grade-green);
+  background: var(--brand);
   color: white;
   cursor: pointer;
 }
@@ -433,9 +308,13 @@
   opacity: 0.45;
 }
 
+/* Tabular figures, because this column is read down rather than across —
+   proportional digits make a column of percentages ragged. Sans for the same
+   reason the panel headings are: it is a number in a table, not a title. */
 .weighted-score {
-  font-family: var(--font-serif);
-  color: var(--grade-green-dark);
+  color: var(--brand-strong);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
 }
 
 .grade-badge {
@@ -445,21 +324,21 @@
   border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
-  background: #e8f5ef;
-  color: var(--grade-green);
+  background: var(--brand-soft);
+  color: var(--brand);
   font-weight: var(--fw-semibold);
 }
 
 .grade-badge.incomplete {
-  background: #fff2d9;
-  color: #916812;
+  background: color-mix(in srgb, var(--brand-accent) 22%, var(--card));
+  color: var(--brand-accent-ink);
 }
 
 .gradebook-submit-row {
   margin-top: 20px;
   padding: 16px;
   border-radius: var(--radius-md);
-  background: #f5f7f4;
+  background: var(--canvas);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -476,7 +355,7 @@
 
 .gradebook-submit-row small {
   margin-top: 4px;
-  color: var(--grade-muted);
+  color: var(--muted);
   font-size: var(--fs-14);
 }
 
@@ -485,7 +364,7 @@
   padding: 12px 16px;
   border: 0;
   border-radius: var(--radius-md);
-  background: var(--grade-green);
+  background: var(--brand);
   color: white;
   font-weight: var(--fw-semibold);
   cursor: pointer;
@@ -493,12 +372,12 @@
 
 .gradebook-submit-row button:disabled,
 .report-review-list footer button:disabled {
-  background: #cbd2ce;
+  background: var(--line-strong);
   cursor: not-allowed;
 }
 
 .guardian-preview-link {
-  color: var(--grade-green);
+  color: var(--brand);
   text-decoration: none;
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
@@ -514,7 +393,7 @@
 .workflow-guide div {
   padding: 12px;
   border-radius: var(--radius-md);
-  background: #f5f7f4;
+  background: var(--canvas);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -526,7 +405,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--grade-green-dark);
+  background: var(--brand-strong);
   color: white;
   font-size: var(--fs-13);
 }
@@ -542,7 +421,7 @@
 
 .report-review-list article {
   padding: 16px;
-  border: 1px solid var(--grade-line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-lg);
 }
 
@@ -560,7 +439,7 @@
 
 .report-review-list p {
   margin: 4px 0 0;
-  color: var(--grade-muted);
+  color: var(--muted);
   font-size: var(--fs-14);
 }
 
@@ -571,16 +450,16 @@
 }
 
 .report-status.draft {
-  color: #8b671c;
+  color: var(--brand-accent-ink);
 }
 
 .report-status.submitted {
-  color: #316297;
+  color: var(--brand);
 }
 
 .report-status.approved,
 .report-status.released {
-  color: var(--grade-green);
+  color: var(--brand);
 }
 
 .report-completeness {
@@ -590,7 +469,7 @@
 .report-completeness > span {
   height: 5px;
   border-radius: 999px;
-  background: #e8ece9;
+  background: var(--line);
   display: block;
   overflow: hidden;
 }
@@ -598,13 +477,13 @@
 .report-completeness i {
   height: 100%;
   display: block;
-  background: var(--grade-green);
+  background: var(--brand);
 }
 
 .report-completeness small {
   display: block;
   margin-top: 4px;
-  color: var(--grade-muted);
+  color: var(--muted);
   font-size: var(--fs-13);
 }
 
@@ -616,12 +495,12 @@
 }
 
 .report-review-list footer > span {
-  color: var(--grade-muted);
+  color: var(--muted);
   font-size: var(--fs-14);
 }
 
 .released-indicator {
-  color: var(--grade-green);
+  color: var(--brand);
   font-size: var(--fs-14);
 }
 
@@ -633,18 +512,20 @@
 
 .policy-layout article {
   padding: 20px;
-  border: 1px solid var(--grade-line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-lg);
 }
 
 .policy-layout h3 {
-  margin: 0 0 16px;
-  font-family: var(--font-serif);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-display);
+  margin: 0 0 var(--space-4);
 }
 
 .category-policy > div {
   padding: 12px 0;
-  border-bottom: 1px solid var(--grade-line);
+  border-bottom: 1px solid var(--line);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -659,13 +540,14 @@
 }
 
 .category-policy small {
-  color: var(--grade-muted);
+  color: var(--muted);
   font-size: var(--fs-13);
 }
 
 .category-policy > div > b {
-  font-family: var(--font-serif);
-  font-size: var(--fs-22);
+  font-size: var(--fs-18);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
 }
 
 .category-policy footer {
@@ -683,12 +565,12 @@
 .scale-policy > div > span {
   padding: 12px;
   border-radius: var(--radius-md);
-  background: #f5f7f4;
+  background: var(--canvas);
   display: grid;
 }
 
 .scale-policy b {
-  color: var(--grade-green);
+  color: var(--brand);
   font-size: var(--fs-18);
 }
 
@@ -698,7 +580,7 @@
 
 .scale-policy small,
 .scale-policy p {
-  color: var(--grade-muted);
+  color: var(--muted);
   font-size: var(--fs-14);
 }
 
@@ -707,63 +589,10 @@
   line-height: 1.55;
 }
 
-@media (max-width: 1000px) {
-  .gradebook-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .gradebook-sidebar {
-    min-height: auto;
-    position: static;
-  }
-
-  .gradebook-sidebar nav {
-    grid-template-columns: repeat(5, minmax(110px, 1fr));
-    overflow-x: auto;
-  }
-
-  .gradebook-sidebar nav a:nth-child(n + 6),
-  .gradebook-lock-note {
-    display: none;
-  }
-
-  .gradebook-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 700px) {
-  .gradebook-topbar {
-    padding: 16px 16px;
-  }
-
-  .gradebook-account div,
-  .gradebook-data-dot {
-    display: none;
-  }
-
   .gradebook-content {
     width: min(100% - 26px, 1320px);
     padding-top: 16px;
-  }
-
-  .gradebook-hero {
-    padding: 24px;
-    grid-template-columns: 1fr;
-  }
-
-  .gradebook-policy-card {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-  }
-
-  .gradebook-policy-card > div {
-    margin: 0;
-  }
-
-  .gradebook-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .gradebook-tabs {

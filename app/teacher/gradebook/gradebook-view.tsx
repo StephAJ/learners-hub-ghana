@@ -230,30 +230,52 @@ export function GradebookView() {
       <section className="gradebook-main">
 
         <div className="gradebook-content">
-          <section className="gradebook-hero">
-            <div>
-              <span className="gradebook-code">IS</span>
+          {/* The banner this replaces carried a headline — "Every final grade
+              stays explainable" — and a paragraph of prose about the product,
+              above four metric cards. A teacher opening their markbook on a
+              Friday afternoon is not reading a pitch; they want to know which
+              subject and term they are in, whether it is still open, and how
+              many marks are missing. All of that is here, in two lines. */}
+          <header className="gradebook-context">
+            <div className="gradebook-identity">
+              <h2>{workspace.subjectName}</h2>
               <p>
                 {workspace.className} · {workspace.period.name} ·{" "}
                 {workspace.period.academicYear}
               </p>
-              <h2>Every final grade stays explainable.</h2>
-              <p>
-                Assessment evidence, authorised adjustments, approval history,
-                and issued reports remain connected without overwriting the
-                original record.
-              </p>
             </div>
-            <div className="gradebook-policy-card">
-              <span>Current formula</span>
-              {workspace.categories.map((category) => (
-                <div key={category.id}>
-                  <strong>{category.weightPercent}%</strong>
-                  <small>{category.name}</small>
-                </div>
-              ))}
-            </div>
-          </section>
+            <span
+              className={`gradebook-state is-${workspace.period.submissionStatus}`}
+            >
+              {submissionStateLabel(workspace.period.submissionStatus)}
+            </span>
+          </header>
+
+          <p className="gradebook-facts">
+            {completeScores.length > 0 ? (
+              <span>
+                Class average <b>{classAverage.toFixed(1)}%</b>
+              </span>
+            ) : (
+              <span>No complete records yet</span>
+            )}
+            {/* Missing marks is the number that decides whether this markbook
+                can be submitted at all, so it is the one that changes colour. */}
+            <span className={missingCount > 0 ? "is-blocking" : undefined}>
+              {missingCount === 0
+                ? "No missing marks"
+                : `${missingCount} missing ${missingCount === 1 ? "mark" : "marks"}`}
+            </span>
+            <span>
+              {workspace.categories
+                .map((category) => `${category.weightPercent}% ${category.name.toLowerCase()}`)
+                .join(" · ")}
+            </span>
+            <span>
+              {workspace.reports.filter((item) => item.status === "released").length}{" "}
+              of {workspace.reports.length} reports released
+            </span>
+          </p>
 
           {notice ? (
             <button
@@ -264,40 +286,6 @@ export function GradebookView() {
               {notice} <span>×</span>
             </button>
           ) : null}
-
-          <section className="gradebook-metrics">
-            <article>
-              <span>Class average</span>
-              <strong>{classAverage.toFixed(1)}%</strong>
-              <small>Complete learner records</small>
-            </article>
-            <article>
-              <span>Missing marks</span>
-              <strong>{missingCount}</strong>
-              <small>
-                {missingCount === 0 ? "Ready to submit" : "Resolve before submission"}
-              </small>
-            </article>
-            <article>
-              <span>Gradebook state</span>
-              <strong className="metric-state">
-                {workspace.period.submissionStatus}
-              </strong>
-              <small>Integrated Science</small>
-            </article>
-            <article>
-              <span>Report cards</span>
-              <strong>{workspace.reports.length}</strong>
-              <small>
-                {
-                  workspace.reports.filter(
-                    (item) => item.status === "released",
-                  ).length
-                }{" "}
-                released
-              </small>
-            </article>
-          </section>
 
           <div className="gradebook-tabs" role="tablist">
             {[
@@ -710,6 +698,20 @@ function report(
     updatedAt: "2026-07-23T12:00:00Z",
     version: 0,
   };
+}
+
+/* The raw status is a slug — "open", "submitted", "approved" — and printing
+   it as-is was one of the things that made the metric cards read like a
+   database dump. */
+function submissionStateLabel(status: string) {
+  const labels: Record<string, string> = {
+    approved: "Approved",
+    locked: "Locked",
+    open: "Open for marking",
+    released: "Released",
+    submitted: "Submitted for approval",
+  };
+  return labels[status] ?? status;
 }
 
 function initials(name: string) {
