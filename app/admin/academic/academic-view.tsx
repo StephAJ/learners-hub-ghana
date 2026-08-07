@@ -10,6 +10,7 @@ import type {
 } from "../../../domain/academic/structure";
 import type { SchoolTeacher } from "../../../db/academic-repository";
 import type { SubjectRequirement } from "../../../domain/academic/types";
+import { ClassPlanner } from "./class-planner";
 import "./academic.css";
 
 /* ==========================================================================
@@ -68,7 +69,7 @@ export function AcademicView() {
   const [notice, setNotice] = useState("");
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<"class" | "year" | null>(null);
+  const [panel, setPanel] = useState<"class" | "plan" | "year" | null>(null);
   /* Only one offering row is ever in its picker, so this is an id rather than
      a flag per row — opening a second closes the first, which is what stops
      the column turning into a wall of checkboxes. */
@@ -345,13 +346,26 @@ export function AcademicView() {
                     <p className="eyebrow">Class subject policy</p>
                     <h2>Classes and required subjects</h2>
                   </div>
-                  <button
-                    className="ghost-button"
-                    onClick={() => setPanel(panel === "class" ? null : "class")}
-                    type="button"
-                  >
-                    Add a class
-                  </button>
+                  <div className="admin-panel-actions">
+                    <button
+                      className="ghost-button"
+                      onClick={() => setPanel(panel === "class" ? null : "class")}
+                      type="button"
+                    >
+                      Add a class
+                    </button>
+                    {/* The bulk path, beside the single-class one rather than
+                        replacing it: a school opening one more JHS 2 in
+                        January wants the form, and a school arriving with
+                        fourteen year groups wants the planner. */}
+                    <button
+                      className="ghost-button"
+                      onClick={() => setPanel("plan")}
+                      type="button"
+                    >
+                      Set up classes
+                    </button>
+                  </div>
                 </div>
 
                 {panel === "class" && (
@@ -372,15 +386,37 @@ export function AcademicView() {
                   />
                 )}
 
+                {panel === "plan" && (
+                  <ClassPlanner
+                    busy={busy}
+                    existingNames={classesThisYear.map((group) => group.name)}
+                    onCancel={() => setPanel(null)}
+                    onCreate={async (plan) => {
+                      const saved = await send(
+                        {
+                          plan: { ...plan, academicYearId: activeYearId },
+                          type: "create-classes",
+                        },
+                        `The classes for ${activeYear?.name ?? "this year"} were created.`,
+                      );
+                      if (saved) setPanel(null);
+                    }}
+                    yearName={activeYear?.name ?? "this year"}
+                  />
+                )}
+
                 {classesThisYear.length === 0 ? (
                   <div className="panel-empty">
                     <p>
                       <strong>
                         No classes in {activeYear?.name} yet.
                       </strong>
-                      Add the first one and its subjects can be set straight
-                      away.
+                      Say which parts of the school you run and the classes are
+                      created for you.
                     </p>
+                    <button onClick={() => setPanel("plan")} type="button">
+                      Set up classes
+                    </button>
                   </div>
                 ) : (
                   <>

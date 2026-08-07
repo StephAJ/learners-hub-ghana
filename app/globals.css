@@ -145,6 +145,34 @@
   --brand-accent: #e9b84b;
   --brand-accent-ink: #173d38;
 
+  /* ------------------------------------------------------------------
+     Glyph hues
+
+     A fixed palette for the icon tiles that label a section, a step or a
+     kind of thing — the lesson panels, the admin home, the class builder.
+
+     Deliberately not tenant-owned, for the same reason the gold accent is
+     not. Their whole job is to be told apart from one another, and a school
+     brand re-tinting all six would collapse them back into one colour.
+
+     Six is also deliberate. These are labels, not data: enough that two
+     sections side by side read as different things, few enough that a screen
+     does not turn into confetti. Every ground is light enough for its own
+     `-ink` to clear 4.5:1 on top of it, so a glyph drawn in the ink colour is
+     legible rather than decorative. */
+  --hue-teal-soft: #d8ece6;
+  --hue-teal-ink: #0a564b;
+  --hue-blue-soft: #dce7f6;
+  --hue-blue-ink: #1c4c89;
+  --hue-violet-soft: #e5dff5;
+  --hue-violet-ink: #4f3596;
+  --hue-amber-soft: #f7e7c4;
+  --hue-amber-ink: #745010;
+  --hue-rose-soft: #f7dde2;
+  --hue-rose-ink: #913049;
+  --hue-lime-soft: #dfeecd;
+  --hue-lime-ink: #40631b;
+
   /* Aliases. Component sheets written before the brand ramp existed keep
      working, and re-skin with everything else. */
   --primary: var(--brand);

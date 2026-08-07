@@ -51,7 +51,7 @@ export default function RouteError({
             Try again
           </button>
           <Link className="error-button error-button-quiet" href="/app">
-            Back to my workspace
+            Back to my hub
           </Link>
         </div>
       </div>

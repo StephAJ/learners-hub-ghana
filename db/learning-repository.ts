@@ -1079,19 +1079,32 @@ function seedSubjectStatements(
         subject.subjectName,
         subject.units.map((unit) => unit.title).join(" · "),
       ),
+    /* subject_id is selected back out of the table rather than bound as the
+       id above, because the insert above is an IGNORE: if some other row
+       already holds this tenant's `MA`, it did nothing, and `subject-
+       mathematics` is an id that does not exist. Binding it anyway violated
+       the foreign key, and since this whole seed is one transaction it took
+       down every screen that waits on ensureLearningFoundation().
+
+       db/academic-seed.ts now shares these ids so the two seeds land on the
+       same rows, but selecting is what makes it structurally impossible for
+       the offering to point at a subject that is not there. */
     database
       .prepare(
         `INSERT OR IGNORE INTO subject_offerings
           (id, tenant_id, subject_id, class_group_id, class_name, academic_year_id, requirement, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'compulsory', 'active')`,
+        SELECT ?, ?, existing.id, ?, ?, ?, 'compulsory', 'active'
+        FROM subjects AS existing
+        WHERE existing.tenant_id = ? AND existing.code = ?`,
       )
       .bind(
         subject.offeringId,
         TENANT_ID,
-        subjectId,
         DEMO_CLASS_GROUP_ID,
         DEMO_CLASS_NAME,
         DEMO_ACADEMIC_YEAR_ID,
+        TENANT_ID,
+        subject.code,
       ),
     database
       .prepare(

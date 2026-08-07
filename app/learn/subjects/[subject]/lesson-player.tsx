@@ -14,20 +14,38 @@ import {
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ClipboardCheckIcon,
+  ClockIcon,
   DownloadIcon,
   FileTextIcon,
   ImageIcon,
+  LayersIcon,
   LockIcon,
   PencilIcon,
   PlayCircleIcon,
   PlayIcon,
   ReadIcon,
   SparkIcon,
+  UsersIcon,
 } from "../../../components/icons";
 import { LessonPoster } from "../../../components/lesson-poster";
 import { beginFocusMode, endFocusMode } from "../../../components/sidebar-state";
 import { demoActivityById } from "../../../../domain/demo/greenfield";
 import { previewLessonsFor, previewMediaUrl } from "../../../preview-workspace";
+
+/* The three panels under the stage, in one place: a tab's label, its glyph
+   and its hue are the same fact, and keeping them together stops a fourth
+   panel being added as a label with no icon. */
+const LESSON_PANELS = [
+  { hue: "teal", Icon: ReadIcon, id: "overview", label: "Overview" },
+  { hue: "lime", Icon: SparkIcon, id: "objectives", label: "What you'll learn" },
+  {
+    hue: "violet",
+    Icon: ClipboardCheckIcon,
+    id: "standards",
+    label: "Curriculum",
+  },
+] as const;
 
 export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
   const [subject, setSubject] = useState(fallback);
@@ -333,23 +351,25 @@ export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
         />
 
         <div className="course-tabs">
+          {/* A segmented control rather than the underlined strip this used
+              to be. Three panels of very different shapes hung off it, and an
+              underline gave no hint that switching changed the kind of thing
+              below, not just the words. */}
           <div className="course-tablist" role="tablist" aria-label="Lesson detail">
-            {(["overview", "objectives", "standards"] as const).map((tab) => (
+            {LESSON_PANELS.map((panel) => (
               <button
-                aria-controls={`panel-${tab}`}
-                aria-selected={activeTab === tab}
-                className={activeTab === tab ? "is-active" : undefined}
-                id={`tab-${tab}`}
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                aria-controls={`panel-${panel.id}`}
+                aria-selected={activeTab === panel.id}
+                className={activeTab === panel.id ? "is-active" : undefined}
+                data-hue={panel.hue}
+                id={`tab-${panel.id}`}
+                key={panel.id}
+                onClick={() => setActiveTab(panel.id)}
                 role="tab"
                 type="button"
               >
-                {tab === "overview"
-                  ? "Overview"
-                  : tab === "objectives"
-                    ? "What you'll learn"
-                    : "Curriculum"}
+                <panel.Icon size={16} />
+                {panel.label}
               </button>
             ))}
           </div>
@@ -363,37 +383,72 @@ export function LessonPlayer({ fallback }: { fallback: LearnerSubject }) {
           >
             {activeTab === "overview" ? (
               <>
-                <p>{selectedLesson.summary}</p>
+                <p className="course-summary">{selectedLesson.summary}</p>
+                {/* Three facts as tiles rather than a bare definition list.
+                    They are the answers to "who, how long, how much" a
+                    learner scans for before starting, and as unlabelled rows
+                    of text they read as small print. */}
                 <dl className="course-facts">
-                  <div>
-                    <dt>Taught by</dt>
-                    <dd>{subject.teacherName}</dd>
+                  <div data-hue="blue">
+                    <span className="course-fact-glyph" aria-hidden="true">
+                      <UsersIcon size={18} />
+                    </span>
+                    <div>
+                      <dt>Taught by</dt>
+                      <dd>{subject.teacherName}</dd>
+                    </div>
                   </div>
-                  <div>
-                    <dt>Estimated time</dt>
-                    <dd>{selectedLesson.estimatedMinutes} minutes</dd>
+                  <div data-hue="amber">
+                    <span className="course-fact-glyph" aria-hidden="true">
+                      <ClockIcon size={18} />
+                    </span>
+                    <div>
+                      <dt>Estimated time</dt>
+                      <dd>{selectedLesson.estimatedMinutes} minutes</dd>
+                    </div>
                   </div>
-                  <div>
-                    <dt>Activities</dt>
-                    <dd>{selectedLesson.blocks.length}</dd>
+                  <div data-hue="violet">
+                    <span className="course-fact-glyph" aria-hidden="true">
+                      <LayersIcon size={18} />
+                    </span>
+                    <div>
+                      <dt>Activities</dt>
+                      <dd>{selectedLesson.blocks.length}</dd>
+                    </div>
                   </div>
                 </dl>
               </>
             ) : activeTab === "objectives" ? (
-              <ul className="course-objectives">
-                {selectedLesson.objectives.map((objective) => (
-                  <li key={objective}>
-                    <CheckIcon size={16} />
-                    <span>{objective}</span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <p className="course-panel-lede">
+                  By the end of this lesson you should be able to:
+                </p>
+                <ul className="course-objectives">
+                  {selectedLesson.objectives.map((objective, index) => (
+                    <li key={objective}>
+                      {/* Numbered rather than ticked. A row of check marks
+                          beside things the learner has not done yet read as
+                          a progress list that was already complete. */}
+                      <span aria-hidden="true">{index + 1}</span>
+                      <span>{objective}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             ) : (
-              <ul className="course-standards">
-                {selectedLesson.standardCodes.map((code) => (
-                  <li key={code}>{code}</li>
-                ))}
-              </ul>
+              <>
+                <p className="course-panel-lede">
+                  What this lesson covers in the national curriculum.
+                </p>
+                <ul className="course-standards">
+                  {selectedLesson.standardCodes.map((code) => (
+                    <li key={code}>
+                      <ClipboardCheckIcon size={14} />
+                      {code}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
         </div>

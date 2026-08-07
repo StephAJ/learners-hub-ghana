@@ -18,7 +18,7 @@ export default async function PublicHomePage() {
       intake={intake}
       school={school}
       signInHref={user ? "/app" : signInPath("/app")}
-      signInLabel={user ? "My workspace" : "Sign in"}
+      signInLabel={user ? "My hub" : "Sign in"}
     />
   );
 }

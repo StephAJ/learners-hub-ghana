@@ -1,0 +1,403 @@
+/* ==========================================================================
+   The class planner
+
+   Sits inside the composer shell the quiz builder uses, so setting up a
+   school's classes looks like the other authoring tasks in the product rather
+   than like a settings page. What is here is only the three steps' own
+   contents; the scrim, head, body and foot come from composer-shell.css.
+
+   Type, weight, radius, spacing and colour come from the tokens in
+   globals.css. The two literal values are control heights the token set does
+   not describe.
+   ========================================================================== */
+
+.class-planner .composer-body {
+  gap: var(--space-5);
+}
+
+/* -- The step rail -------------------------------------------------------- */
+
+.planner-steps {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
+}
+
+.planner-steps li {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-medium);
+  gap: var(--space-2);
+  padding-right: var(--space-4);
+}
+
+.planner-steps li span {
+  align-items: center;
+  background: var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  height: 1.375rem;
+  justify-content: center;
+  width: 1.375rem;
+}
+
+.planner-steps li.is-current {
+  color: var(--ink);
+  font-weight: var(--fw-semibold);
+}
+
+.planner-steps li.is-current span {
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.planner-steps li.is-done span {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.planner-lede {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+  max-width: 56ch;
+}
+
+/* -- Step 1: the stages --------------------------------------------------- */
+
+.planner-stages ul {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+}
+
+.planner-stages button {
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+  width: 100%;
+}
+
+.planner-stages button:hover {
+  border-color: var(--line-strong);
+}
+
+.planner-stages button.is-chosen {
+  background: var(--brand-tint);
+  border-color: var(--brand);
+}
+
+.planner-stage-glyph {
+  align-items: center;
+  background: var(--hue-teal-soft);
+  border-radius: var(--radius-sm);
+  color: var(--hue-teal-ink);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 2.5rem;
+  justify-content: center;
+  width: 2.5rem;
+}
+
+/* One hue per stage, so the pre-school row and the senior high row are told
+   apart before either is read. Repeated on the counter headings in step 2, so
+   a stage keeps its colour across the whole wizard. */
+.planner-stages button[data-hue="rose"] .planner-stage-glyph,
+.planner-stage-dot[data-hue="rose"] {
+  background: var(--hue-rose-soft);
+  color: var(--hue-rose-ink);
+}
+
+.planner-stages button[data-hue="amber"] .planner-stage-glyph,
+.planner-stage-dot[data-hue="amber"] {
+  background: var(--hue-amber-soft);
+  color: var(--hue-amber-ink);
+}
+
+.planner-stages button[data-hue="lime"] .planner-stage-glyph,
+.planner-stage-dot[data-hue="lime"] {
+  background: var(--hue-lime-soft);
+  color: var(--hue-lime-ink);
+}
+
+.planner-stages button[data-hue="blue"] .planner-stage-glyph,
+.planner-stage-dot[data-hue="blue"] {
+  background: var(--hue-blue-soft);
+  color: var(--hue-blue-ink);
+}
+
+.planner-stage-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.planner-stage-copy strong {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+}
+
+.planner-stage-copy small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  margin-top: var(--space-1);
+}
+
+.planner-stage-check {
+  align-items: center;
+  color: var(--brand);
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  margin-left: auto;
+  width: 1.25rem;
+}
+
+/* -- Step 2: how many of each --------------------------------------------- */
+
+.planner-counts {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.planner-counts h3 {
+  align-items: center;
+  display: flex;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  letter-spacing: var(--tracking-label);
+  margin: 0 0 var(--space-2);
+  text-transform: uppercase;
+}
+
+.planner-stage-dot {
+  background: var(--hue-teal-soft);
+  border-radius: var(--radius-pill);
+  display: inline-block;
+  height: 0.625rem;
+  width: 0.625rem;
+}
+
+.planner-counts ul {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.planner-counts li {
+  align-items: center;
+  background: var(--canvas);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr auto 8rem;
+  padding: var(--space-2) var(--space-3);
+}
+
+.planner-year-name {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.planner-counts li small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  text-align: right;
+}
+
+.planner-stepper {
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.planner-stepper button {
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-16);
+  height: 2rem;
+  width: 2rem;
+}
+
+.planner-stepper button:hover:not(:disabled) {
+  background: var(--brand-tint);
+}
+
+.planner-stepper button:disabled {
+  color: var(--line-strong);
+  cursor: not-allowed;
+}
+
+.planner-stepper b {
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  min-width: 1.25rem;
+  text-align: center;
+}
+
+/* -- Step 3: naming and the preview --------------------------------------- */
+
+.planner-review {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.planner-naming {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.planner-naming legend {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  margin-bottom: var(--space-3);
+  padding: 0;
+}
+
+.planner-naming > div {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.planner-naming label {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
+
+.planner-naming label.is-chosen {
+  background: var(--brand-tint);
+  border-color: var(--brand);
+}
+
+.planner-naming input {
+  /* The label is the control. Kept in the accessibility tree and focusable
+     rather than display:none, so the group is still reachable by keyboard. */
+  height: 0;
+  opacity: 0;
+  position: absolute;
+  width: 0;
+}
+
+.planner-naming input:focus-visible + strong {
+  outline: 2px solid var(--brand-line);
+  outline-offset: 2px;
+}
+
+.planner-naming strong {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.planner-naming small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+.planner-preview ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+}
+
+.planner-preview li {
+  align-items: center;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+  color: var(--brand);
+  display: inline-flex;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* A class the year already has. Shown rather than filtered out, because the
+   list is meant to be the school's structure — leaving out the six that exist
+   would make a plan of fourteen look like a plan of eight. */
+.planner-preview li.is-existing {
+  background: var(--canvas);
+  color: var(--muted);
+}
+
+.planner-preview li small {
+  font-weight: var(--fw-regular);
+  opacity: 0.85;
+}
+
+@media (max-width: 720px) {
+  .planner-steps {
+    padding: var(--space-3) var(--space-5);
+  }
+
+  /* The labels go, the dots stay: the count of steps is the part that was
+     doing the reassuring, and three words wrapping to two lines is worse
+     than three numbers. */
+  .planner-steps li {
+    font-size: 0;
+    gap: 0;
+    padding-right: var(--space-2);
+  }
+
+  .planner-counts li {
+    grid-template-columns: 1fr auto;
+  }
+
+  /* Setting a year group to three classes is the one thing this step is for,
+     and a 32px target is a fiddly thing to hit with a thumb. */
+  .planner-stepper button {
+    height: 2.75rem;
+    width: 2.75rem;
+  }
+
+  .planner-counts li small {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .planner-naming > div {
+    grid-template-columns: 1fr;
+  }
+}

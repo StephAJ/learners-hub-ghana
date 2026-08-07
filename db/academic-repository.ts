@@ -15,6 +15,12 @@ import {
   type CreateSubjectCommand,
   type Subject,
 } from "../domain/academic/structure";
+import {
+  planClasses,
+  reconcilePlan,
+  type ClassPlanCommand,
+  type PlannedClass,
+} from "../domain/academic/school-shape";
 import type { SubjectRequirement } from "../domain/academic/types";
 import { ensurePlatformReady } from "../server/platform-ready";
 import { getPostgresPool } from "./postgres";
@@ -583,6 +589,106 @@ export async function createClassGroup(
     status: "active",
     tenantId: access.tenantId,
   };
+}
+
+export type ClassPlanResult = {
+  created: ClassGroup[];
+  /** Classes the plan named that the year already had, so nothing was done. */
+  skipped: PlannedClass[];
+};
+
+/**
+ * Creates a whole year's classes from a description of the school's shape.
+ *
+ * One transaction. A school setting itself up and getting eleven of its
+ * fourteen classes is worse off than one that got none: it cannot tell which
+ * three are missing without counting, and running the wizard again would be
+ * against a structure that is now half-built.
+ *
+ * Names already in use are skipped rather than refused. The realistic second
+ * run of this is a school that has opened one more JHS 2 in January, and
+ * making them delete the plan down to the single new class — or read an error
+ * naming the six that already exist — would be pointless.
+ */
+export async function createClassGroupsFromPlan(
+  access: AccessContext,
+  command: ClassPlanCommand,
+): Promise<ClassPlanResult> {
+  requirePermission(access, "academic:manage");
+  await ensurePlatformReady();
+
+  /* Planned before the year is checked, so a plan that is nonsense on its own
+     terms says so rather than reporting a year problem it also has. */
+  const planned = planClasses(command);
+  await requireOwnedYear(access, command.academicYearId);
+
+  const existing = await listClassGroups(access);
+  const { create, skip } = reconcilePlan(
+    planned,
+    existing
+      .filter((group) => group.academicYearId === command.academicYearId)
+      .map((group) => group.name),
+  );
+
+  if (create.length === 0) {
+    return { created: [], skipped: skip };
+  }
+
+  const created: ClassGroup[] = [];
+  const client = await getPostgresPool().connect();
+  try {
+    await client.query("BEGIN");
+    for (const item of create) {
+      const id = crypto.randomUUID();
+      await client.query(
+        `INSERT INTO class_groups
+           (id, tenant_id, academic_year_id, name, level, room,
+            class_teacher_person_id, status)
+         VALUES ($1, $2, $3, $4, $5, '', NULL, 'active')`,
+        [
+          id,
+          access.tenantId,
+          command.academicYearId,
+          item.name,
+          item.level,
+        ],
+      );
+      created.push({
+        academicYearId: command.academicYearId,
+        classTeacherPersonId: null,
+        id,
+        learnerCount: 0,
+        level: item.level,
+        name: item.name,
+        room: "",
+        status: "active",
+        tenantId: access.tenantId,
+      });
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  /* One audit event for the whole plan rather than one per class. Fourteen
+     rows saying "class created" bury the decision that was actually taken,
+     which is the shape the school said it was. */
+  await recordAudit(
+    access,
+    "academic.classes-planned",
+    "academic-year",
+    command.academicYearId,
+    {
+      createdNames: created.map((group) => group.name),
+      skippedNames: skip.map((item) => item.name),
+      streamNaming: command.streamNaming,
+    },
+  );
+
+  return { created, skipped: skip };
 }
 
 export async function updateClassGroup(

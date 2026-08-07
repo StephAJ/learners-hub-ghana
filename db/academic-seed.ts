@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { DEMO_CLASS_GROUP_ID, demoSubjects } from "../domain/demo/greenfield";
 import { greenfieldProfile } from "../domain/school/public-profile";
 
 const GREENFIELD_TENANT_ID = "tenant-greenfield";
@@ -32,11 +33,53 @@ type SeedClass = {
   subjects: { compulsory: string[]; optional: string[] };
 };
 
-/* Codes match domain/demo/greenfield.ts, which already seeds Mathematics,
-   English Language, Integrated Science and Social Studies through the
-   learning repository — under its own ids, and with Social Studies as SO
-   rather than SS. Getting either wrong here would give the school two
-   Mathematics subjects, one of which owns all the lessons. */
+/* ==========================================================================
+   Sharing ids with the demo dataset
+
+   domain/demo/greenfield.ts seeds Mathematics, English Language, Integrated
+   Science and Social Studies of its own accord, through the learning
+   repository, the first time a learning route is hit — under ids of its own
+   (`subject-mathematics`, `offering-maths-jhs2`) rather than the ones this
+   file would otherwise invent (`subject-ma`, `class-jhs2-gold-ma`).
+
+   Both seeds guard against inserting a duplicate, so whichever runs second
+   quietly does nothing. That is the trap: the demo seed then hangs its
+   offerings, teacher assignments and every lesson off the id it *assumed* it
+   had just inserted, and on a fresh database — where this file runs first, at
+   boot, and claims the code — that id does not exist.
+
+   The whole demo seed is one transaction, so the foreign key it violated took
+   the lot down with it, and every screen that chains through
+   ensureLearningFoundation() — subjects, content, assessments, the markbook,
+   the class workspace — answered "insert or update on table
+   subject_offerings violates foreign key constraint".
+
+   Reading the ids off the demo dataset rather than deriving parallel ones
+   means the two seeds converge on the same rows whichever runs first, and
+   cannot drift again: there is now one place where the id is written down.
+   ========================================================================== */
+const DEMO_SUBJECT_ID_BY_CODE = new Map(
+  demoSubjects.map((subject) => [subject.code, `subject-${subject.slug}`]),
+);
+const DEMO_OFFERING_ID_BY_CODE = new Map(
+  demoSubjects.map((subject) => [subject.code, subject.offeringId]),
+);
+
+/** The subject row a code belongs to, demo-owned or this file's own. */
+function subjectIdFor(code: string): string {
+  return DEMO_SUBJECT_ID_BY_CODE.get(code) ?? `subject-${code.toLowerCase()}`;
+}
+
+/** Likewise for the offering, which the demo only owns on its own class. */
+function offeringIdFor(classGroupId: string, code: string): string {
+  if (classGroupId !== DEMO_CLASS_GROUP_ID) {
+    return `${classGroupId}-${code.toLowerCase()}`;
+  }
+  return (
+    DEMO_OFFERING_ID_BY_CODE.get(code) ?? `${classGroupId}-${code.toLowerCase()}`
+  );
+}
+
 const SEED_SUBJECTS: Array<{ code: string; name: string }> = [
   { code: "MA", name: "Mathematics" },
   { code: "EN", name: "English Language" },
@@ -110,13 +153,12 @@ export async function seedAcademicStructure(database: Pool): Promise<void> {
     [GREENFIELD_YEAR_ID, GREENFIELD_TENANT_ID],
   );
 
-  /* Keyed on (tenant_id, code), not on the id, because the four subjects the
-     demo lessons hang off were seeded by the learning repository under ids of
-     its own — `subject-mathematics`, not `subject-ma`. Conflicting on the id
-     inserted a second Mathematics and hit the unique index on the code; the
-     school would have ended up with two, one of which owned every lesson.
-     RETURNING gives back whichever id won, so the offerings below attach to
-     the subject that already exists rather than to a duplicate. */
+  /* Keyed on (tenant_id, code), not on the id: a database written before this
+     seed existed already holds the demo's four subjects, and conflicting on
+     the id would insert a second Mathematics and hit the unique index on the
+     code. The school would have ended up with two, one of which owned every
+     lesson. RETURNING gives back whichever id won, so the offerings below
+     attach to the subject that already exists rather than to a duplicate. */
   const subjectIdByCode = new Map<string, string>();
   for (const subject of SEED_SUBJECTS) {
     const result = await database.query<{ id: string }>(
@@ -125,7 +167,7 @@ export async function seedAcademicStructure(database: Pool): Promise<void> {
        ON CONFLICT (tenant_id, code) DO UPDATE SET code = EXCLUDED.code
        RETURNING id`,
       [
-        `subject-${subject.code.toLowerCase()}`,
+        subjectIdFor(subject.code),
         GREENFIELD_TENANT_ID,
         subject.code,
         subject.name,
@@ -182,7 +224,7 @@ export async function seedAcademicStructure(database: Pool): Promise<void> {
       const subjectId = subjectIdByCode.get(offering.code);
       if (!subjectId) continue;
 
-      /* The demo's four JHS 2 offerings already exist under ids like
+      /* The demo's four JHS 2 offerings may already exist under ids like
          `offering-maths-jhs2`, so this cannot conflict on the id — it would
          insert a duplicate of an offering that lessons, marks and the
          timetable are all attached to. Checked on the natural key instead:
@@ -200,7 +242,7 @@ export async function seedAcademicStructure(database: Pool): Promise<void> {
               AND academic_year_id = $6
          )`,
         [
-          `${group.id}-${offering.code.toLowerCase()}`,
+          offeringIdFor(group.id, offering.code),
           GREENFIELD_TENANT_ID,
           subjectId,
           group.id,

@@ -2,7 +2,7 @@
 
 Every route in this app awaits `ensurePlatformReady()` — including the public
 home page, which calls `getAuthenticatedUser()` to decide whether the header
-says "Sign in" or "My workspace". That function runs the Better Auth
+says "Sign in" or "My hub". That function runs the Better Auth
 migrations, the schema migration and the demo seed, all against PostgreSQL. So
 there is no useful "run it without a database" mode: without one, `next dev`
 returns 500 for every path, and UI work has to fall back to the static harness

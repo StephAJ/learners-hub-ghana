@@ -138,7 +138,7 @@ export async function WorkspaceShell({
         <div className={contentClassName ?? "workspace-content"}>{children}</div>
       </main>
 
-      <nav className="workspace-mobile-nav" aria-label="Mobile workspace navigation">
+      <nav className="workspace-mobile-nav" aria-label="Mobile hub navigation">
         {items.slice(0, 5).map((item) => (
           <Link
             aria-current={item.href === activeHref ? "page" : undefined}

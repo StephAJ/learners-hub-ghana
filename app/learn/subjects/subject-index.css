@@ -34,17 +34,42 @@
 .subject-card-cover {
   aspect-ratio: 16 / 9;
   display: block;
+  /* Belt and braces with the absolute positioning below: whatever is dropped
+     in here is cropped to the frame rather than escaping it. */
+  overflow: hidden;
   position: relative;
   width: 100%;
 }
 
-/* Either child fills the 16/9 frame: the generated SVG stretches to it, and a
-   cover photograph is cropped to it rather than letterboxed. */
+/* ==========================================================================
+   Why the artwork is taken out of flow
+
+   `aspect-ratio` above only decides the height while nothing inside insists
+   on a taller one — and an in-flow image does insist. `height: 100%` on it
+   resolved against a parent whose own height was still being derived from its
+   contents, which is circular, so the percentage was dropped and the image
+   fell back to its natural height. The frame then grew to contain it.
+
+   The school's four cover photographs are 1280x720, 1184x864, 1248x832 and
+   1280x720, so the cards came out 179, 232, 212 and 179 pixels tall — a
+   ragged row, and every proposed fix that keeps the image in flow trades that
+   for a squashed one.
+
+   Absolutely positioned, the artwork contributes nothing to the frame's
+   height: the 16/9 box is settled by the card's width alone, identically for
+   every subject, and `object-fit: cover` crops the photograph into it at its
+   own aspect ratio. Same height, no distortion. This is also exactly what
+   next/image emits for a `fill` image, which is what SubjectCoverArt now
+   renders — the rule is restated here so the generated SVG fallback sits in
+   the frame the same way.
+   ========================================================================== */
 .subject-card-cover svg,
 .subject-card-cover img {
   display: block;
   height: 100%;
+  inset: 0;
   object-fit: cover;
+  position: absolute;
   width: 100%;
 }
 

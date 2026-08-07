@@ -103,7 +103,7 @@ export function AuthenticationForm({
         <p>
           {registering
             ? "One account for the whole family. Save your application and come back to it whenever you like."
-            : "Sign in to your school workspace. Students, teachers, families and staff all start here."}
+            : "Sign in to your school hub. Students, teachers, families and staff all start here."}
         </p>
       </header>
 

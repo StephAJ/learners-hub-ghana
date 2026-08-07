@@ -320,16 +320,27 @@
   margin-bottom: 4px;
 }
 
-.admin-panel-heading > button {
+/* The heading's own actions, whether there is one of them or — as on the
+   classes panel, which offers both "add one" and "set them all up" — a pair
+   sharing the corner. */
+.admin-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.admin-panel-heading > button,
+.admin-panel-actions > button {
   background: var(--brand-soft);
   border: 1px solid var(--brand-line);
   border-radius: var(--radius-sm);
   color: var(--primary);
   cursor: pointer;
+  font-family: inherit;
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 }
 
 .class-tabs {
@@ -807,6 +818,26 @@
   color: var(--ink);
   display: block;
   margin-bottom: var(--space-1);
+}
+
+/* An empty state that only describes the emptiness leaves the reader to go
+   and find the control. This one carries it. */
+.panel-empty button {
+  background: var(--primary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--card);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  margin-top: var(--space-4);
+  min-height: 38px;
+  padding: 0 var(--space-4);
+}
+
+.panel-empty button:hover {
+  background: var(--primary-dark);
 }
 
 .academic-notice,

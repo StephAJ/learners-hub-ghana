@@ -355,53 +355,98 @@
 
 /* -- Tabs ---------------------------------------------------------------- */
 
+/* ==========================================================================
+   The three panels under the stage
+
+   Overview, what you'll learn, and the curriculum codes. All three used to be
+   an underlined tab strip over bare content — a loose paragraph, a definition
+   list with no ground under it, and a checklist of things the learner had not
+   done yet ticked off in green.
+
+   They now read as one card with a segmented control on it, and each panel
+   is given the shape its content actually has: facts as tiles, objectives as
+   a numbered list, codes as chips. The glyph and hue on each tab carry over
+   into the panel, so switching is visibly a change of subject matter rather
+   than a change of paragraph.
+   ========================================================================== */
+
 .course-tabs {
+  background: var(--card);
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .course-tablist {
+  background: var(--workspace-canvas);
   border-bottom: 1px solid var(--workspace-line);
   display: flex;
-  gap: var(--space-6);
+  gap: var(--space-2);
+  padding: var(--space-3);
 }
 
 .course-tablist button {
+  align-items: center;
   background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   color: var(--workspace-muted);
   cursor: pointer;
+  display: inline-flex;
   font-family: inherit;
   font-size: var(--fs-14);
   font-weight: var(--fw-medium);
-  margin-bottom: -1px;
-  padding: var(--space-3) 0;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   transition:
+    background 160ms ease,
     border-color 160ms ease,
     color 160ms ease;
 }
 
+.course-tablist button svg {
+  flex: 0 0 auto;
+}
+
 .course-tablist button:hover {
+  background: var(--card);
   color: var(--ink);
 }
 
+/* The selected tab takes its own hue rather than the school's accent, so the
+   panel below is announced by the same colour that labels it. */
 .course-tablist button.is-active {
-  border-bottom-color: var(--workspace-accent);
-  color: var(--workspace-accent);
+  background: var(--card);
+  border-color: var(--workspace-line);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
   font-weight: var(--fw-semibold);
 }
 
+.course-tablist button.is-active svg {
+  color: var(--hue-teal-ink);
+}
+
+.course-tablist button.is-active[data-hue="lime"] svg {
+  color: var(--hue-lime-ink);
+}
+
+.course-tablist button.is-active[data-hue="violet"] svg {
+  color: var(--hue-violet-ink);
+}
+
 .course-tabpanel {
-  padding-top: var(--space-5);
+  padding: var(--space-6);
 }
 
 .course-tabpanel:focus-visible {
   outline: 2px solid var(--workspace-accent);
-  outline-offset: 4px;
+  outline-offset: -2px;
 }
 
-.course-tabpanel > p {
+.course-summary {
   color: var(--ink-soft);
   font-size: var(--fs-16);
   line-height: var(--lh-body);
@@ -409,11 +454,57 @@
   max-width: 68ch;
 }
 
+/* A one-line frame for the list beneath it. The objectives panel opened
+   straight onto bullet points, which left the learner to infer what the list
+   was of from the tab they had just clicked. */
+.course-panel-lede {
+  color: var(--workspace-muted);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  margin: 0 0 var(--space-4);
+  text-transform: uppercase;
+}
+
+/* -- Overview facts ------------------------------------------------------- */
+
 .course-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
   margin: var(--space-6) 0 0;
+}
+
+.course-facts > div {
+  align-items: center;
+  background: var(--workspace-canvas);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.course-fact-glyph {
+  align-items: center;
+  background: var(--hue-blue-soft);
+  border-radius: var(--radius-sm);
+  color: var(--hue-blue-ink);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 2.25rem;
+  justify-content: center;
+  width: 2.25rem;
+}
+
+.course-facts > div[data-hue="amber"] .course-fact-glyph {
+  background: var(--hue-amber-soft);
+  color: var(--hue-amber-ink);
+}
+
+.course-facts > div[data-hue="violet"] .course-fact-glyph {
+  background: var(--hue-violet-soft);
+  color: var(--hue-violet-ink);
 }
 
 .course-facts dt {
@@ -426,13 +517,19 @@
 
 .course-facts dd {
   font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
   margin: var(--space-1) 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+/* -- What you'll learn ---------------------------------------------------- */
 
 .course-objectives {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   list-style: none;
   margin: 0;
   max-width: 68ch;
@@ -440,18 +537,32 @@
 }
 
 .course-objectives li {
+  align-items: flex-start;
+  background: var(--workspace-canvas);
+  border-radius: var(--radius-md);
   color: var(--ink-soft);
   display: flex;
   font-size: var(--fs-16);
   gap: var(--space-3);
   line-height: var(--lh-snug);
+  padding: var(--space-3) var(--space-4);
 }
 
-.course-objectives svg {
-  color: var(--workspace-accent);
+.course-objectives li > span:first-child {
+  align-items: center;
+  background: var(--hue-lime-soft);
+  border-radius: var(--radius-pill);
+  color: var(--hue-lime-ink);
+  display: inline-flex;
   flex: 0 0 auto;
-  margin-top: 3px;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  height: 1.5rem;
+  justify-content: center;
+  width: 1.5rem;
 }
+
+/* -- Curriculum ----------------------------------------------------------- */
 
 .course-standards {
   display: flex;
@@ -463,12 +574,15 @@
 }
 
 .course-standards li {
-  background: var(--brand-soft);
+  align-items: center;
+  background: var(--hue-violet-soft);
   border-radius: var(--radius-pill);
-  color: var(--workspace-accent);
+  color: var(--hue-violet-ink);
+  display: inline-flex;
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
 }
 
 /* -- Footer -------------------------------------------------------------- */
@@ -1203,13 +1317,20 @@
     white-space: normal;
   }
 
+  /* The three tabs do not fit side by side under about 400px, so the strip
+     scrolls rather than wrapping to a second row that would then need the
+     panel's top edge moved with it. */
   .course-tablist {
-    gap: var(--space-4);
     overflow-x: auto;
+    scrollbar-width: none;
   }
 
-  .course-facts {
-    gap: var(--space-5);
+  .course-tablist button {
+    flex: 0 0 auto;
+  }
+
+  .course-tabpanel {
+    padding: var(--space-5);
   }
 
   .lesson-block {

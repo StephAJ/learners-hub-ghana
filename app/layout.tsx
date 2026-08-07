@@ -51,7 +51,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description: "One school system, from admissions to reports.",
       images: [
         {
-          alt: "The Learners Hub school workspace",
+          alt: "The Learners Hub school hub",
           url: "/og-unified.png",
         },
       ],

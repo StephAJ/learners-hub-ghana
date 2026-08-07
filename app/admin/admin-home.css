@@ -1,0 +1,154 @@
+/* ==========================================================================
+   The administrator's home
+
+   The screen an administrator arrives on, and the one that set the tone for
+   the rest of the section being described as daunting: a row of four plain
+   text links, a row of four large bare numbers, and two dense panels — four
+   blocks deep before anything was decided, and the links and the numbers
+   named the same four places twice over.
+
+   It is now two blocks. A row of destinations, each carrying the single fact
+   that says whether it needs opening; and beneath it what is waiting and what
+   is left to set up. Nothing was dropped: every number the metric row showed
+   is on a destination card or in the panels.
+
+   Everything draws from the tokens in globals.css.
+   ========================================================================== */
+
+/* Four destinations, always, so the column count is stated rather than left
+   to auto-fit. auto-fit put three cards on one row and the fourth alone
+   underneath at 1280px — the width this is most often read at — and an
+   orphaned card reads as a card that belongs to something else. */
+.admin-launchpad {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: var(--space-6);
+}
+
+/* Two by two below the width where four cards still leave the detail line
+   room to say anything. A quarter of a 1280px screen is about 100px of text
+   after the glyph and the badge, which is not a sentence. */
+@media (max-width: 1500px) {
+  .admin-launchpad {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-launchpad {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-destination {
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-lg);
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-destination:hover,
+.admin-destination:focus-visible {
+  border-color: var(--workspace-accent);
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+/* The glyph is what makes the four cards scannable rather than four
+   identically shaped rectangles of text. One hue each, from the fixed palette
+   rather than the school's brand, so they stay told apart at any tenant
+   colour — see the glyph hues block in globals.css. */
+.admin-destination-glyph {
+  align-items: center;
+  background: var(--hue-teal-soft);
+  border-radius: var(--radius-md);
+  color: var(--hue-teal-ink);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.admin-destination[data-hue="amber"] .admin-destination-glyph {
+  background: var(--hue-amber-soft);
+  color: var(--hue-amber-ink);
+}
+
+.admin-destination[data-hue="blue"] .admin-destination-glyph {
+  background: var(--hue-blue-soft);
+  color: var(--hue-blue-ink);
+}
+
+.admin-destination[data-hue="violet"] .admin-destination-glyph {
+  background: var(--hue-violet-soft);
+  color: var(--hue-violet-ink);
+}
+
+.admin-destination-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-destination-copy strong {
+  color: var(--ink);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+}
+
+.admin-destination-copy small {
+  color: var(--workspace-muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+  margin-top: var(--space-1);
+  /* Two lines at most. One line was cutting off the fact the card exists to
+     carry — at 1280px, with four cards in the row, "September 2027 intake ·
+     nothing unread" lost its last two words and "14 classes · 23 learners
+     unplaced" lost its last one.
+
+     A second line does not pull the row out of true: the cards are grid
+     items and stretch to the tallest of them, so the row grows level. */
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.admin-destination-count {
+  align-items: center;
+  background: var(--brand-accent);
+  border-radius: var(--radius-pill);
+  color: var(--brand-accent-ink);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  justify-content: center;
+  margin-left: auto;
+  min-width: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+}
+
+.admin-destination-go {
+  color: var(--line-strong);
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin-left: auto;
+  transition: color 160ms ease;
+}
+
+.admin-destination:hover .admin-destination-go {
+  color: var(--workspace-accent);
+}

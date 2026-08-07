@@ -52,12 +52,15 @@ export function SubjectCoverArt({
       <Image
         alt=""
         className={className}
-        /* Intrinsic size only: the card sizes the box, and object-fit in
-           subject-card-cover does the cropping. */
-        height={360}
+        /* `fill` rather than a stated width and height, because the school's
+           covers are not all one shape — 1280x720 next to 1184x864 — and a
+           declared intrinsic size left each one setting the height of its own
+           card. Filling takes the image out of flow, so the frame's aspect
+           ratio decides the height for every subject alike and object-fit
+           crops the photograph into it rather than stretching it. */
+        fill
         sizes="(max-width: 760px) 100vw, 33vw"
         src={imageUrl}
-        width={640}
       />
     );
   }

@@ -148,11 +148,11 @@ export function WorkspaceSidebar({
       <div className="workspace-sidebar-footer">
         {switcher.length > 1 ? (
           <details className="workspace-switcher">
-            <summary title="Switch workspace">
+            <summary title="Switch hub">
               <span className="workspace-nav-icon" aria-hidden="true">
                 <LayersIcon size={20} />
               </span>
-              <span className="workspace-nav-label">Switch workspace</span>
+              <span className="workspace-nav-label">Switch hub</span>
             </summary>
             <div>
               {switcher.map((option) => (

@@ -5,6 +5,7 @@ import {
   closeClassOffering,
   createAcademicYear,
   createClassGroup,
+  createClassGroupsFromPlan,
   createSubject,
   loadAcademicStructure,
   setClassOffering,
@@ -34,6 +35,10 @@ export const dynamic = "force-dynamic";
 
 type WriteAction =
   | { class: Parameters<typeof createClassGroup>[1]; type: "create-class" }
+  | {
+      plan: Parameters<typeof createClassGroupsFromPlan>[1];
+      type: "create-classes";
+    }
   | { classGroupId: string; type: "archive-class" }
   | {
       class: Parameters<typeof updateClassGroup>[2];
@@ -86,6 +91,14 @@ export async function POST(request: Request) {
           { classGroup: await createClassGroup(access, action.class) },
           { status: 201 },
         );
+      /* 201 like create-class, even when every name was already taken and
+         nothing was written — the caller reads `created` and `skipped` to
+         say what happened, and a 200/201 split on that would be a second,
+         redundant way of telling them. */
+      case "create-classes":
+        return Response.json(await createClassGroupsFromPlan(access, action.plan), {
+          status: 201,
+        });
       case "update-class":
         return Response.json({
           classGroup: await updateClassGroup(

@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { WorkspaceShell } from "../components/workspace-shell";
+import {
+  ChevronRightIcon,
+  InboxIcon,
+  LayersIcon,
+  SchoolIcon,
+  UsersIcon,
+} from "../components/icons";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
 import { loadAdminOverview } from "../../db/admin-overview";
 import { schoolDateLabel, schoolGreeting } from "../school-time";
+import "./admin-home.css";
 
 export const dynamic = "force-dynamic";
 
@@ -39,41 +47,38 @@ export default async function AdminHomePage() {
       user={user}
       workspace="admin"
     >
-      <section className="workspace-action-row" aria-label="Common actions">
-        <Link className="workspace-primary-action" href="/admin/people#invite">
-          Add a teacher
-        </Link>
-        <Link href="/admin/admissions">Review admissions</Link>
-        <Link href="/admin/academic">Configure academics</Link>
-        <Link href="/admin/school">Edit school details</Link>
-      </section>
-
-      <section className="workspace-metric-grid" aria-label="School summary">
-        <article>
-          <small>Applications awaiting review</small>
-          <strong>{overview.applicationsAwaitingReview}</strong>
-          <Link href="/admin/admissions">Open admissions</Link>
-        </article>
-        <article>
-          <small>Invitations not yet accepted</small>
-          <strong>{overview.pendingInvitations}</strong>
-          <Link href="/admin/people">Open people</Link>
-        </article>
-        <article>
-          <small>Classes with a teacher</small>
-          <strong>
-            {overview.classGroupCount - overview.classesWithoutTeacher.length} /{" "}
-            {overview.classGroupCount}
-          </strong>
-          <Link href="/admin/academic">Review classes</Link>
-        </article>
-        <article>
-          <small>Learners placed in a class</small>
-          <strong>
-            {overview.placedLearnerCount} / {overview.learnerCount}
-          </strong>
-          <span>{overview.currentYearName ?? "No current year"}</span>
-        </article>
+      {/* One row of destinations, each carrying the one number that says
+          whether it needs opening. This replaced a row of four plain links
+          sitting above a row of four bare metrics that named the same four
+          places again — eight things to read to learn four. */}
+      <section className="admin-launchpad" aria-label="Where to go">
+        {destinations(overview).map((destination) => (
+          <Link
+            className="admin-destination"
+            data-hue={destination.hue}
+            href={destination.href}
+            key={destination.href}
+          >
+            <span className="admin-destination-glyph" aria-hidden="true">
+              <destination.Icon size={20} />
+            </span>
+            <span className="admin-destination-copy">
+              <strong>{destination.label}</strong>
+              <small>{destination.detail}</small>
+            </span>
+            {/* Only where there is something to act on. A pip on every card
+                is a pip that means nothing. */}
+            {destination.waiting > 0 ? (
+              <span className="admin-destination-count">
+                {destination.waiting > 99 ? "99+" : destination.waiting}
+              </span>
+            ) : (
+              <span className="admin-destination-go" aria-hidden="true">
+                <ChevronRightIcon size={16} />
+              </span>
+            )}
+          </Link>
+        ))}
       </section>
 
       <div className="workspace-dashboard-grid">
@@ -131,6 +136,74 @@ export default async function AdminHomePage() {
       </div>
     </WorkspaceShell>
   );
+}
+
+/**
+ * The four places an administrator goes, each with the fact that decides
+ * whether it needs opening today.
+ *
+ * `waiting` is a count of things a person is on the other end of — an unread
+ * application, an unaccepted invitation, a class with nobody in front of it.
+ * Where it is zero the card shows a chevron instead, so a badge on this
+ * screen always means work.
+ */
+function destinations(overview: Awaited<ReturnType<typeof loadAdminOverview>>) {
+  const classesToStaff = overview.classesWithoutTeacher.length;
+  const unplacedLearners = overview.learnerCount - overview.placedLearnerCount;
+
+  return [
+    {
+      detail:
+        overview.applicationsAwaitingReview === 0
+          ? `${overview.intake?.label ?? "No intake"} · nothing unread`
+          : `${overview.applicationsAwaitingReview} waiting to be read`,
+      href: "/admin/admissions",
+      hue: "amber",
+      Icon: InboxIcon,
+      label: "Admissions",
+      waiting: overview.applicationsAwaitingReview,
+    },
+    {
+      detail:
+        overview.pendingInvitations === 0
+          ? `${overview.learnerCount} ${
+              overview.learnerCount === 1 ? "learner" : "learners"
+            } on roll`
+          : `${overview.pendingInvitations} ${
+              overview.pendingInvitations === 1 ? "invitation" : "invitations"
+            } not accepted`,
+      href: "/admin/people",
+      hue: "blue",
+      Icon: UsersIcon,
+      label: "People",
+      waiting: overview.pendingInvitations,
+    },
+    {
+      detail:
+        classesToStaff === 0
+          ? `${overview.classGroupCount} ${
+              overview.classGroupCount === 1 ? "class" : "classes"
+            } · ${unplacedLearners} ${
+              unplacedLearners === 1 ? "learner" : "learners"
+            } unplaced`
+          : `${classesToStaff} ${
+              classesToStaff === 1 ? "class needs" : "classes need"
+            } a teacher`,
+      href: "/admin/academic",
+      hue: "teal",
+      Icon: LayersIcon,
+      label: "Academics",
+      waiting: classesToStaff,
+    },
+    {
+      detail: overview.currentYearName ?? "No current academic year",
+      href: "/admin/school",
+      hue: "violet",
+      Icon: SchoolIcon,
+      label: "School details",
+      waiting: 0,
+    },
+  ];
 }
 
 /**
