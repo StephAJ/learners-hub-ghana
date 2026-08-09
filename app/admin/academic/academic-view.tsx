@@ -10,7 +10,14 @@ import type {
 } from "../../../domain/academic/structure";
 import type { SchoolTeacher } from "../../../db/academic-repository";
 import type { SubjectRequirement } from "../../../domain/academic/types";
+import {
+  BooksIcon,
+  ClipboardCheckIcon,
+  LayersIcon,
+  UsersIcon,
+} from "../../components/icons";
 import { ClassPlanner } from "./class-planner";
+import { CurriculumPanel } from "./curriculum-panel";
 import "./academic.css";
 
 /* ==========================================================================
@@ -298,7 +305,7 @@ export function AcademicView() {
         <>
           <section className="admin-stats" aria-label="Academic setup summary">
             <article>
-              <span className="admin-stat-icon green">▦</span>
+              <span className="admin-stat-icon" data-hue="teal" aria-hidden="true"><LayersIcon size={20} /></span>
               <div>
                 <small>Classes</small>
                 <strong>{classesThisYear.length}</strong>
@@ -306,7 +313,7 @@ export function AcademicView() {
               <em>{activeYear?.name ?? "This year"}</em>
             </article>
             <article>
-              <span className="admin-stat-icon blue">◎</span>
+              <span className="admin-stat-icon" data-hue="blue" aria-hidden="true"><UsersIcon size={20} /></span>
               <div>
                 <small>Placed learners</small>
                 <strong>{placedLearners}</strong>
@@ -314,7 +321,7 @@ export function AcademicView() {
               <em>across every class</em>
             </article>
             <article>
-              <span className="admin-stat-icon gold">✓</span>
+              <span className="admin-stat-icon" data-hue="amber" aria-hidden="true"><BooksIcon size={20} /></span>
               <div>
                 <small>Subject offerings</small>
                 <strong>{offeringCount}</strong>
@@ -322,7 +329,7 @@ export function AcademicView() {
               <em>{structure.subjects.length} subjects defined</em>
             </article>
             <article>
-              <span className="admin-stat-icon purple">↗</span>
+              <span className="admin-stat-icon" data-hue="violet" aria-hidden="true"><ClipboardCheckIcon size={20} /></span>
               <div>
                 <small>Classes with a teacher</small>
                 <strong>
@@ -532,6 +539,20 @@ export function AcademicView() {
                 offeringsByClassGroup={structure.offeringsByClassGroup}
                 teachers={structure.teachers}
                 teachersByOffering={structure.teachersByOffering}
+              />
+
+              {/* Standards belong beside classes and subjects: they are the
+                  third thing a school sets up before anyone teaches, and the
+                  only one that had no screen at all. */}
+              <CurriculumPanel
+                classGroups={classesThisYear}
+                offeringsByClassGroup={structure.offeringsByClassGroup}
+                subjectNameById={Object.fromEntries(
+                  structure.subjects.map((subject) => [
+                    subject.id,
+                    subject.name,
+                  ]),
+                )}
               />
             </div>
 
@@ -896,7 +917,7 @@ function TeachingLoad({
         <div className="panel-empty">
           <p>
             <strong>No teaching staff yet.</strong>
-            Invite a teacher from <Link href="/admin/people#invite">People</Link>,
+            Invite a teacher from <Link href="/admin/people?invite=1">People</Link>,
             then assign them a subject above.
           </p>
         </div>
@@ -1073,7 +1094,7 @@ function TeacherPicker({
       {teachers.length === 0 ? (
         <p className="form-hint">
           No staff yet. Invite a teacher from{" "}
-          <Link href="/admin/people#invite">People</Link> first.
+          <Link href="/admin/people?invite=1">People</Link> first.
         </p>
       ) : (
         <>

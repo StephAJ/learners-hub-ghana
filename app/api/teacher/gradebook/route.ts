@@ -1,7 +1,5 @@
 import {
-  approvePersistentReport,
   listTeacherGradebookWorkspace,
-  releasePersistentReport,
   savePersistentGradeEntry,
   submitPersistentGradebook,
   type SaveGradeEntryInput,
@@ -36,12 +34,14 @@ export async function POST(request: Request) {
     /* Every action carries the offering it was taken in, so the workspace
        that comes back is the markbook the teacher is looking at rather than
        whichever of their subjects sorts first. save-entry is the exception:
-       the grade entry itself names its offering. */
+       the grade entry itself names its offering.
+
+       Approving and releasing a report are not here: they need report:approve
+       and report:release, which no teaching role holds. They live on
+       /api/admin/reports, beside the screen the head can actually open. */
     const payload = (await request.json()) as
       | ({ action: "save-entry" } & SaveGradeEntryInput)
-      | { action: "submit-gradebook"; offeringId?: string }
-      | { action: "approve-report"; offeringId?: string; reportId: string }
-      | { action: "release-report"; offeringId?: string; reportId: string };
+      | { action: "submit-gradebook"; offeringId?: string };
 
     if (payload.action === "save-entry") {
       const workspace = await savePersistentGradeEntry(
@@ -53,22 +53,6 @@ export async function POST(request: Request) {
     if (payload.action === "submit-gradebook") {
       const workspace = await submitPersistentGradebook(
         schoolUser.access,
-        payload.offeringId,
-      );
-      return Response.json({ workspace });
-    }
-    if (payload.action === "approve-report") {
-      const workspace = await approvePersistentReport(
-        schoolUser.access,
-        payload.reportId,
-        payload.offeringId,
-      );
-      return Response.json({ workspace });
-    }
-    if (payload.action === "release-report") {
-      const workspace = await releasePersistentReport(
-        schoolUser.access,
-        payload.reportId,
         payload.offeringId,
       );
       return Response.json({ workspace });

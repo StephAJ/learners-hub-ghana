@@ -10,6 +10,21 @@
    contents, not the app's.
    ========================================================================== */
 
+/* A teacher previewing their own lesson sees the learner's screen exactly, so
+   the only thing that may distinguish the two is a line saying which one this
+   is. Gold rather than the brand green: it has to read as a mode, not as part
+   of the lesson. */
+.lesson-preview-ribbon {
+  background: color-mix(in srgb, var(--brand-accent) 22%, var(--card));
+  border-bottom: 1px solid color-mix(in srgb, var(--brand-accent) 45%, var(--card));
+  color: var(--brand-accent-ink);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  margin: 0;
+  padding: var(--space-2) var(--space-6);
+  text-align: center;
+}
+
 .course-player {
   display: grid;
   grid-template-columns: 20rem minmax(0, 1fr);
@@ -446,9 +461,13 @@
   outline-offset: -2px;
 }
 
+/* The panel's copy sits at the workspace's body size. It was a step above,
+   which made a one-line summary and three facts read heavier than the lesson
+   they introduce — the reading blocks below are where the large type
+   belongs. */
 .course-summary {
   color: var(--ink-soft);
-  font-size: var(--fs-16);
+  font-size: var(--fs-14);
   line-height: var(--lh-body);
   margin: 0;
   max-width: 68ch;
@@ -492,9 +511,9 @@
   color: var(--hue-blue-ink);
   display: inline-flex;
   flex: 0 0 auto;
-  height: 2.25rem;
+  height: 2rem;
   justify-content: center;
-  width: 2.25rem;
+  width: 2rem;
 }
 
 .course-facts > div[data-hue="amber"] .course-fact-glyph {
@@ -516,8 +535,8 @@
 }
 
 .course-facts dd {
-  font-size: var(--fs-16);
-  font-weight: var(--fw-medium);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
   margin: var(--space-1) 0 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1035,6 +1054,103 @@
 .answer-feedback.retry {
   background: #f7ebd1;
   color: #76581b;
+}
+
+/* An essay or a file answer inside a checkpoint: saved, but its mark is the
+   teacher's to give. Deliberately neither green nor amber — the learner has
+   done nothing wrong and nothing is yet right. */
+.answer-feedback.pending {
+  background: #eef1f5;
+  color: #4a5568;
+}
+
+/* -- Checkpoint ----------------------------------------------------------- */
+
+.checkpoint-questions {
+  display: grid;
+  gap: var(--space-6);
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: 0;
+}
+
+.checkpoint-questions > li {
+  border-top: 1px solid #e7ece8;
+  padding-top: var(--space-5);
+}
+
+.checkpoint-questions > li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.checkpoint-question-head {
+  align-items: baseline;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  margin-bottom: var(--space-4);
+}
+
+.checkpoint-question-head p {
+  font-family: var(--font-serif);
+  font-size: var(--fs-18);
+  margin: 0;
+}
+
+.checkpoint-question-head > small {
+  color: #687872;
+  font-size: var(--fs-13);
+  white-space: nowrap;
+}
+
+.checkpoint-number {
+  align-items: center;
+  background: #e6f0eb;
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  display: flex;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.checkpoint-score {
+  align-items: center;
+  background: #f2f7f4;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+}
+
+.checkpoint-score strong {
+  font-family: var(--font-serif);
+  font-size: var(--fs-28);
+  color: var(--primary);
+}
+
+.checkpoint-score span {
+  color: #60716b;
+  flex: 1 1 12rem;
+  font-size: var(--fs-13);
+}
+
+.checkpoint-score .check-answer {
+  margin-top: 0;
+}
+
+.checkpoint-empty {
+  background: #f6f8f6;
+  border-radius: var(--radius-sm);
+  color: #60716b;
+  font-size: var(--fs-14);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
 }
 
 .resource-block {

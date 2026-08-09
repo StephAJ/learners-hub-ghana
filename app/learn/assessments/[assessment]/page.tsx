@@ -1,11 +1,9 @@
 import { notFound } from "next/navigation";
 import { WorkspaceShell } from "../../../components/workspace-shell";
-import { demoLearnerAssessmentBySlug } from "../../../demo-data";
 import {
   getLearnerAssessment,
   type LearnerAssessment,
 } from "../../../../db/assessment-repository";
-import { demoAssessmentBySlug } from "../../../../domain/demo/greenfield";
 import { requireWorkspaceUser } from "../../../../server/workspace-auth";
 import { AssessmentRunner } from "./assessment-runner";
 import "./quiz-runner.css";
@@ -32,17 +30,13 @@ export default async function AssessmentPage({
     `/learn/assessments/${key}`,
   );
 
-  /* The segment is either a demo fixture's slug or the id of a paper a teacher
-     assembled in the app. Fixtures are tried first so the walkthrough links
-     keep working; anything else is looked up in the database. Before this, a
-     real assessment id fell straight through to notFound(), which is why a
-     published quiz could not be opened even once the index linked to it. */
-  const preview =
-    demoLearnerAssessmentBySlug(key) ??
-    (demoAssessmentBySlug(key) ? undefined : await loadAssessment(user, key));
-  if (!preview) notFound();
-
-  const assessment = preview;
+  /* The id of a paper a teacher assembled. The demo fixtures used to be tried
+     first and rendered as a sittable assessment, which is what let the runner
+     fabricate an attempt against a paper that exists in no database — the
+     school's published assessments are seeded as real rows, so the fixture
+     path was a second, fictional copy of them. */
+  const assessment = await loadAssessment(user, key);
+  if (!assessment) notFound();
   return (
     <WorkspaceShell
       activeHref="/learn/assessments"
@@ -51,7 +45,7 @@ export default async function AssessmentPage({
       user={user}
       workspace="student"
     >
-      <AssessmentRunner previewAssessment={assessment} />
+      <AssessmentRunner assessment={assessment} />
     </WorkspaceShell>
   );
 }

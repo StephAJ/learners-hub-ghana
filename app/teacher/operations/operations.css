@@ -136,80 +136,9 @@
   padding: 28px 0 72px;
 }
 
-.operations-hero {
-  min-height: 215px;
-  padding: 36px 40px;
-  border-radius: var(--radius-2xl);
-  background:
-    radial-gradient(circle at 77% 18%, rgba(233, 187, 76, 0.3), transparent 24%),
-    linear-gradient(128deg, #105d48, #173a30);
-  color: white;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  align-items: end;
-  gap: 32px;
-}
-
-.operations-hero > div:first-child {
-  max-width: 720px;
-}
-
-.operations-class-code {
-  width: 43px;
-  height: 43px;
-  margin-bottom: 16px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.13);
-  display: grid;
-  place-items: center;
-  font-weight: var(--fw-semibold);
-}
-
-.operations-hero p {
-  margin: 0;
-  color: #c1ddd2;
-  font-size: var(--fs-14);
-  line-height: 1.65;
-}
-
-.operations-hero h2 {
-  margin: 8px 0 12px;
-  font-family: var(--font-serif);
-  font-size: var(--fs-page);
-  line-height: var(--lh-display);
-}
-
-.operations-next {
-  padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.08);
-  display: grid;
-}
-
-.operations-next span,
-.operations-next small {
-  color: #bfd8cf;
-  font-size: var(--fs-13);
-}
-
-.operations-next strong {
-  margin: 4px 0 4px;
-  font-family: var(--font-serif);
-  font-size: var(--fs-22);
-}
-
-.operations-next i {
-  width: max-content;
-  margin-top: 12px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #f0c25a;
-  color: #443209;
-  font-size: var(--fs-13);
-  font-style: normal;
-  font-weight: var(--fw-semibold);
-}
+/* The banner, its class-code tile, its "next lesson" card and its glass
+   switch are gone. The header is .workspace-context in app/workspace.css,
+   shared with the markbook, and the next lesson is the state pill on it. */
 
 .operations-notice {
   width: 100%;
@@ -224,59 +153,8 @@
   cursor: pointer;
 }
 
-.operations-metrics {
-  margin: 16px 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-.operations-metrics article {
-  padding: 20px;
-  border: 1px solid var(--ops-line);
-  border-radius: var(--radius-lg);
-  background: white;
-  display: grid;
-  gap: 4px;
-}
-
-.operations-metrics span,
-.operations-metrics small {
-  color: var(--ops-muted);
-  font-size: var(--fs-14);
-}
-
-.operations-metrics strong {
-  font-family: var(--font-serif);
-  font-size: var(--fs-28);
-}
-
-.operations-tabs {
-  width: max-content;
-  margin: 24px 0 16px;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  background: #e8ede9;
-  display: flex;
-  gap: 4px;
-}
-
-.operations-tabs button {
-  padding: 12px 16px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: #68746e;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  cursor: pointer;
-}
-
-.operations-tabs button.is-active {
-  background: white;
-  color: var(--ops-green);
-  box-shadow: 0 2px 9px rgba(21, 55, 43, 0.08);
-}
+/* Summary cards are .screen-stats and tabs are .screen-tabs, both in
+   app/workspace.css. */
 
 .operations-panel {
   padding: 24px;
@@ -1129,24 +1007,6 @@
     padding-top: 16px;
   }
 
-  .operations-hero {
-    padding: 24px;
-    grid-template-columns: 1fr;
-  }
-
-  .operations-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .operations-tabs {
-    width: 100%;
-    overflow-x: auto;
-  }
-
-  .operations-tabs button {
-    white-space: nowrap;
-  }
-
   .operations-panel {
     padding: 16px;
   }
@@ -1171,38 +1031,3 @@
   }
 }
 
-/* The class-and-subject switch --------------------------------------------
-
-   This line read "JHS 2 Gold · Class and subject operations" to whoever could
-   open the screen, because the workspace was gated on one offering and its
-   register on one class group. It is a control now. It sits on the dark hero,
-   so it is glass rather than a filled input — the same treatment the
-   assessment hero's switch gets. */
-.operations-subject-switch select {
-  appearance: none;
-  background-color: rgba(255, 255, 255, 0.12);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23c8ddd6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-position: right var(--space-3) center;
-  background-repeat: no-repeat;
-  background-size: 12px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-sm);
-  color: #fff;
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--fs-14);
-  padding: var(--space-1) var(--space-8) var(--space-1) var(--space-3);
-}
-
-.operations-subject-switch select:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.operations-subject-switch select:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-
-.operations-subject-switch option {
-  color: var(--ink);
-}

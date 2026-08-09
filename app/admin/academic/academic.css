@@ -224,33 +224,73 @@
   grid-row: 1 / 3;
 }
 
+/* ==========================================================================
+   The stat row, shared by Academics, Admissions and People
+
+   This file is imported by all three of those views, so the row is defined
+   once here rather than three times.
+
+   The glyphs used to be single characters typed into the markup — "▦", "◎",
+   "L", "G", "✉" — inside a tile whose colour classes (green, blue, gold,
+   purple) were named on every one of them and defined by none of them. The
+   result was four identical grey squares carrying, in one case, the letter
+   G. They are now the same drawn icons the sidebar and the lesson panels
+   use, on the fixed glyph hues from globals.css.
+   ========================================================================== */
+
 .admin-stats {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(4, 1fr);
-  margin-bottom: 20px;
+  gap: var(--space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: var(--space-5);
 }
 
 .admin-stats article {
   align-items: center;
-  background: #ffffff;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   display: grid;
-  gap: 12px;
-  grid-template-columns: 38px 1fr;
-  padding: 16px;
+  gap: var(--space-3);
+  grid-template-columns: 2.5rem 1fr;
+  min-width: 0;
+  padding: var(--space-4);
 }
 
 .admin-stat-icon {
   align-items: center;
+  background: var(--hue-teal-soft);
   border-radius: var(--radius-md);
+  color: var(--hue-teal-ink);
   display: flex;
-  font-size: var(--fs-16);
-  font-weight: var(--fw-semibold);
-  height: 38px;
+  height: 2.5rem;
   justify-content: center;
-  width: 38px;
+  width: 2.5rem;
+}
+
+.admin-stat-icon[data-hue="blue"] {
+  background: var(--hue-blue-soft);
+  color: var(--hue-blue-ink);
+}
+
+.admin-stat-icon[data-hue="amber"] {
+  background: var(--hue-amber-soft);
+  color: var(--hue-amber-ink);
+}
+
+.admin-stat-icon[data-hue="violet"] {
+  background: var(--hue-violet-soft);
+  color: var(--hue-violet-ink);
+}
+
+.admin-stat-icon[data-hue="rose"] {
+  background: var(--hue-rose-soft);
+  color: var(--hue-rose-ink);
+}
+
+.admin-stat-icon[data-hue="lime"] {
+  background: var(--hue-lime-soft);
+  color: var(--hue-lime-ink);
 }
 
 .admin-stats small,
@@ -732,8 +772,11 @@
 }
 
 @media (max-width: 460px) {
+  /* Two stat cards side by side at this width leaves each about 90px for a
+     label like "Applications awaiting review", which wraps to four lines. */
   .admin-stats {
-    gap: 8px;
+    gap: var(--space-2);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .admin-stats article {
@@ -1419,4 +1462,238 @@
   .teaching-load li {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================================================================
+   Curriculum standards
+
+   A list a school reads down and occasionally corrects, not a form it fills
+   in. The paste is the way most of these arrive, so the empty state says so
+   rather than offering an "add your first standard" button that implies one
+   at a time is the intended pace.
+   ========================================================================== */
+
+.curriculum-subject {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.curriculum-subject span {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+}
+
+.curriculum-subject select {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-14);
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+}
+
+.curriculum-notice {
+  background: var(--brand-tint);
+  border-radius: var(--radius-sm);
+  color: var(--brand-strong);
+  font-size: var(--fs-13);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.curriculum-error {
+  background: #f6e3de;
+  border-radius: var(--radius-sm);
+  color: #96341f;
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.curriculum-empty {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.curriculum-list {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.curriculum-list li {
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--space-3);
+}
+
+.curriculum-list strong {
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+}
+
+.curriculum-list p {
+  font-size: var(--fs-14);
+  line-height: var(--lh-snug);
+  margin: 2px 0 var(--space-1);
+}
+
+.curriculum-list small {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+.curriculum-row-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.curriculum-row-actions button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--fs-12);
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+}
+
+.curriculum-row-actions button:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand-strong);
+}
+
+/* Folded away. A retired standard is a record, not something a school is
+   working on, so it should not share the list with what is in force. */
+.curriculum-retired {
+  margin-top: var(--space-4);
+}
+
+.curriculum-retired summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--fs-13);
+}
+
+.curriculum-retired ul {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+.curriculum-retired li {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: var(--fs-13);
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.curriculum-retired button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  cursor: pointer;
+  flex: none;
+  font-size: var(--fs-12);
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+}
+
+.curriculum-form {
+  background: var(--canvas);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+}
+
+.curriculum-form-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+.curriculum-form label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.curriculum-form label > span {
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+}
+
+.curriculum-form label small {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  line-height: var(--lh-snug);
+}
+
+.curriculum-form input,
+.curriculum-form textarea {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-14);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* The paste is a grid of cells before it is prose, so a monospace face makes
+   a misaligned column visible before the import reports it. */
+.curriculum-form textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--fs-13);
+  resize: vertical;
+}
+
+.curriculum-form input:disabled {
+  background: var(--canvas);
+  color: var(--muted);
+}
+
+.curriculum-form-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.curriculum-form-actions button[type="submit"] {
+  background: var(--brand);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+}
+
+.curriculum-form-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }

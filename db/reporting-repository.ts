@@ -10,7 +10,10 @@ import {
 import { ensureAssessmentFoundation } from "./assessment-repository";
 import { getSchoolDatabase } from "./index";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
-import { SCIENCE_OFFERING_ID } from "./learning-repository";
+import {
+  SCIENCE_OFFERING_ID,
+  seededDemoOfferingIds,
+} from "./learning-repository";
 import {
   loadTeachingOfferings,
   selectOffering,
@@ -434,8 +437,7 @@ export async function submitPersistentGradebook(
 export async function approvePersistentReport(
   access: AccessContext,
   reportId: string,
-  offeringId?: string,
-): Promise<TeacherGradebookWorkspace> {
+): Promise<ReportApprovalQueue> {
   if (!canPerform(access, "report:approve")) {
     throw new AuthorizationError(
       "Your school role cannot approve reports.",
@@ -475,14 +477,13 @@ export async function approvePersistentReport(
       { version: approved.version },
     ),
   ]);
-  return listTeacherGradebookWorkspace(access, offeringId);
+  return listReportApprovalQueue(access);
 }
 
 export async function releasePersistentReport(
   access: AccessContext,
   reportId: string,
-  offeringId?: string,
-): Promise<TeacherGradebookWorkspace> {
+): Promise<ReportApprovalQueue> {
   if (!canPerform(access, "report:release")) {
     throw new AuthorizationError(
       "Your school role cannot release reports.",
@@ -573,7 +574,214 @@ export async function releasePersistentReport(
       { version: released.version },
     ),
   ]);
-  return listTeacherGradebookWorkspace(access, offeringId);
+  return listReportApprovalQueue(access);
+}
+
+/* ==========================================================================
+   The head's approval queue
+
+   Approving and releasing a report were implemented in the domain, the
+   repository and the API, gated on report:approve and report:release — two
+   permissions only school-admin and academic-admin hold. The only screen that
+   called them was the teacher markbook, and workspace-auth.ts redirects an
+   administrator away from /teacher. So the people who could approve could not
+   reach the button, and the people who could reach it got a 403.
+
+   This is the other half: the same two actions, on a screen in the workspace
+   the head actually works in, over every class in the school rather than one
+   teacher's offering.
+   ========================================================================== */
+
+export type ReportApprovalItem = {
+  averagePercent: number;
+  className: string;
+  id: string;
+  learnerName: string;
+  status: ReportStatus;
+  /** When it was submitted for approval; absent while still being marked. */
+  submittedAt: string | null;
+  subjectCount: number;
+  updatedAt: string;
+  version: number;
+};
+
+export type ReportApprovalQueue = {
+  awaitingApproval: number;
+  awaitingRelease: number;
+  periodName: string;
+  reports: ReportApprovalItem[];
+};
+
+/**
+ * Approves or releases every eligible report in one class.
+ *
+ * The per-learner action stays the primary one — a report the head is not
+ * happy with is one report, not a year group — and this is the alternative
+ * for the ordinary case, where a class has been marked and checked together
+ * and forty presses is the only thing standing between that and the reports
+ * going out.
+ *
+ * Each report still goes through the single-report path, so each gets its own
+ * domain validation and its own audit row: a bulk release has to be as
+ * auditable afterwards as forty individual ones, because it is the same
+ * event forty times over.
+ *
+ * Reports not in the right state are skipped rather than refused. A class
+ * where one report was already released is the normal case by the second
+ * press, and failing the whole batch for it would make the action unusable
+ * exactly when it is most wanted.
+ */
+export async function approveClassReports(
+  access: AccessContext,
+  className: string,
+): Promise<ReportApprovalQueue> {
+  return actOnClass(access, className, "submitted", (reportId) =>
+    approvePersistentReport(access, reportId),
+  );
+}
+
+export async function releaseClassReports(
+  access: AccessContext,
+  className: string,
+): Promise<ReportApprovalQueue> {
+  return actOnClass(access, className, "approved", (reportId) =>
+    releasePersistentReport(access, reportId),
+  );
+}
+
+async function actOnClass(
+  access: AccessContext,
+  className: string,
+  from: ReportStatus,
+  act: (reportId: string) => Promise<unknown>,
+): Promise<ReportApprovalQueue> {
+  requireApprovalReach(access);
+  const queue = await listReportApprovalQueue(access);
+  const eligible = queue.reports.filter(
+    (report) => report.className === className && report.status === from,
+  );
+  if (eligible.length === 0) {
+    throw new ReportingPolicyError(
+      from === "submitted"
+        ? "No reports in this class are waiting for approval."
+        : "No reports in this class are approved and waiting to be released.",
+    );
+  }
+  /* One at a time rather than in parallel: each of these writes a report
+     version and an audit row, and forty concurrent transactions against the
+     same tables is a deadlock waiting for the first busy term. */
+  for (const report of eligible) {
+    await act(report.id);
+  }
+  return listReportApprovalQueue(access);
+}
+
+export async function listReportApprovalQueue(
+  access: AccessContext,
+): Promise<ReportApprovalQueue> {
+  requireApprovalReach(access);
+  await ensureReportingFoundation();
+  const database = await getSchoolDatabase();
+
+  /* Everything past marking, including what has already gone out. A queue
+     that hides released reports answers "what is left" but not "what did I
+     send home", and the second question is the one asked when a guardian
+     telephones. */
+  const result = await database
+    .prepare(
+      `SELECT
+        r.id,
+        r.status,
+        r.current_version,
+        r.updated_at,
+        r.class_name,
+        p.first_name || ' ' || p.last_name AS learner_name,
+        v.overall_average_tenths,
+        v.submitted_at,
+        (
+          SELECT COUNT(*)
+          FROM report_subject_results s
+          WHERE s.report_version_id = v.id AND s.tenant_id = r.tenant_id
+        ) AS subject_count
+      FROM report_cards r
+      INNER JOIN people p ON p.id = r.learner_person_id
+      INNER JOIN report_card_versions v
+        ON v.report_card_id = r.id AND v.version = r.current_version
+      WHERE r.tenant_id = ? AND r.period_id = ? AND r.status <> 'draft'
+      ORDER BY
+        CASE r.status
+          WHEN 'submitted' THEN 0
+          WHEN 'approved' THEN 1
+          ELSE 2
+        END,
+        r.class_name,
+        learner_name`,
+    )
+    .bind(access.tenantId, CURRENT_PERIOD_ID)
+    .all<{
+      class_name: string;
+      current_version: number;
+      id: string;
+      learner_name: string;
+      overall_average_tenths: number | null;
+      status: ReportStatus;
+      subject_count: number;
+      submitted_at: string | null;
+      updated_at: string;
+    }>();
+
+  const reports = result.results.map((row) => ({
+    averagePercent: Number(row.overall_average_tenths ?? 0) / 10,
+    className: row.class_name,
+    id: row.id,
+    learnerName: row.learner_name,
+    status: row.status,
+    subjectCount: Number(row.subject_count),
+    submittedAt: row.submitted_at,
+    updatedAt: row.updated_at,
+    version: row.current_version,
+  }));
+
+  return {
+    awaitingApproval: reports.filter((item) => item.status === "submitted")
+      .length,
+    awaitingRelease: reports.filter((item) => item.status === "approved")
+      .length,
+    periodName: (await loadPeriod(database, access.tenantId)).name,
+    reports,
+  };
+}
+
+/**
+ * How many reports are waiting on the head, for the sidebar badge.
+ *
+ * Separate from the queue itself because the shell renders on every admin
+ * page and only needs the number — loading every learner's report to put a
+ * "3" on a link would be the expensive way to answer a cheap question.
+ */
+export async function countReportsAwaitingApproval(
+  access: AccessContext,
+): Promise<number> {
+  if (!canPerform(access, "report:approve")) return 0;
+  await ensureReportingFoundation();
+  const database = await getSchoolDatabase();
+  const row = await database
+    .prepare(
+      `SELECT COUNT(*) AS waiting
+      FROM report_cards
+      WHERE tenant_id = ? AND period_id = ? AND status IN ('submitted', 'approved')`,
+    )
+    .bind(access.tenantId, CURRENT_PERIOD_ID)
+    .first<{ waiting: number }>();
+  return Number(row?.waiting ?? 0);
+}
+
+function requireApprovalReach(access: AccessContext) {
+  if (!canPerform(access, "report:approve")) {
+    throw new AuthorizationError(
+      "Only a school or academic administrator reviews submitted reports.",
+    );
+  }
 }
 
 export async function getGuardianReportWorkspace(
@@ -628,15 +836,28 @@ export async function ensureReportingFoundation() {
   await ensurePeopleSeed();
   await ensureAssessmentFoundation();
   const database = await getSchoolDatabase();
+  /* Categories, grade items and report lines all carry offering_id, so this
+     seed reaches only the subjects the learning seed created — see
+     seededDemoOfferingIds(). Marks against an offering the school owns under
+     its own id are not this seed's to invent. */
+  const seeded = await seededDemoOfferingIds();
+  const subjects = demoSubjects.filter((subject) =>
+    seeded.has(subject.offeringId),
+  );
   await database.batch([
-    ...seedPeriodsAndPolicy(database),
-    ...seedGradebook(database),
-    ...seedCurrentReports(database),
-    ...seedReleasedReport(database),
+    ...seedPeriodsAndPolicy(database, subjects),
+    /* Every row here hangs off Integrated Science — the grade items name its
+       two categories by id, and the entries name the items. */
+    ...(seeded.has(SCIENCE_OFFERING_ID) ? seedGradebook(database) : []),
+    ...seedCurrentReports(database, subjects),
+    ...seedReleasedReport(database, subjects),
   ]);
 }
 
-function seedPeriodsAndPolicy(database: SchoolDatabase) {
+function seedPeriodsAndPolicy(
+  database: SchoolDatabase,
+  subjects: typeof demoSubjects,
+) {
   const statements: SchoolStatement[] = [
     database
       .prepare(
@@ -658,7 +879,7 @@ function seedPeriodsAndPolicy(database: SchoolDatabase) {
      examination — so the weighting is seeded per subject rather than for
      Integrated Science alone. A markbook that only knows one of a learner's
      four subjects cannot produce their report. */
-  demoSubjects.forEach((subject) => {
+  subjects.forEach((subject) => {
     statements.push(
       database
         .prepare(
@@ -816,7 +1037,10 @@ function seedGradeItem(
     );
 }
 
-function seedCurrentReports(database: SchoolDatabase) {
+function seedCurrentReports(
+  database: SchoolDatabase,
+  subjects: typeof demoSubjects,
+) {
   const statements: SchoolStatement[] = [];
   demoReports.forEach((report) => {
     const reportId = `report-${report.learnerPersonId}-term1`;
@@ -857,13 +1081,16 @@ function seedCurrentReports(database: SchoolDatabase) {
           report.classTeacherComment,
           "Continue the good work and make the most of every learning opportunity.",
         ),
-      ...seedReportSubjects(database, versionId, report),
+      ...seedReportSubjects(database, versionId, report, subjects),
     );
   });
   return statements;
 }
 
-function seedReleasedReport(database: SchoolDatabase) {
+function seedReleasedReport(
+  database: SchoolDatabase,
+  subjects: typeof demoSubjects,
+) {
   const reportId = "report-person-kwame-term2-2025";
   const versionId = `${reportId}:v1`;
   return [
@@ -894,7 +1121,7 @@ function seedReleasedReport(database: SchoolDatabase) {
         "Kwame worked consistently and made good progress in scientific reasoning.",
         "A pleasing result. Keep reading widely and practising written explanations.",
       ),
-    ...seedReleasedReportSubjects(database, versionId),
+    ...seedReleasedReportSubjects(database, versionId, subjects),
   ];
 }
 
@@ -902,11 +1129,12 @@ function seedReportSubjects(
   database: SchoolDatabase,
   versionId: string,
   report: DemoLearnerReport,
+  subjects: typeof demoSubjects,
 ) {
   /* One row per subject on the timetable, against the real offering id. The
      previous version listed six subjects, two of which existed nowhere else in
      the school, against offering ids that were never created. */
-  return demoSubjects.map((subject, index) => {
+  return subjects.map((subject, index) => {
     const result = report.results[subject.slug];
     if (!result) return undefined;
     const scale = seedGrade(result.scoreTenths / 10);
@@ -936,17 +1164,20 @@ function seedReportSubjects(
 function seedReleasedReportSubjects(
   database: SchoolDatabase,
   versionId: string,
+  subjects: typeof demoSubjects,
 ) {
   /* Last term's released report, over the same four subjects as this term's.
      Scores are a little lower throughout, so the guardian view shows movement
-     between terms rather than two unrelated documents. */
+     between terms rather than two unrelated documents. Over the subjects the
+     learning seed created, which on a school that runs its own timetable may
+     be fewer than four. */
   const lastTerm: Record<string, [number, string]> = {
     "english-language": [710, "Written expression is becoming clearer."],
     "integrated-science": [790, "Shows strong understanding of body systems."],
     mathematics: [740, "Good progress in algebra and number work."],
     "social-studies": [660, "Participates thoughtfully in civic discussions."],
   };
-  return demoSubjects.map((subject, index) => {
+  return subjects.map((subject, index) => {
     const [score, comment] = lastTerm[subject.slug] ?? [700, "Steady progress."];
     const scale = seedGrade(score / 10);
     return database

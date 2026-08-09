@@ -84,20 +84,30 @@
     0 2px 6px rgba(20, 45, 41, 0.05),
     0 12px 32px rgba(20, 45, 41, 0.1);
 
-  /* Inter for everything the reader actually reads: it was drawn for screens,
-     its lowercase is unusually even at small sizes, and it carries the full
-     Latin range these schools need. Loaded in app/layout.tsx and self-hosted.
-     The stack behind it is what shows for the few hundred milliseconds before
-     the file lands. */
-  --font-sans:
-    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
-  /* Reading copy: lesson text, summaries, descriptions. Separate from the
-     interface face because paragraphs and control labels want different
-     things — see the note in app/layout.tsx. */
+  /* Two faces, and a clear division of labour between them.
+
+     Poppins is the voice of the product: body copy, list titles, labels,
+     buttons, navigation, table cells — everything a person reads that is not a
+     display heading. It used to be scoped to paragraphs alone, which meant a
+     card's title was Inter and the sentence under it was Poppins, and the seam
+     showed on every screen. One face for the interface reads as one product.
+
+     Inter is kept for figures. Poppins is a geometric face with a single-storey
+     `a` and near-circular digits; a column of marks set in it does not line up
+     the way a column of marks has to. Anything numeric — the markbook, metric
+     figures, tabular data — asks for --font-numeric explicitly.
+
+     Both are loaded in app/layout.tsx and self-hosted. The stack behind each is
+     what shows for the few hundred milliseconds before the file lands. */
   --font-body:
     var(--font-poppins), var(--font-inter), ui-sans-serif, system-ui,
-    sans-serif;
+    -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-numeric:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Retained under its old name: component sheets and the error boundary name
+     it, and it still means "the interface face". */
+  --font-sans: var(--font-body);
 
   /* Kept for display headings only. The serif is what stops the product
      reading like every other dashboard, and it is never set below 18px. */
@@ -198,7 +208,7 @@ html {
 body {
   background: var(--canvas);
   color: var(--ink);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   font-size: var(--fs-16);
   letter-spacing: var(--tracking-body);
   line-height: var(--lh-body);
@@ -239,14 +249,24 @@ h4 {
   text-wrap: balance;
 }
 
-/* Paragraphs and the long-form copy inside lessons read in Poppins; the
-   surrounding interface stays on Inter. */
+/* Poppins is inherited from <body> now, so this no longer names a face. What
+   is left is the one thing prose wants and controls do not: a last line that
+   is not a single orphaned word. */
 p,
 li,
 dd,
 blockquote {
-  font-family: var(--font-body);
   text-wrap: pretty;
+}
+
+/* Figures line up or they are not figures. Applied to the elements that hold
+   numbers rather than to whole components, so a card's label stays in the
+   interface face and only its value switches. */
+.numeric,
+td.numeric,
+th.numeric {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Serif display face for page and panel headings. Georgia has no medium

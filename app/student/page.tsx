@@ -2,7 +2,8 @@ import { AnnouncementsPanel } from "../components/announcements/announcements-pa
 import Link from "next/link";
 import { ProgressDonut } from "../components/progress-donut";
 import { WorkspaceShell } from "../components/workspace-shell";
-import { demoSubjectCards } from "../demo-data";
+import { listLearnerSubjects } from "../../db/learning-repository";
+import { getLearnerSchoolDay } from "../../db/operations-repository";
 import { requireWorkspaceUser } from "../../server/workspace-auth";
 import { firstName, schoolDateLabel, schoolGreeting } from "../school-time";
 
@@ -11,12 +12,40 @@ export default async function StudentHomePage() {
 
   /* One source of truth with the subject index and the lesson player, so the
      percentage on this card is the percentage the learner sees when they open
-     the lesson. The old hardcoded list disagreed with both. */
-  const subjects = demoSubjectCards();
+     the lesson. This and the index both read demoSubjectCards() until now,
+     which made them agree with each other and with nothing else — both showed
+     the demo school to every learner. */
+  const subjects = await listLearnerSubjects(user.access);
   const overallProgress = Math.round(
     subjects.reduce((total, subject) => total + subject.progressPercent, 0) /
       Math.max(1, subjects.length),
   );
+
+  /* The four cards below read "96%", "3", "2" — typed into the markup, the
+     same for every learner in every school, and wrong for all of them. The
+     school day already holds the learner's own attendance and assignments,
+     so the numbers come from there. A failure leaves the cards blank rather
+     than taking the page down: a learner's home screen is not worth losing
+     over a count. */
+  const schoolDay = await getLearnerSchoolDay(user.access).catch(() => null);
+  const outstanding =
+    schoolDay?.assignments.filter(
+      (assignment) => assignment.status === "not-started",
+    ).length ?? null;
+  /* Marked and released both mean a teacher has written something back; the
+     learner cares that there is feedback to read, not which of the two. */
+  const newFeedback =
+    schoolDay?.assignments.filter(
+      (assignment) =>
+        (assignment.status === "marked" || assignment.status === "released") &&
+        assignment.feedback,
+    ).length ?? null;
+
+  /* What is actually coming, soonest first. */
+  const upcoming = (schoolDay?.assignments ?? [])
+    .filter((assignment) => assignment.status === "not-started")
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt))
+    .slice(0, 3);
   /* Pick up wherever the learner left off: the least-finished subject that is
      actually started, falling back to the first unstarted one. */
   const resume =
@@ -46,7 +75,7 @@ export default async function StudentHomePage() {
             <p>
               {resume.subjectName} · {resume.teacherName}
             </p>
-            <Link href={`/learn/subjects/${resume.slug}`}>Continue lesson</Link>
+            <Link href={`/learn/subjects/${resume.offeringId}`}>Continue lesson</Link>
           </div>
           {/* A real donut, not a tinted disc. The subject is already named in
               the copy beside it, so the middle of the ring holds only the
@@ -58,23 +87,36 @@ export default async function StudentHomePage() {
       <section className="workspace-metric-grid" aria-label="Learning summary">
         <article>
           <small>Attendance</small>
-          <strong>96%</strong>
-          <span>Up 2% this term</span>
+          <strong>
+            {schoolDay ? `${schoolDay.attendance.summary.percentage}%` : "—"}
+          </strong>
+          <span>
+            {schoolDay
+              ? `${schoolDay.attendance.summary.presentEquivalent} of ${schoolDay.attendance.summary.totalCounted} days`
+              : "Not available"}
+          </span>
         </article>
         <article>
           <small>Work due</small>
-          <strong>3</strong>
-          <Link href="/learn/school-day#assignments">Next due tomorrow</Link>
+          <strong>{outstanding ?? "—"}</strong>
+          <Link href="/learn/school-day#assignments">
+            {outstanding === 0 ? "Nothing outstanding" : "Open assignments"}
+          </Link>
         </article>
         <article>
           <small>Course progress</small>
           <strong>{overallProgress}%</strong>
-          <span>Across {subjects.length} subjects</span>
+          <span>
+            Across {subjects.length}{" "}
+            {subjects.length === 1 ? "subject" : "subjects"}
+          </span>
         </article>
         <article>
           <small>New feedback</small>
-          <strong>2</strong>
-          <Link href="/learn/school-day#assignments">Read feedback</Link>
+          <strong>{newFeedback ?? "—"}</strong>
+          <Link href="/learn/school-day#assignments">
+            {newFeedback === 0 ? "Nothing new" : "Read feedback"}
+          </Link>
         </article>
       </section>
 
@@ -89,7 +131,7 @@ export default async function StudentHomePage() {
           </header>
           <div className="student-subject-list">
             {subjects.map((subject) => (
-              <Link href={`/learn/subjects/${subject.slug}`} key={subject.slug}>
+              <Link href={`/learn/subjects/${subject.offeringId}`} key={subject.offeringId}>
                 <span>{subject.code}</span>
                 <div>
                   <strong>{subject.subjectName}</strong>
@@ -109,22 +151,27 @@ export default async function StudentHomePage() {
             </div>
             <Link href="/learn/school-day">Full school day</Link>
           </header>
+          {/* Three items typed into the markup stood here: a knowledge check
+              "Tomorrow", a comprehension exercise "Friday" and a note from a
+              class teacher named Mrs. E. Aidoo. None of them belonged to the
+              learner reading them, and the first was a link into a demo
+              assessment. What is due is what the school day says is due. */}
           <div className="attention-list">
-            <Link href="/learn/assessments/digestive-system-check">
-              <span>Assessment · Tomorrow</span>
-              <strong>Digestive system knowledge check</strong>
-              <small>Integrated Science · 20 minutes</small>
-            </Link>
-            <Link href="/learn/school-day#assignments">
-              <span>Assignment · Friday</span>
-              <strong>Comprehension exercise</strong>
-              <small>English Language</small>
-            </Link>
-            <div>
-              <span>Teacher note</span>
-              <strong>Bring your project materials on Friday</strong>
-              <small>Mrs. E. Aidoo · Class teacher</small>
-            </div>
+            {upcoming.length === 0 ? (
+              <p className="attention-empty">
+                {schoolDay
+                  ? "Nothing is due. Your assignments appear here when a teacher sets them."
+                  : "Your school day could not be loaded just now."}
+              </p>
+            ) : (
+              upcoming.map((assignment) => (
+                <Link href="/learn/school-day#assignments" key={assignment.id}>
+                  <span>Assignment · {dueLabel(assignment.dueAt)}</span>
+                  <strong>{assignment.title}</strong>
+                  <small>{assignment.subjectName}</small>
+                </Link>
+              ))
+            )}
           </div>
         </section>
       </div>
@@ -132,4 +179,22 @@ export default async function StudentHomePage() {
       <AnnouncementsPanel />
     </WorkspaceShell>
   );
+}
+
+/* "Tomorrow" and "Friday" read better on a card than a date does, and both are
+   what a learner would say. Anything further out is given as its weekday, and
+   anything past a week as the date itself. */
+function dueLabel(dueAt: string): string {
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return "Scheduled";
+  const startOfDay = (value: Date) =>
+    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+  const days = Math.round(
+    (startOfDay(due) - startOfDay(new Date())) / 86_400_000,
+  );
+  if (days < 0) return "Overdue";
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days < 7) return due.toLocaleDateString(undefined, { weekday: "long" });
+  return due.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }

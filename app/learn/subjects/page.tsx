@@ -2,15 +2,20 @@ import Link from "next/link";
 import { CheckIcon, PlayCircleIcon } from "../../components/icons";
 import { SubjectCoverArt } from "../../components/subject-cover-art";
 import { WorkspaceShell } from "../../components/workspace-shell";
-import { demoSubjectCards } from "../../demo-data";
+import { listLearnerSubjects } from "../../../db/learning-repository";
 import { requireWorkspaceUser } from "../../../server/workspace-auth";
 import "./subject-index.css";
 
 export const dynamic = "force-dynamic";
 
+/* This screen called demoSubjectCards(), so every learner in every school
+   opened their subjects and saw Greenfield Academy's four demo subjects,
+   with demo teachers and invented progress, linking into demo lessons.
+   There was no request to fail and no error to notice — the page simply was
+   not about them. */
 export default async function LearnerSubjectsPage() {
   const user = await requireWorkspaceUser("student", "/learn/subjects");
-  const subjects = demoSubjectCards();
+  const subjects = await listLearnerSubjects(user.access);
 
   return (
     <WorkspaceShell
@@ -20,16 +25,22 @@ export default async function LearnerSubjectsPage() {
       user={user}
       workspace="student"
     >
+      {subjects.length === 0 ? (
+        <p className="subject-index-empty">
+          You have no subjects yet. They appear here once the school places you
+          in a class and sets its subjects.
+        </p>
+      ) : (
       <ul className="subject-card-grid">
         {subjects.map((subject) => (
-          <li key={subject.slug}>
+          <li key={subject.offeringId}>
             <Link
               className="subject-card"
               data-progress={subject.progressPercent}
-              href={`/learn/subjects/${subject.slug}`}
+              href={`/learn/subjects/${subject.offeringId}`}
             >
               <span className="subject-card-cover">
-                <SubjectCoverArt imageUrl={subject.coverUrl} seed={subject.slug} />
+                <SubjectCoverArt seed={subject.offeringId} />
                 {/* Which year the material is pitched at. The stream ("Gold")
                     is deliberately dropped: it says which room a learner sits
                     in, not what the subject is for. */}
@@ -76,6 +87,7 @@ export default async function LearnerSubjectsPage() {
           </li>
         ))}
       </ul>
+      )}
     </WorkspaceShell>
   );
 }

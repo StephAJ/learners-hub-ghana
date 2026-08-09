@@ -1,5 +1,5 @@
 import Image from "next/image";
-import type { QuestionMedia } from "../../../../domain/assessment/types";
+import type { QuestionMedia } from "../../domain/assessment/types";
 
 /* ==========================================================================
    Pictures and formulas in a question

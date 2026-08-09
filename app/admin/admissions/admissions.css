@@ -27,63 +27,146 @@
   outline: 3px solid rgba(13, 95, 85, 0.14);
 }
 
-.admissions-stats {
-  margin-bottom: 16px;
-}
+/* ==========================================================================
+   The admissions funnel
+
+   The one block on this screen that says how the intake is going, having
+   absorbed the four-card stat row that used to duplicate three of its five
+   numbers. Its caption carries the two facts those cards had on their own:
+   how many applications there are in total, and how many places remain.
+
+   Each stage takes a hue from the fixed glyph palette in globals.css, so the
+   five steps are told apart by colour as well as position — which is what
+   makes a count legible at a glance rather than something to be counted along
+   to.
+   ========================================================================== */
 
 .pipeline-panel {
-  background: #ffffff;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  margin-bottom: 20px;
-  padding: 12px 16px;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
-.pipeline-panel > div {
+.pipeline-panel > header {
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+}
+
+.pipeline-panel h2 {
+  font-size: var(--fs-22);
+  letter-spacing: var(--tracking-display);
+  margin: var(--space-1) 0 0;
+}
+
+.pipeline-panel > header span {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+}
+
+.pipeline-panel ol {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pipeline-panel li {
   align-items: center;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 27px 1fr auto;
+  gap: var(--space-2);
+  grid-template-columns: auto 1fr auto;
   min-width: 0;
 }
 
-.pipeline-panel > div > span {
+.pipeline-glyph {
   align-items: center;
-  background: #e6f0eb;
-  border-radius: 50%;
-  color: var(--primary);
-  display: flex;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  height: 28px;
+  background: var(--hue-teal-soft);
+  border-radius: var(--radius-sm);
+  color: var(--hue-teal-ink);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 2.25rem;
   justify-content: center;
-  width: 28px;
+  width: 2.25rem;
+}
+
+.pipeline-panel li[data-hue="blue"] .pipeline-glyph {
+  background: var(--hue-blue-soft);
+  color: var(--hue-blue-ink);
+}
+
+.pipeline-panel li[data-hue="amber"] .pipeline-glyph {
+  background: var(--hue-amber-soft);
+  color: var(--hue-amber-ink);
+}
+
+.pipeline-panel li[data-hue="violet"] .pipeline-glyph {
+  background: var(--hue-violet-soft);
+  color: var(--hue-violet-ink);
+}
+
+.pipeline-panel li[data-hue="lime"] .pipeline-glyph {
+  background: var(--hue-lime-soft);
+  color: var(--hue-lime-ink);
 }
 
 .pipeline-panel p,
 .pipeline-panel strong {
   display: block;
   margin: 0;
+  min-width: 0;
 }
 
 .pipeline-panel p {
-  color: #687772;
-  font-size: var(--fs-14);
+  color: var(--muted);
+  font-size: var(--fs-13);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pipeline-panel strong {
   color: var(--ink);
-  font-size: var(--fs-16);
-  margin-top: 4px;
+  font-size: var(--fs-18);
+  font-variant-numeric: tabular-nums;
+  margin-top: var(--space-1);
 }
 
 .pipeline-panel i {
-  color: #b6c0bc;
-  font-size: var(--fs-14);
-  font-style: normal;
-  padding-right: 12px;
+  color: var(--line-strong);
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding-right: var(--space-3);
+}
+
+@media (max-width: 900px) {
+  /* Five stages will not fit a phone as a row, and a horizontal scroller for
+     five numbers is worse than a grid of them. The chevrons go with the row:
+     they mean "and then", which two-by-three no longer reads as. */
+  .pipeline-panel ol {
+    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pipeline-panel i {
+    display: none;
+  }
+}
+
+@media (max-width: 460px) {
+  .pipeline-panel ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .admissions-notice {

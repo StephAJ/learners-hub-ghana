@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import {
   FormEvent,
   useEffect,
@@ -12,7 +13,14 @@ import type {
   SchoolRole,
 } from "../../../domain/identity/types";
 import { PersonAvatar } from "../../components/person-avatar";
+import {
+  BooksIcon,
+  InboxIcon,
+  SchoolIcon,
+  UsersIcon,
+} from "../../components/icons";
 import "../academic/academic.css";
+import "../../teacher/assessments/composer-shell.css";
 import "./people.css";
 
 const roleLabels: Record<SchoolRole, string> = {
@@ -37,6 +45,7 @@ type DirectoryResponse = {
 };
 
 export function PeopleView() {
+  const searchParams = useSearchParams();
   const [people, setPeople] = useState(previewPeople);
   const [selectedId, setSelectedId] = useState(previewPeople[0].id);
   const [kindFilter, setKindFilter] = useState<DirectoryPerson["kind"] | "all">(
@@ -47,6 +56,14 @@ export function PeopleView() {
     "loading",
   );
   const [notice, setNotice] = useState("");
+  /* The academic screen sends people here to invite a teacher. That used to
+     be a #invite fragment scrolling to a form that was always on screen; now
+     that inviting is a task, the caller has to be able to open it, and a
+     query the router hands us at render does that without an effect that
+     sets state on mount (and without the flash of a closed panel). */
+  const [inviting, setInviting] = useState(
+    searchParams.get("invite") !== null,
+  );
 
   useEffect(() => {
     let active = true;
@@ -139,36 +156,35 @@ export function PeopleView() {
         <div className="admin-content people-content">
           <section className="admin-stats" aria-label="People summary">
             <article>
-              <span className="admin-stat-icon green">◎</span>
+              <span className="admin-stat-icon" data-hue="teal" aria-hidden="true"><SchoolIcon size={20} /></span>
               <div><small>Staff profiles</small><strong>{staffCount}</strong></div>
               <em>School and scoped roles</em>
             </article>
             <article>
-              <span className="admin-stat-icon blue">L</span>
+              <span className="admin-stat-icon" data-hue="blue" aria-hidden="true"><BooksIcon size={20} /></span>
               <div><small>Learner profiles</small><strong>{learnerCount}</strong></div>
               <em>Class-bound access</em>
             </article>
             <article>
-              <span className="admin-stat-icon purple">G</span>
+              <span className="admin-stat-icon" data-hue="violet" aria-hidden="true"><UsersIcon size={20} /></span>
               <div><small>Guardian profiles</small><strong>{guardianCount}</strong></div>
               <em>Relationship-bound</em>
             </article>
             <article>
-              <span className="admin-stat-icon gold">✉</span>
+              <span className="admin-stat-icon" data-hue="amber" aria-hidden="true"><InboxIcon size={20} /></span>
               <div><small>Pending invitations</small><strong>{invitedCount}</strong></div>
               <em>Awaiting activation</em>
             </article>
           </section>
 
-          <section className="access-principles" aria-label="Access model">
-            <article><span>1</span><p><strong>Identity</strong><small>Who is signed in?</small></p></article>
-            <i aria-hidden="true">→</i>
-            <article><span>2</span><p><strong>School role</strong><small>What work can they do?</small></p></article>
-            <i aria-hidden="true">→</i>
-            <article><span>3</span><p><strong>Relationship scope</strong><small>Which records can they reach?</small></p></article>
-            <i aria-hidden="true">→</i>
-            <article className="decision"><span>✓</span><p><strong>Server decision</strong><small>Allow or deny every request</small></p></article>
-          </section>
+          {/* The four-step "Identity → School role → Relationship scope →
+              Server decision" strip that used to sit here explained how the
+              product's authorisation works. True, and no help at all to
+              someone who came to add a teacher: it was a diagram of our
+              architecture on their operational screen, above the fold, every
+              visit. The one part of it they can act on — what a role can
+              actually reach — is on the person's own card, where it is about
+              a person rather than about us. */}
 
           {notice && <p className="people-notice" role="status">{notice}</p>}
 
@@ -177,6 +193,13 @@ export function PeopleView() {
               <div className="directory-heading">
                 <div><p className="eyebrow">School directory</p><h2 id="directory-title">Members</h2></div>
                 <span>{visiblePeople.length} shown</span>
+                <button
+                  className="directory-invite"
+                  onClick={() => setInviting(true)}
+                  type="button"
+                >
+                  Invite someone
+                </button>
               </div>
 
               <div className="directory-controls">
@@ -248,9 +271,18 @@ export function PeopleView() {
 
             <aside className="access-sidebar">
               {selected && <PersonAccessCard person={selected} />}
-              <InvitePersonForm onInvite={invitePerson} />
             </aside>
           </div>
+
+          {inviting && (
+            <InvitePersonForm
+              onCancel={() => setInviting(false)}
+              onInvite={async (input) => {
+                await invitePerson(input);
+                setInviting(false);
+              }}
+            />
+          )}
         </div>
 
     </>
@@ -286,9 +318,20 @@ function PersonAccessCard({ person }: { person: DirectoryPerson }) {
   );
 }
 
+/**
+ * Inviting someone, as a task rather than a permanent column.
+ *
+ * This was six fields open in the sidebar on every visit, beside a person's
+ * access card that had nothing to do with them — so the screen always showed
+ * a half-filled form nobody had started. It is the same fields, opened when
+ * someone says they want to invite a person, in the panel shell the quiz
+ * builder and the class planner already use.
+ */
 function InvitePersonForm({
+  onCancel,
   onInvite,
 }: {
+  onCancel: () => void;
   onInvite: (input: {
     email: string;
     firstName: string;
@@ -311,55 +354,106 @@ function InvitePersonForm({
   }
 
   return (
-    <section className="invite-card" id="invite" aria-labelledby="invite-title">
-      <div><p className="eyebrow">Controlled onboarding</p><h2 id="invite-title">Add a teacher or school member</h2></div>
-      <form onSubmit={submit}>
-        <div className="name-fields">
-          <label><span>First name</span><input required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>
-          <label><span>Last name</span><input required value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
-        </div>
-        <label><span>Email address</span><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-        <label>
-          <span>School role</span>
-          <select value={role} onChange={(event) => setRole(event.target.value as SchoolRole)}>
-            {Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <div className="name-fields">
-          <label>
-            <span>Scope type</span>
-            <select
-              value={scopeType}
-              onChange={(event) => {
-                const nextScopeType = event.target.value as typeof scopeType;
-                setScopeType(nextScopeType);
-                setScopeId(scopeOptions[nextScopeType][0]?.value ?? "");
-              }}
-            >
-              <option value="tenant">Whole school</option>
-              <option value="class">Class</option>
-              <option value="subject">Subject</option>
-              <option value="learner">Learner</option>
+    <div className="composer-scrim" role="dialog" aria-modal="true">
+      <form className="composer" id="invite" onSubmit={submit}>
+        <header className="composer-head">
+          <div>
+            <p className="composer-eyebrow">Controlled onboarding</p>
+            <h2 id="invite-title">Add a teacher or school member</h2>
+          </div>
+          <button
+            aria-label="Close"
+            className="composer-close"
+            onClick={onCancel}
+            type="button"
+          >
+            ✕
+          </button>
+        </header>
+
+        <div className="composer-body">
+          <div className="composer-meta invite-names">
+            <label className="composer-field">
+              <span>First name</span>
+              <input required value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+            </label>
+            <label className="composer-field">
+              <span>Last name</span>
+              <input required value={lastName} onChange={(event) => setLastName(event.target.value)} />
+            </label>
+          </div>
+
+          <label className="composer-field">
+            <span>Email address</span>
+            <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+          </label>
+
+          <label className="composer-field">
+            <span>School role</span>
+            <select value={role} onChange={(event) => setRole(event.target.value as SchoolRole)}>
+              {Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <label>
-            <span>Assigned area</span>
-            <select
-              disabled={scopeType === "tenant"}
-              onChange={(event) => setScopeId(event.target.value)}
-              value={scopeId}
-            >
-              {scopeOptions[scopeType].map((option) => (
-                <option key={option.value || "whole-school"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+
+          {/* What the chosen role will actually be able to reach, before the
+              invitation is sent rather than after it is accepted. The list
+              was already computed for the directory's access card; showing
+              it here is what makes the role dropdown a decision rather than
+              a guess. */}
+          <p className="invite-permissions">
+            <strong>{roleLabels[role]} will be able to:</strong>
+            {permissionsFor(role).join(" · ")}
+          </p>
+
+          <div className="composer-meta invite-names">
+            <label className="composer-field">
+              <span>Scope type</span>
+              <select
+                value={scopeType}
+                onChange={(event) => {
+                  const nextScopeType = event.target.value as typeof scopeType;
+                  setScopeType(nextScopeType);
+                  setScopeId(scopeOptions[nextScopeType][0]?.value ?? "");
+                }}
+              >
+                <option value="tenant">Whole school</option>
+                <option value="class">Class</option>
+                <option value="subject">Subject</option>
+                <option value="learner">Learner</option>
+              </select>
+            </label>
+            <label className="composer-field">
+              <span>Assigned area</span>
+              <select
+                disabled={scopeType === "tenant"}
+                onChange={(event) => setScopeId(event.target.value)}
+                value={scopeId}
+              >
+                {scopeOptions[scopeType].map((option) => (
+                  <option key={option.value || "whole-school"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
-        <button type="submit">Create invitation <span aria-hidden="true">→</span></button>
+
+        <footer className="composer-foot">
+          <p className="composer-hint">
+            They are sent an invitation and get access once they accept.
+          </p>
+          <div className="composer-actions">
+            <button className="composer-quiet" onClick={onCancel} type="button">
+              Cancel
+            </button>
+            <button className="composer-primary" type="submit">
+              Create invitation
+            </button>
+          </div>
+        </footer>
       </form>
-    </section>
+    </div>
   );
 }
 

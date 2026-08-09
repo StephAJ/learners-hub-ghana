@@ -6,118 +6,68 @@ import type { LearnerSchoolDayWorkspace } from "../../../db/operations-repositor
 import { TimetableWeek } from "./timetable-week";
 import "../../school-day.css";
 
-const previewWorkspace: LearnerSchoolDayWorkspace = {
-  assignments: [
-    {
-      attachments: [],
-      dueAt: "2026-07-28T16:00:00Z",
-      feedback: null,
-      id: "assignment-body-systems",
-      maximumPoints: 20,
-      score: null,
-      status: "submitted",
-      subjectName: "Integrated Science",
-      title: "Body systems model",
-    },
-    /* One of each state. With only a submitted assignment here the preview
-       never showed the hand-in controls at all, which is the part of this
-       screen a learner spends any time in. */
-    {
-      attachments: [],
-      dueAt: "2026-07-31T16:00:00Z",
-      feedback: null,
-      id: "assignment-food-groups",
-      maximumPoints: 15,
-      score: null,
-      status: "not-started",
-      subjectName: "Integrated Science",
-      title: "Food groups field notes",
-    },
-  ],
-  attendance: {
-    currentCode: null,
-    summary: {
-      absent: 1,
-      excused: 0,
-      late: 0,
-      percentage: 66.7,
-      presentEquivalent: 2,
-      totalCounted: 3,
-    },
-  },
-  currentDate: "2026-07-24",
-  learner: {
-    className: "JHS 2 Gold",
-    id: "person-kwame",
-    name: "Kwame Agyeman",
-    studentId: "LH-260138",
-  },
-  periods: [
-    period("period-1", "Period 1", 1, "08:00", "09:00"),
-    period("period-2", "Period 2", 2, "09:10", "10:10"),
-    period("period-break", "Break", 3, "10:10", "10:35", "break"),
-    period("period-3", "Period 3", 4, "10:35", "11:35"),
-    period("period-4", "Period 4", 5, "11:45", "12:45"),
-  ],
-  timetable: [
-    timetable("timetable-5-1", "period-1", "Social Studies", "Block B · Room 2", "Emmanuel Ofori"),
-    timetable("timetable-5-2", "period-2", "Integrated Science", "Science Lab", "Grace Mensah"),
-    timetable("timetable-5-3", "period-3", "English Language", "Block A · Room 4", "Mary Asante"),
-    timetable("timetable-5-4", "period-4", "Mathematics", "Block A · Room 4", "Emmanuel Ofori"),
-  ],
-};
+/* ==========================================================================
+   No preview school day
+
+   This screen opened on a fixture — Kwame Agyeman's Friday, a two-assignment
+   list, a 66.7% attendance record and four periods of somebody else's
+   timetable — and kept it whenever /api/learn/school-day failed.
+
+   Handing work in while in that state ran a branch that moved the assignment
+   to "submitted" in local state and reported "Preview response submitted."
+   Nothing was written. A learner who had done their work, attached it and
+   read a confirmation had submitted nothing at all, and the screen looked
+   exactly like the one that works.
+
+   The teacher screens had this removed for the same reason. What replaces it
+   is three honest states: loading, the failure with the reason the server
+   gave, and the school day itself.
+   ========================================================================== */
 
 export function SchoolDayView() {
-  const [workspace, setWorkspace] = useState(previewWorkspace);
+  const [workspace, setWorkspace] = useState<LearnerSchoolDayWorkspace>();
   const [notice, setNotice] = useState("");
-  const [mode, setMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
-  );
+  const [problem, setProblem] = useState("");
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
-    void load();
 
-    async function load() {
+    async function loadOnce() {
       try {
         const response = await fetch("/api/learn/school-day");
-        if (!response.ok) throw new Error("School day unavailable.");
         const payload = (await response.json()) as {
-          workspace: LearnerSchoolDayWorkspace;
+          error?: string;
+          workspace?: LearnerSchoolDayWorkspace;
         };
         if (!active) return;
+        if (!response.ok || !payload.workspace) {
+          throw new Error(payload.error ?? "Your school day is unavailable.");
+        }
         setWorkspace(payload.workspace);
-        setMode("protected");
-      } catch {
-        if (active) setMode("preview");
+        setState("ready");
+      } catch (thrown) {
+        if (!active) return;
+        setProblem(
+          thrown instanceof Error
+            ? thrown.message
+            : "Your school day could not be reached.",
+        );
+        setState("error");
       }
     }
 
+    void loadOnce();
     return () => {
       active = false;
     };
-  }, []);
-
-  const nextEntry =
-    workspace.timetable.find((entry) => entry.periodId === "period-2") ??
-    workspace.timetable[0];
+  }, [reloadKey]);
 
   async function submitAssignment(
     assignmentId: string,
     responseText: string,
   ) {
-    if (mode !== "protected") {
-      setWorkspace((current) => ({
-        ...current,
-        assignments: current.assignments.map((assignment) =>
-          assignment.id === assignmentId
-            ? { ...assignment, status: "submitted" }
-            : assignment,
-        ),
-      }));
-      setNotice("Preview response submitted.");
-      return;
-    }
     const response = await fetch("/api/learn/school-day", {
       body: JSON.stringify({
         action: "submit-assignment",
@@ -143,10 +93,6 @@ export function SchoolDayView() {
      files on screen is always the list the server holds rather than an
      optimistic guess that a failed upload would leave behind. */
   async function attachFile(assignmentId: string, file: File) {
-    if (mode !== "protected") {
-      setNotice("Attachments need a signed-in school session.");
-      return;
-    }
     const body = new FormData();
     body.append("assignmentId", assignmentId);
     body.append("file", file);
@@ -167,7 +113,6 @@ export function SchoolDayView() {
   }
 
   async function removeAttachment(attachmentId: string) {
-    if (mode !== "protected") return;
     const response = await fetch("/api/learn/school-day", {
       body: JSON.stringify({ action: "remove-attachment", attachmentId }),
       headers: { "content-type": "application/json" },
@@ -184,6 +129,29 @@ export function SchoolDayView() {
     setWorkspace(payload.workspace);
   }
 
+  if (state === "loading") {
+    return <p className="workspace-loading">Loading your school day…</p>;
+  }
+
+  if (state === "error" || !workspace) {
+    return (
+      <div className="workspace-failure">
+        <h2>Your school day could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => setReloadKey((key) => key + 1)} type="button">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  /* The next lesson on the timetable. Nothing is defaulted: a day with no
+     more lessons on it says so rather than naming Integrated Science at
+     09:10 in the Science Lab, which is what the fixture used to supply. */
+  const nextEntry =
+    workspace.timetable.find((entry) => entry.periodId === "period-2") ??
+    workspace.timetable[0];
+
   return (
     <>
       <div className="school-day-page" id="today">
@@ -193,19 +161,24 @@ export function SchoolDayView() {
         <section className="school-day-welcome">
           <div>
             <p>Up next</p>
-            <h2>{nextEntry?.subjectName ?? "Integrated Science"}</h2>
+            <h2>{nextEntry?.subjectName ?? "Nothing more today"}</h2>
             <span>
-              {periodFor(workspace, nextEntry?.periodId)?.startsAt ?? "09:10"}
-              {" · "}
-              {nextEntry?.room ?? "Science Lab"}
-              {nextEntry?.teacherName ? ` · ${nextEntry.teacherName}` : ""}
+              {nextEntry
+                ? [
+                    periodFor(workspace, nextEntry.periodId)?.startsAt,
+                    nextEntry.room,
+                    nextEntry.teacherName,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "Your timetable has no further lessons scheduled."}
             </span>
           </div>
-          <Link
-            className="school-day-next-action"
-            href="/learn/subjects/integrated-science"
-          >
-            Open subject
+          {/* Linked at the subject index rather than a subject: a timetable
+              entry carries the subject's name, not its offering, so there is
+              no id here to open. It used to point at the demo subject. */}
+          <Link className="school-day-next-action" href="/learn/subjects">
+            My subjects
           </Link>
         </section>
 
@@ -233,15 +206,18 @@ export function SchoolDayView() {
                 <p>Due work</p>
                 <h2>My assignments</h2>
               </div>
-              <Link href="/learn/assessments/digestive-system-check">
-                Assessments ↗
-              </Link>
+              {/* Named after the section, so it goes to the section. It
+                  pointed at one demo paper by slug — a link that opened
+                  somebody else's assessment, and that 404s now the runner
+                  only opens papers that exist. */}
+              <Link href="/learn/assessments">Assessments ↗</Link>
             </div>
             <div className="learner-assignment-list">
               {workspace.assignments.map((assignment) => (
                 <article key={assignment.id}>
                   <header>
-                    <span>IS</span>
+                    {/* Read "IS" on every card, whatever the subject was. */}
+                    <span>{subjectBadge(assignment.subjectName)}</span>
                     <div>
                       <strong>{assignment.title}</strong>
                       <small>{assignment.subjectName}</small>
@@ -390,42 +366,26 @@ function formatFileSize(bytes: number): string {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
 
-function period(
-  id: string,
-  name: string,
-  position: number,
-  startsAt: string,
-  endsAt: string,
-  kind: "lesson" | "break" | "assembly" = "lesson",
-) {
-  return { endsAt, id, kind, name, position, startsAt };
-}
-
-function timetable(
-  id: string,
-  periodId: string,
-  subjectName: string,
-  room: string,
-  teacherName: string,
-) {
-  return {
-    changeReason: null,
-    id,
-    periodId,
-    room,
-    status: "scheduled" as const,
-    subjectName,
-    substituteTeacherName: null,
-    teacherName,
-    weekday: 5,
-  };
-}
 
 function periodFor(
   workspace: LearnerSchoolDayWorkspace,
   periodId?: string,
 ) {
   return workspace.periods.find((periodItem) => periodItem.id === periodId);
+}
+
+/* A short badge for the card. Derived from the name because an assignment
+   carries its subject's name and not its code; the name is spelled out
+   beside it, so this only has to be a recognisable stand-in. */
+function subjectBadge(subjectName: string): string {
+  const words = subjectName.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "—";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
 }
 
 function humanise(value: string) {

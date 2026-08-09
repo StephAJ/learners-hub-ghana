@@ -250,4 +250,61 @@ const additiveMigrations = `
   WHERE offering.class_group_id <> '' AND offering.academic_year_id <> ''
   GROUP BY offering.class_group_id
   ON CONFLICT (id) DO NOTHING;
+
+  /* ------------------------------------------------------------------------
+     Folding duplicate conversations together
+
+     startMessageThread() used to insert a new row every time someone pressed
+     New, so two people who had written to each other more than once ended up
+     with a thread each time and an inbox listing the same name repeatedly.
+     The repository now reuses the existing thread, but databases written by
+     earlier builds already hold the duplicates, and the unique index below
+     cannot be created while they are there.
+
+     Messages move to the oldest thread of each pair, which keeps the whole
+     history in one place and in order — messages carry their own sent_at, so
+     the merged transcript reads correctly. Re-running finds nothing to move.
+     ---------------------------------------------------------------------- */
+  UPDATE messages AS message
+  SET thread_id = keeper.id
+  FROM message_threads AS duplicate
+  INNER JOIN LATERAL (
+    SELECT oldest.id
+    FROM message_threads AS oldest
+    WHERE oldest.tenant_id = duplicate.tenant_id
+      AND oldest.learner_person_id = duplicate.learner_person_id
+      AND oldest.teacher_person_id = duplicate.teacher_person_id
+    ORDER BY oldest.created_at, oldest.id
+    LIMIT 1
+  ) AS keeper ON TRUE
+  WHERE message.thread_id = duplicate.id AND duplicate.id <> keeper.id;
+
+  /* The rows the messages have just left. Emptiness is checked rather than
+     assumed, so a thread this migration did not touch is never removed. */
+  DELETE FROM message_threads AS duplicate
+  WHERE NOT EXISTS (
+    SELECT 1 FROM messages WHERE messages.thread_id = duplicate.id
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM message_threads AS keeper
+    WHERE keeper.tenant_id = duplicate.tenant_id
+      AND keeper.learner_person_id = duplicate.learner_person_id
+      AND keeper.teacher_person_id = duplicate.teacher_person_id
+      AND keeper.id <> duplicate.id
+  );
+
+  /* Two people, one conversation — enforced here rather than only in the
+     repository, so two simultaneous "New message" presses cannot both find
+     nothing and both insert. */
+  CREATE UNIQUE INDEX IF NOT EXISTS message_threads_pair_idx
+    ON message_threads (tenant_id, learner_person_id, teacher_person_id);
+
+  /* A standard leaves the curriculum without leaving the database. Lessons
+     link to standards by id, so deleting one a published lesson covers would
+     either fail on the foreign key or quietly drop that lesson's coverage
+     claim. Retiring keeps the record and takes it out of what a teacher can
+     map new work to. */
+  ALTER TABLE curriculum_standards
+    ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
 `;

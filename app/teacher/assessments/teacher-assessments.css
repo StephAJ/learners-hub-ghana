@@ -73,11 +73,10 @@
 }
 
 .assessment-topbar p,
-.assessment-hero p,
 .panel-heading p {
   margin: 0;
   color: var(--assessment-muted);
-  font-size: var(--fs-16);
+  font-size: var(--fs-14);
   font-weight: var(--fw-regular);
   letter-spacing: var(--tracking-label);
 }
@@ -138,119 +137,41 @@
   padding: 32px 0 72px;
 }
 
-.assessment-hero {
-  min-height: 205px;
-  border-radius: var(--radius-2xl);
-  padding: 36px 40px;
-  color: white;
-  background:
-    radial-gradient(circle at 82% 25%, rgba(255, 210, 117, 0.35), transparent 23%),
-    linear-gradient(125deg, #0f5948, #14392f);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  overflow: hidden;
-}
+/* The subject switch, the identity line and the summary cards all live in
+   app/workspace.css now, shared with the markbook and the daily class screen.
+   What was here — .assessment-hero, its glass switch, its glass button and
+   .assessment-metrics — drew a fourth variation of each. */
 
-.assessment-hero > div {
-  max-width: 680px;
-}
-
-.assessment-hero .subject-code {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-md);
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.14);
-  font-weight: var(--fw-semibold);
-  margin-bottom: 20px;
-}
-
-.assessment-hero p {
-  color: #c8ddd6;
-  line-height: 1.65;
-  max-width: 600px;
-}
-
-/* The subject line was "Integrated Science · JHS 2 Gold" for everyone, because
-   the workspace was gated on that one offering. It is a control now, and it
-   sits on the dark hero — so it is glass rather than a filled input, matching
-   the preview button on the other side of the same panel. The caret is drawn
-   in the same muted ink the line above it uses. */
-.assessment-subject-switch select {
-  appearance: none;
-  background-color: rgba(255, 255, 255, 0.12);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23c8ddd6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-position: right var(--space-3) center;
-  background-repeat: no-repeat;
-  background-size: 12px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-sm);
-  color: #fff;
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--fs-14);
-  padding: var(--space-1) var(--space-8) var(--space-1) var(--space-3);
-}
-
-.assessment-subject-switch select:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.assessment-subject-switch select:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-
-/* The options themselves render in the system palette, not the hero's. */
-.assessment-subject-switch option {
-  color: var(--ink);
-}
-
-.assessment-hero h2 {
-  margin: 4px 0 12px;
-  font-family: var(--font-serif);
-  font-size: var(--fs-page);
-  max-width: 620px;
-}
-
-/* Sits on the dark hero, so it is glass rather than a filled button.
-   `background` is the load-bearing declaration: this rule was written for an
-   anchor — hence the class name and the text-decoration reset — but the
-   element is a <button>, which carries the user agent's own light grey
-   background. With only `color: white` set, the label was white on #f0f0f0
-   and effectively invisible. */
-.learner-preview-link {
+/* Secondary, because it is not what a teacher came to this screen to do. It
+   was a filled glass button on a dark panel, which made "Preview" the loudest
+   thing above the question bank. */
+.assessment-preview-button {
   align-items: center;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  border-radius: var(--radius-md);
-  color: #ffffff;
+  align-self: center;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--ink);
   cursor: pointer;
   display: inline-flex;
-  font-family: inherit;
-  font-size: var(--fs-16);
+  font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
   justify-content: center;
-  letter-spacing: var(--tracking-body);
-  padding: var(--space-3) var(--space-4);
-  text-decoration: none;
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
   transition:
     background 160ms ease,
     border-color 160ms ease;
   white-space: nowrap;
 }
 
-.learner-preview-link:hover {
-  background: rgba(255, 255, 255, 0.26);
-  border-color: rgba(255, 255, 255, 0.6);
+.assessment-preview-button:hover {
+  background: var(--brand-tint);
+  border-color: var(--brand-line);
 }
 
-.learner-preview-link:focus-visible {
-  outline: 2px solid #ffffff;
+.assessment-preview-button:focus-visible {
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
@@ -266,59 +187,7 @@
   justify-content: space-between;
 }
 
-.assessment-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin: 20px 0;
-}
-
-.assessment-metrics article {
-  padding: 20px;
-  background: white;
-  border: 1px solid var(--assessment-line);
-  border-radius: var(--radius-lg);
-  display: grid;
-  gap: 4px;
-}
-
-.assessment-metrics span,
-.assessment-metrics small {
-  color: var(--assessment-muted);
-  font-size: var(--fs-16);
-}
-
-.assessment-metrics strong {
-  font-family: var(--font-serif);
-  font-size: var(--fs-28);
-}
-
-.assessment-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--assessment-line);
-  border-radius: var(--radius-lg);
-  background: #eef0ec;
-  width: max-content;
-  margin: 24px 0 16px;
-}
-
-.assessment-tabs button {
-  border: 0;
-  background: transparent;
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  color: #69726e;
-  font-weight: var(--fw-semibold);
-  cursor: pointer;
-}
-
-.assessment-tabs button.is-active {
-  background: white;
-  color: var(--assessment-green-dark);
-  box-shadow: 0 2px 10px rgba(23, 54, 44, 0.08);
-}
+/* Tabs are .screen-tabs in app/workspace.css. */
 
 .assessment-panel {
   padding: 24px;
@@ -400,10 +269,10 @@
 
 .question-bank-card {
   display: grid;
-  grid-template-columns: 45px minmax(0, 1fr) 70px;
-  gap: 16px;
+  grid-template-columns: 38px minmax(0, 1fr) 70px;
+  gap: var(--space-4);
   align-items: center;
-  padding: 16px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid #e5e9e7;
   border-radius: var(--radius-lg);
   transition: transform 160ms ease, border-color 160ms ease;
@@ -415,8 +284,9 @@
 }
 
 .question-type-icon {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
+  font-size: var(--fs-14);
   border-radius: var(--radius-md);
   display: grid;
   place-items: center;
@@ -430,11 +300,13 @@
   gap: 8px;
 }
 
+/* An uppercase eyebrow set at body size competes with the question it sits
+   above. These are labels on a list row, not headings. */
 .question-type-label,
 .difficulty-tag,
 .quiz-state,
 .review-status {
-  font-size: var(--fs-14);
+  font-size: var(--fs-12);
   font-weight: var(--fw-semibold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -448,15 +320,19 @@
   color: #9a4e36;
 }
 
+/* The prompt is the row's one piece of real content, so it stays the largest
+   thing in it — a step above the meta line rather than the three steps it
+   was, which made a bank of forty questions read as forty headings. */
 .question-card-copy h3 {
-  margin: 8px 0 4px;
-  font-size: var(--fs-18);
+  margin: var(--space-1) 0 2px;
+  font-size: var(--fs-16);
+  line-height: var(--lh-snug);
 }
 
 .question-card-copy p {
   margin: 0;
   color: var(--assessment-muted);
-  font-size: var(--fs-14);
+  font-size: var(--fs-13);
 }
 
 .question-marks {
@@ -466,13 +342,13 @@
 
 .question-marks strong {
   font-family: var(--font-serif);
-  font-size: var(--fs-22);
+  font-size: var(--fs-18);
 }
 
 .question-marks span,
 .question-marks small {
   color: var(--assessment-muted);
-  font-size: var(--fs-14);
+  font-size: var(--fs-12);
 }
 
 .question-marks small {
@@ -865,9 +741,6 @@
     display: none;
   }
 
-  .assessment-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 @media (max-width: 700px) {
@@ -883,28 +756,6 @@
   .assessment-content {
     width: min(100% - 28px, 1260px);
     padding-top: 16px;
-  }
-
-  .assessment-hero {
-    padding: 24px;
-    min-height: 260px;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .assessment-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .assessment-tabs {
-    width: 100%;
-    overflow-x: auto;
-  }
-
-  .assessment-tabs button {
-    flex: 1;
-    white-space: nowrap;
-    padding-inline: 12px;
   }
 
   .assessment-panel {

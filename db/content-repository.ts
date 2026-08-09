@@ -1,5 +1,6 @@
 import {
   canPerform,
+  canTeachOffering,
   AuthorizationError,
 } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
@@ -19,6 +20,11 @@ import { getSchoolDatabase, getMediaStore } from "./index";
 import type { SchoolDatabase } from "./school-database";
 import { ensureLearningFoundation } from "./learning-repository";
 import {
+  loadTeachingOfferings,
+  selectOffering,
+  type TeachingOffering,
+} from "./teaching-offerings";
+import {
   createLearnerH5pLaunch,
   importH5pPackage,
 } from "../server/h5p-runtime";
@@ -28,6 +34,10 @@ export type TeacherContentWorkspace = {
   className: string;
   mediaAssets: MediaAsset[];
   offeringId: string;
+  /* Every subject this teacher may keep content for, the selected one
+     included. The library named one offering and had no way to change it, so
+     a teacher of four subjects reached exactly one content library. */
+  offerings: TeachingOffering[];
   subjectName: string;
   totalBytes: number;
 };
@@ -43,11 +53,12 @@ export type CreateH5pActivityInput = {
 
 export async function getTeacherContentWorkspace(
   access: AccessContext,
+  requestedOfferingId?: string,
 ): Promise<TeacherContentWorkspace> {
   requireContentPermission(access);
   await ensureLearningFoundation();
-  const offering = await findAccessibleOffering(access);
-  return loadTeacherContentWorkspace(access.tenantId, offering);
+  const offering = await requireTeachingOffering(access, requestedOfferingId);
+  return loadTeacherContentWorkspace(access, offering);
 }
 
 export async function uploadTeacherMedia(
@@ -126,7 +137,7 @@ export async function uploadTeacherMedia(
     throw error;
   }
 
-  return loadTeacherContentWorkspace(access.tenantId, offering);
+  return loadTeacherContentWorkspace(access, offering);
 }
 
 export async function createH5pActivity(
@@ -192,7 +203,7 @@ export async function createH5pActivity(
     ),
   ]);
 
-  return loadTeacherContentWorkspace(access.tenantId, offering);
+  return loadTeacherContentWorkspace(access, offering);
 }
 
 export async function activateH5pActivity(
@@ -255,7 +266,7 @@ export async function activateH5pActivity(
       },
     ),
   ]);
-  return loadTeacherContentWorkspace(access.tenantId, offering);
+  return loadTeacherContentWorkspace(access, offering);
 }
 
 export async function getMediaResponse(
@@ -405,10 +416,12 @@ export async function recordInteractiveResult(
 }
 
 async function loadTeacherContentWorkspace(
-  tenantId: string,
+  access: AccessContext,
   offering: OfferingRow,
 ): Promise<TeacherContentWorkspace> {
+  const tenantId = access.tenantId;
   const database = await getSchoolDatabase();
+  const offerings = await loadTeachingOfferings(database, access);
   const mediaResult = await database
     .prepare(
       `SELECT id, offering_id, kind, original_filename, content_type,
@@ -472,6 +485,7 @@ async function loadTeacherContentWorkspace(
     className: offering.class_name,
     mediaAssets,
     offeringId: offering.offering_id,
+    offerings,
     subjectName: offering.subject_name,
     totalBytes: mediaAssets.reduce(
       (total, asset) => total + asset.sizeBytes,
@@ -502,42 +516,50 @@ function toMediaAsset(row: {
   };
 }
 
-async function findAccessibleOffering(access: AccessContext) {
+/* The subject this request is about, or a refusal saying which of the two
+   things went wrong: holding no subjects at all, and asking for one that is
+   not yours, are different problems with different fixes.
+
+   This replaced a query that took the teacher's subjects and applied
+   ORDER BY s.name LIMIT 1, so a teacher of Integrated Science and Mathematics
+   reached the content library for whichever sorted first and had no way to
+   see the other. Resolved through db/teaching-offerings.ts, the way the
+   markbook, the assessment workspace and the daily class workspace already
+   do. */
+async function requireTeachingOffering(
+  access: AccessContext,
+  requestedOfferingId?: string,
+): Promise<OfferingRow> {
   const database = await getSchoolDatabase();
-  if (isAdministrator(access)) {
-    const offering = await database
-      .prepare(
-        `SELECT o.id AS offering_id, o.class_name, s.name AS subject_name
-        FROM subject_offerings o
-        INNER JOIN subjects s ON s.id = o.subject_id
-        WHERE o.tenant_id = ? AND o.status = 'active'
-        ORDER BY s.name
-        LIMIT 1`,
-      )
-      .bind(access.tenantId)
-      .first<OfferingRow>();
-    if (offering) return offering;
-  } else {
-    const offering = await database
-      .prepare(
-        `SELECT o.id AS offering_id, o.class_name, s.name AS subject_name
-        FROM teacher_assignments a
-        INNER JOIN subject_offerings o ON o.id = a.offering_id
-        INNER JOIN subjects s ON s.id = o.subject_id
-        WHERE a.tenant_id = ?
-          AND a.teacher_person_id = ?
-          AND a.status = 'active'
-          AND o.status = 'active'
-        ORDER BY s.name
-        LIMIT 1`,
-      )
-      .bind(access.tenantId, access.actorPersonId)
-      .first<OfferingRow>();
-    if (offering) return offering;
+  const offerings = await loadTeachingOfferings(database, access);
+  if (offerings.length === 0) {
+    throw new AuthorizationError(
+      "No subject offering is assigned to your account. An administrator assigns subjects on the Academics screen.",
+    );
   }
-  throw new AuthorizationError(
-    "No active subject offering is assigned to your account.",
-  );
+  if (requestedOfferingId && !canTeachOffering(access, requestedOfferingId)) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+  const offering = selectOffering(offerings, requestedOfferingId);
+  if (!offering) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+  return toOfferingRow(offering);
+}
+
+/* The mutation paths resolve their offering from the id on the request and
+   already speak OfferingRow, so the two shapes meet here rather than
+   rewriting every call site to the new one. */
+function toOfferingRow(offering: TeachingOffering): OfferingRow {
+  return {
+    class_name: offering.className,
+    offering_id: offering.id,
+    subject_name: offering.subjectName,
+  };
 }
 
 async function requireAccessibleOffering(
@@ -549,7 +571,7 @@ async function requireAccessibleOffering(
   return offering;
 }
 
-async function requireOfferingContentAccess(
+export async function requireOfferingContentAccess(
   access: AccessContext,
   offeringId: string,
 ) {

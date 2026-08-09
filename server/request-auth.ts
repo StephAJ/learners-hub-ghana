@@ -10,6 +10,7 @@ import { ReportingPolicyError } from "../domain/reporting/gradebook";
 import { DailyOperationsPolicyError } from "../domain/operations/daily-operations";
 import { AnnouncementError } from "../domain/announcements/announcements";
 import { ContentPolicyError } from "../domain/content/content-policy";
+import { LessonCheckpointError } from "../db/lesson-checkpoint-repository";
 import { MessagingError } from "../domain/messaging/messaging";
 
 export async function requireSchoolRequestUser(): Promise<AuthenticatedSchoolUser> {
@@ -43,6 +44,9 @@ export function schoolApiErrorResponse(error: unknown) {
     return Response.json({ error: error.message }, { status: 422 });
   }
   if (error instanceof ContentPolicyError) {
+    return Response.json({ error: error.message }, { status: 422 });
+  }
+  if (error instanceof LessonCheckpointError) {
     return Response.json({ error: error.message }, { status: 422 });
   }
   if (error instanceof AnnouncementError) {

@@ -13,11 +13,16 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const schoolUser = await requireSchoolRequestUser();
+    /* Which of the teacher's subjects to open. Absent on first load, when the
+       repository picks their first. */
+    const offeringId =
+      new URL(request.url).searchParams.get("offeringId") ?? undefined;
     const workspace = await getTeacherContentWorkspace(
       schoolUser.access,
+      offeringId,
     );
     return Response.json({ actor: schoolUser.name, workspace });
   } catch (error) {

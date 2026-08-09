@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { countUnreadMessages } from "../../db/messaging-repository";
+import { countReportsAwaitingApproval } from "../../db/reporting-repository";
 import type { AuthenticatedSchoolUser } from "../../db/people-repository";
 import type { SchoolRole } from "../../domain/identity/types";
 import { BrandMark } from "./brand-mark";
 import { schoolBrandStyle } from "../school-brand";
-import { SIDEBAR_STORAGE_KEY } from "./sidebar-state";
 import { WorkspaceSidebar, type SidebarNavItem } from "./workspace-sidebar";
+import { WorkspaceMobileNav } from "./workspace-mobile-nav";
 import {
   workspaceHrefForRole,
   workspaceLabelForRole,
@@ -19,6 +20,7 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
     { href: "/admin/admissions", icon: "admissions", label: "Admissions" },
     { href: "/admin/people", icon: "classes", label: "People" },
     { href: "/admin/academic", icon: "academics", label: "Academics" },
+    { href: "/admin/reports", icon: "markbook", label: "Report cards" },
     { href: "/admin/school", icon: "school", label: "School details" },
     { href: "/admin/messages", icon: "messages", label: "Reported" },
   ],
@@ -55,13 +57,6 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
   ],
 };
 
-/* Runs before first paint so a collapsed sidebar is already collapsed when the
-   page appears, instead of opening wide and then snapping shut. Reading one
-   key from localStorage is cheap enough to be worth doing synchronously. */
-const restoreSidebarState = `try{if(localStorage.getItem(${JSON.stringify(
-  SIDEBAR_STORAGE_KEY,
-)})==="true"){document.documentElement.dataset.sidebar="collapsed"}}catch(e){}`;
-
 export async function WorkspaceShell({
   activeHref,
   children,
@@ -96,7 +91,6 @@ export async function WorkspaceShell({
       className={`workspace-shell workspace-${workspace}`}
       style={schoolBrandStyle(user.brand)}
     >
-      <script dangerouslySetInnerHTML={{ __html: restoreSidebarState }} />
       <a className="skip-link" href="#workspace-content">
         Skip to content
       </a>
@@ -138,38 +132,43 @@ export async function WorkspaceShell({
         <div className={contentClassName ?? "workspace-content"}>{children}</div>
       </main>
 
-      <nav className="workspace-mobile-nav" aria-label="Mobile hub navigation">
-        {items.slice(0, 5).map((item) => (
-          <Link
-            aria-current={item.href === activeHref ? "page" : undefined}
-            className={item.href === activeHref ? "is-active" : undefined}
-            href={item.href}
-            key={item.href}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <WorkspaceMobileNav activeHref={activeHref} items={items} />
     </div>
   );
 }
 
 /**
- * Hangs the unread-message count off the Messages link.
+ * Hangs a count off the link it belongs to: unread messages for the two
+ * workspaces with an inbox, reports waiting on the head for the admin one.
  *
- * Done here rather than in each page so a learner sees the same badge from
- * wherever they are, which is the only thing that makes it useful — a count
- * that only appears once you are already in the inbox tells you nothing.
+ * Done here rather than in each page so the number is visible from wherever
+ * the person is, which is the only thing that makes it useful — a count that
+ * only appears once you have already opened the screen tells you nothing.
+ * Submitted reports had exactly that problem: a teacher's submission wrote an
+ * audit event and nothing else, so a head learned that marks were waiting by
+ * going and looking.
  *
- * One indexed query per workspace render, and only for the two workspaces
- * that have an inbox at all. A failure is swallowed: an unavailable count is
- * a missing badge, never a page that will not render.
+ * One indexed query per workspace render. A failure is swallowed: an
+ * unavailable count is a missing badge, never a page that will not render.
  */
 async function withUnreadBadges(
   items: SidebarNavItem[],
   user: AuthenticatedSchoolUser,
   workspace: WorkspaceKind | "applicant",
 ): Promise<SidebarNavItem[]> {
+  if (workspace === "admin") {
+    let waiting = 0;
+    try {
+      waiting = await countReportsAwaitingApproval(user.access);
+    } catch {
+      return items;
+    }
+    if (waiting === 0) return items;
+    return items.map((item) =>
+      item.href === "/admin/reports" ? { ...item, badge: waiting } : item,
+    );
+  }
+
   if (workspace !== "student" && workspace !== "teacher") return items;
   let unread = 0;
   try {

@@ -1,4 +1,5 @@
 import { canPerform, canTeachOffering, AuthorizationError } from "../domain/identity/authorization";
+import type { QuestionType } from "../domain/assessment/types";
 import type { MediaKind } from "../domain/content/types";
 import type { AccessContext } from "../domain/identity/types";
 import {
@@ -22,12 +23,20 @@ import {
   DEMO_ACADEMIC_YEAR_ID,
   DEMO_CLASS_GROUP_ID,
   DEMO_CLASS_NAME,
+  demoActivities,
+  demoMediaAssets,
   demoSubjects,
   type DemoSubject,
 } from "../domain/demo/greenfield";
 import { getSchoolDatabase } from "./index";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
 import { ensurePeopleSeed } from "./people-repository";
+import { ensureDemoMediaObjects } from "./demo-media";
+import {
+  loadTeachingOfferings,
+  selectOffering,
+  type TeachingOffering,
+} from "./teaching-offerings";
 
 const TENANT_ID = "tenant-greenfield";
 export const SCIENCE_OFFERING_ID = "offering-science-jhs2";
@@ -47,12 +56,32 @@ export type LessonSummary = {
   version: number;
 };
 
+/** A question a checkpoint can ask, as the block editor lists it. */
+export type CheckpointQuestionOption = {
+  id: string;
+  marks: number;
+  prompt: string;
+  topic: string;
+  type: QuestionType;
+};
+
 export type TeacherLessonWorkspace = {
   className: string;
   code: string;
   coveragePercent: number;
   lessons: LessonSummary[];
   offeringId: string;
+  /* Every subject this teacher may write lessons for, the selected one
+     included. The library named one offering and had no way to change it, so
+     a teacher of four subjects reached exactly one lesson library. */
+  offerings: TeachingOffering[];
+  /* The approved questions in this subject's bank. Carried on the lesson
+     workspace so an interactive block can be built from real questions
+     without the editor reaching into the assessment workspace for them.
+
+     Scoped to the selected offering like everything else here — a checkpoint
+     in a Mathematics lesson must not be able to ask a Science question. */
+  questionBank: CheckpointQuestionOption[];
   standards: CurriculumStandard[];
   subjectName: string;
   units: Array<{ id: string; lessonCount: number; title: string }>;
@@ -103,11 +132,17 @@ export type CreateDraftInput = {
 
 export async function listTeacherLessonWorkspace(
   access: AccessContext,
+  requestedOfferingId?: string,
 ): Promise<TeacherLessonWorkspace> {
   requireLessonPermission(access);
   await ensureLearningFoundation();
-  const offering = await findAccessibleOffering(access);
   const database = await getSchoolDatabase();
+  const offerings = await loadTeachingOfferings(database, access);
+  const offering = requireTeachingOffering(
+    access,
+    offerings,
+    requestedOfferingId,
+  );
   const unitsResult = await database
     .prepare(
       `SELECT
@@ -158,9 +193,13 @@ export async function listTeacherLessonWorkspace(
 
   const standardsResult = await database
     .prepare(
+      /* Active only. A retired standard stays in the table so the lessons
+         that already cover it keep their record, but it is no longer part of
+         the curriculum a teacher maps new work to — and it must not sit in
+         the denominator of the coverage figure. */
       `SELECT id, code, strand, sub_strand, description, position
       FROM curriculum_standards
-      WHERE tenant_id = ? AND offering_id = ?
+      WHERE tenant_id = ? AND offering_id = ? AND status = 'active'
       ORDER BY position`,
     )
     .bind(access.tenantId, offering.offering_id)
@@ -199,6 +238,26 @@ export async function listTeacherLessonWorkspace(
       prerequisite_title: string | null;
       standard_code: string | null;
     }>();
+  /* Approved only. A checkpoint is shown to a class, so a question still
+     being drafted has no business being offered for one — and requireBlock
+     Attachments refuses it at publish time regardless. */
+  const questionBankResult = await database
+    .prepare(
+      `SELECT q.id, q.type, q.topic, v.prompt, v.marks
+      FROM question_bank_items q
+      INNER JOIN question_versions v
+        ON v.question_id = q.id AND v.version = q.current_version
+      WHERE q.tenant_id = ? AND q.offering_id = ? AND q.status = 'approved'
+      ORDER BY q.topic, q.updated_at DESC`,
+    )
+    .bind(access.tenantId, offering.offering_id)
+    .all<{
+      id: string;
+      marks: number;
+      prompt: string;
+      topic: string;
+      type: QuestionType;
+    }>();
   const planningByLesson = buildLessonPlanningMap(planningResult.results);
   const lessons = lessonsResult.results.map((row) => {
     const summary = toLessonSummary(row);
@@ -226,6 +285,14 @@ export async function listTeacherLessonWorkspace(
       : 0,
     lessons,
     offeringId: offering.offering_id,
+    offerings,
+    questionBank: questionBankResult.results.map((question) => ({
+      id: question.id,
+      marks: Number(question.marks),
+      prompt: question.prompt,
+      topic: question.topic,
+      type: question.type,
+    })),
     standards: standardsResult.results.map((standard) => ({
       code: standard.code,
       description: standard.description,
@@ -246,6 +313,9 @@ export async function listTeacherLessonWorkspace(
 export async function createPersistentLessonDraft(
   access: AccessContext,
   input: CreateDraftInput,
+  /* Duplicating an existing lesson reaches this function too, and it is not
+     the same act as authoring one. See duplicatePersistentLesson(). */
+  options: { copyingExistingBlocks?: boolean } = {},
 ): Promise<LessonSummary> {
   await ensureLearningFoundation();
   validateDraftInput(input);
@@ -273,12 +343,14 @@ export async function createPersistentLessonDraft(
     input.offeringId,
     input.prerequisiteLessonId,
   );
-  await requireBlockAttachments(
-    database,
-    access.tenantId,
-    input.offeringId,
-    input.blocks,
-  );
+  if (!options.copyingExistingBlocks) {
+    await requireBlockAttachments(
+      database,
+      access.tenantId,
+      input.offeringId,
+      input.blocks,
+    );
+  }
 
   const lessonId = crypto.randomUUID();
   const versionId = `${lessonId}:v0`;
@@ -708,20 +780,38 @@ export async function duplicatePersistentLesson(
     source.tenantId,
     source.id,
   );
-  const duplicate = await createPersistentLessonDraft(access, {
-    blocks: source.blocks.map((block) => ({
-      config: block.config,
-      content: block.content,
-      title: block.title,
-      type: block.type,
-    })),
-    objectives: source.objectives,
-    offeringId: source.offeringId,
-    standardIds,
-    summary: source.summary,
-    title: `${source.title} — copy`,
-    unitId: source.unitId,
-  });
+  /* The attachment check is skipped here, and that is the point of the flag.
+     It asks that every media asset a block names is present and `ready` in
+     this offering, which is the right question to ask of a teacher attaching
+     something new. It is the wrong question to ask of a copy: these blocks are
+     already in the database, on a lesson learners may already be reading.
+
+     Asking it anyway made Duplicate fail outright on any lesson carrying a
+     resource or interactive block whose asset had since been removed — or, on
+     a fresh database, was never there: every seeded Integrated Science lesson
+     names an asset id, and `media_assets` and `interactive_activities` are
+     both empty, so Duplicate raised "Every attached media asset must be ready
+     in this subject" on all three of them and no lesson could be copied at
+     all. A teacher cannot fix that from the screen they are on, and the
+     lesson they were copying was fine. */
+  const duplicate = await createPersistentLessonDraft(
+    access,
+    {
+      blocks: source.blocks.map((block) => ({
+        config: block.config,
+        content: block.content,
+        title: block.title,
+        type: block.type,
+      })),
+      objectives: source.objectives,
+      offeringId: source.offeringId,
+      standardIds,
+      summary: source.summary,
+      title: `${source.title} — copy`,
+      unitId: source.unitId,
+    },
+    { copyingExistingBlocks: true },
+  );
   await database
     .prepare(
       `INSERT INTO audit_events
@@ -739,6 +829,181 @@ export async function duplicatePersistentLesson(
   return duplicate;
 }
 
+/** One card on "My subjects", and on the learner's Today screen. */
+export type LearnerSubjectCard = {
+  className: string;
+  code: string;
+  lessonCount: number;
+  nextLessonTitle?: string;
+  offeringId: string;
+  progressPercent: number;
+  subjectName: string;
+  teacherName: string;
+  /** The year the material is pitched at, without the stream. */
+  yearGroup: string;
+};
+
+/**
+ * Every subject this learner is taught.
+ *
+ * This did not exist. "My subjects" and the learner's Today screen both
+ * called demoSubjectCards(), so every learner in every school opened their
+ * subjects and saw Greenfield Academy's four demo subjects, with demo
+ * teachers and invented progress — and the cards linked into demo lessons.
+ * There was no fetch to fail and no error to notice; the screen simply was
+ * not about them.
+ *
+ * A learner reaches a subject through their class: the offerings of the class
+ * their active membership scopes them to. That is the same rule
+ * requireOfferingContentAccess() enforces when they open a lesson, so what
+ * they can see here and what they can open agree.
+ */
+export async function listLearnerSubjects(
+  access: AccessContext,
+): Promise<LearnerSubjectCard[]> {
+  if (access.membershipStatus !== "active") {
+    throw new AuthorizationError("An active school membership is required.");
+  }
+  await ensureLearningFoundation();
+  const database = await getSchoolDatabase();
+
+  const result = await database
+    .prepare(
+      `SELECT
+        o.id AS offering_id,
+        o.class_name,
+        s.code,
+        s.name AS subject_name,
+        COALESCE(p.first_name || ' ' || p.last_name, 'Assigned teacher')
+          AS teacher_name,
+        COUNT(DISTINCT l.id) AS lesson_count,
+        COUNT(DISTINCT CASE WHEN pr.status = 'completed' THEN l.id END)
+          AS completed_count
+      FROM tenant_memberships m
+      INNER JOIN subject_offerings o
+        ON o.tenant_id = m.tenant_id AND o.class_name = m.scope_id
+        AND o.status = 'active'
+      INNER JOIN subjects s ON s.id = o.subject_id
+      LEFT JOIN teacher_assignments a
+        ON a.offering_id = o.id AND a.status = 'active'
+      LEFT JOIN people p ON p.id = a.teacher_person_id
+      LEFT JOIN lessons l
+        ON l.offering_id = o.id AND l.status = 'published'
+      LEFT JOIN lesson_progress pr
+        ON pr.lesson_id = l.id AND pr.learner_person_id = m.person_id
+      WHERE m.tenant_id = ? AND m.person_id = ?
+        AND m.status = 'active' AND m.scope_type = 'class'
+      GROUP BY o.id, o.class_name, s.code, s.name, p.first_name, p.last_name
+      ORDER BY s.name`,
+    )
+    .bind(access.tenantId, access.actorPersonId)
+    .all<{
+      class_name: string;
+      code: string;
+      completed_count: number;
+      lesson_count: number;
+      offering_id: string;
+      subject_name: string;
+      teacher_name: string;
+    }>();
+
+  /* The next unfinished lesson in each subject, in one query rather than one
+     per subject — a learner taking eight subjects should not cost eight round
+     trips to fill in eight card subtitles. */
+  const nextByOffering = await loadNextLessons(database, access);
+
+  return result.results.map((row) => {
+    const lessonCount = Number(row.lesson_count);
+    const completed = Number(row.completed_count);
+    return {
+      className: row.class_name,
+      code: row.code,
+      /* No cover column on subjects — only the demo fixtures carried one.
+         SubjectCoverArt generates artwork from the offering id when there is
+         no photograph, which is every real subject today. */
+      lessonCount,
+      nextLessonTitle: nextByOffering.get(row.offering_id),
+      offeringId: row.offering_id,
+      progressPercent:
+        lessonCount === 0 ? 0 : Math.round((completed / lessonCount) * 100),
+      subjectName: row.subject_name,
+      teacherName: row.teacher_name,
+      yearGroup: yearGroupOf(row.class_name),
+    };
+  });
+}
+
+async function loadNextLessons(
+  database: SchoolDatabase,
+  access: AccessContext,
+): Promise<Map<string, string>> {
+  const result = await database
+    .prepare(
+      `SELECT l.offering_id, v.title
+      FROM lessons l
+      INNER JOIN lesson_versions v
+        ON v.lesson_id = l.id AND v.version = l.current_version
+      LEFT JOIN lesson_progress pr
+        ON pr.lesson_id = l.id AND pr.learner_person_id = ?
+      WHERE l.tenant_id = ? AND l.status = 'published'
+        AND COALESCE(pr.status, '') <> 'completed'
+      ORDER BY l.offering_id, l.created_at`,
+    )
+    .bind(access.actorPersonId, access.tenantId)
+    .all<{ offering_id: string; title: string }>();
+
+  const next = new Map<string, string>();
+  for (const row of result.results) {
+    if (!next.has(row.offering_id)) next.set(row.offering_id, row.title);
+  }
+  return next;
+}
+
+/**
+ * That this person may open this subject at all.
+ *
+ * getLearnerSubject() checked only that the membership was active and then
+ * looked the offering up by id, so any learner could open any subject in the
+ * school by changing the id in the address bar — including one their class
+ * does not take. A teacher or administrator reaches every offering, which is
+ * what the subject preview depends on.
+ *
+ * Written here rather than reusing content-repository's version of the same
+ * rule: that module already imports this one, and a cycle between the two
+ * repositories is a worse problem than one small repeated query.
+ */
+async function requireSubjectReach(
+  database: SchoolDatabase,
+  access: AccessContext,
+  offeringId: string,
+) {
+  if (access.role !== "learner") return;
+  const reachable = await database
+    .prepare(
+      `SELECT m.id
+      FROM tenant_memberships m
+      INNER JOIN subject_offerings o
+        ON o.tenant_id = m.tenant_id AND o.class_name = m.scope_id
+      WHERE m.tenant_id = ? AND m.person_id = ? AND m.status = 'active'
+        AND m.scope_type = 'class' AND o.id = ?
+      LIMIT 1`,
+    )
+    .bind(access.tenantId, access.actorPersonId, offeringId)
+    .first<{ id: string }>();
+  if (!reachable) {
+    throw new AuthorizationError(
+      "This subject belongs to another class.",
+    );
+  }
+}
+
+/* "JHS 2 Gold" is the room; "JHS 2" is what the material is pitched at. The
+   stream tells a learner which desk they sit at, not what they are studying. */
+function yearGroupOf(className: string): string {
+  const match = /^([A-Za-z]+\s*\d+)/.exec(className.trim());
+  return match ? match[1].replace(/\s+/g, " ") : className;
+}
+
 export async function getLearnerSubject(
   access: AccessContext,
   offeringId: string,
@@ -748,6 +1013,7 @@ export async function getLearnerSubject(
   }
   await ensureLearningFoundation();
   const database = await getSchoolDatabase();
+  await requireSubjectReach(database, access, offeringId);
   const offering = await database
     .prepare(
       `SELECT
@@ -1050,22 +1316,78 @@ export async function ensureLearningFoundation() {
   await ensurePeopleSeed();
   const database = await getSchoolDatabase();
 
-  const statements = demoSubjects.flatMap((subject) =>
-    seedSubjectStatements(database, subject),
+  /* The subject and its offering first, and in their own transaction, because
+     everything after them is keyed by the offering id and there is no way to
+     know whether that id exists without asking the table. */
+  await database.batch(
+    demoSubjects.flatMap((subject) => seedOfferingStatements(database, subject)),
   );
+
+  const owned = await seededDemoOfferingIds();
+  const statements = demoSubjects
+    .filter((subject) => owned.has(subject.offeringId))
+    .flatMap((subject) => seedSubjectStatements(database, subject));
 
   /* One transaction. A partially seeded subject — units without their lessons,
      lessons without their blocks — would render as a broken course rather than
      an absent one. */
   await database.batch(statements);
+
+  /* After the rows, because it corrects the sizes on them. Outside the batch
+     because it writes files, and a filesystem write cannot join a database
+     transaction. A failure here costs the demo its downloads, not its
+     lessons, so it is logged rather than raised. */
+  try {
+    await ensureDemoMediaObjects();
+  } catch (error) {
+    console.warn("Demo study resources could not be written.", error);
+  }
 }
 
-function seedSubjectStatements(
+/**
+ * The demo offerings that exist under the id the rest of this seed binds.
+ *
+ * Not every one of them will. `subject_offerings` is unique on (tenant, subject,
+ * class group, year), and a school that put Integrated Science on JHS 2 Gold
+ * through the admin screen holds that slot under an id of its own — a UUID from
+ * setClassOffering(). The insert below is an IGNORE, so it quietly does nothing,
+ * and `offering-science-jhs2` is an id that does not exist.
+ *
+ * Everything downstream — the teacher's assignment, the units, the standards,
+ * the lessons — then pointed at it anyway and violated
+ * teacher_assignments_offering_id_fkey on the first of them. Because the seed is
+ * one transaction and every learning screen waits on it, one school-owned
+ * offering took down the teacher's classes, their markbook and their messages
+ * with the same PostgreSQL error.
+ *
+ * A demo subject whose slot the school already owns is skipped whole instead.
+ * The school's own offering is the real one; the demo has no business hanging
+ * a fabricated teacher and a term of lessons off it.
+ *
+ * Exported because the assessment, reporting and daily-operations seeds stack
+ * on top of this one and key their own rows to the same offerings. Each of them
+ * held the identical assumption and would have failed on its own foreign key
+ * the moment this one stopped failing first.
+ */
+export async function seededDemoOfferingIds(): Promise<Set<string>> {
+  const database = await getSchoolDatabase();
+  const ids = demoSubjects.map((subject) => subject.offeringId);
+  const result = await database
+    .prepare(
+      `SELECT id FROM subject_offerings
+        WHERE tenant_id = ? AND id IN (${ids.map(() => "?").join(", ")})`,
+    )
+    .bind(TENANT_ID, ...ids)
+    .all<{ id: string }>();
+
+  return new Set(result.results.map((row) => row.id));
+}
+
+function seedOfferingStatements(
   database: SchoolDatabase,
   subject: DemoSubject,
 ): SchoolStatement[] {
-  const subjectId = `subject-${subject.slug}`;
-  const statements: SchoolStatement[] = [
+  return [
     database
       .prepare(
         `INSERT OR IGNORE INTO subjects
@@ -1073,7 +1395,7 @@ function seedSubjectStatements(
         VALUES (?, ?, ?, ?, ?)`,
       )
       .bind(
-        subjectId,
+        `subject-${subject.slug}`,
         TENANT_ID,
         subject.code,
         subject.subjectName,
@@ -1106,6 +1428,89 @@ function seedSubjectStatements(
         TENANT_ID,
         subject.code,
       ),
+  ];
+}
+
+/**
+ * The files and interactive activities the lessons attach.
+ *
+ * These were defined in the shared dataset and seeded nowhere, so `media_assets`
+ * and `interactive_activities` were empty on every database while the seeded
+ * lessons carried blocks naming `asset-digestion-study-sheet`,
+ * `activity-organ-hotspots` and nine others. A resource block rendered against
+ * a row that did not exist, and Duplicate refused every lesson in the subject
+ * because `requireBlockAttachments()` could not find what the blocks named.
+ *
+ * Ordered before the lessons that reference them, and the packages before the
+ * activities that carry a `package_asset_id` across a foreign key.
+ */
+function seedAttachmentStatements(
+  database: SchoolDatabase,
+  subject: DemoSubject,
+): SchoolStatement[] {
+  const assets = demoMediaAssets.filter(
+    (asset) => asset.offeringId === subject.offeringId,
+  );
+  const activities = demoActivities.filter(
+    (activity) => activity.offeringId === subject.offeringId,
+  );
+
+  return [
+    ...assets.map((asset) =>
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO media_assets
+            (id, tenant_id, offering_id, uploaded_by_person_id, kind,
+             original_filename, content_type, size_bytes, object_key, status,
+             created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          asset.id,
+          TENANT_ID,
+          asset.offeringId,
+          asset.uploadedByPersonId,
+          asset.kind,
+          asset.originalFilename,
+          asset.contentType,
+          asset.sizeBytes,
+          /* Opaque, like every real upload: the storage key is never the
+             filename. Nothing is on disk for these, which is why the demo
+             assets are documents and packages rather than videos. */
+          `demo/${asset.id}`,
+          asset.status,
+          asset.createdAt,
+        ),
+    ),
+    ...activities.map((activity) =>
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO interactive_activities
+            (id, tenant_id, offering_id, created_by_person_id, title, provider,
+             content_type, launch_url, package_asset_id, fallback_text, status)
+          VALUES (?, ?, ?, ?, ?, 'h5p', ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          activity.id,
+          TENANT_ID,
+          activity.offeringId,
+          subject.teacherPersonId,
+          activity.title,
+          activity.contentType,
+          activity.launchUrl ?? null,
+          activity.packageAssetId ?? null,
+          activity.fallbackText,
+          activity.status,
+        ),
+    ),
+  ];
+}
+
+function seedSubjectStatements(
+  database: SchoolDatabase,
+  subject: DemoSubject,
+): SchoolStatement[] {
+  const statements: SchoolStatement[] = [
     database
       .prepare(
         `INSERT OR IGNORE INTO teacher_assignments
@@ -1118,6 +1523,7 @@ function seedSubjectStatements(
         subject.offeringId,
         subject.teacherPersonId,
       ),
+    ...seedAttachmentStatements(database, subject),
   ];
 
   subject.units.forEach((unit, index) => {
@@ -1320,47 +1726,44 @@ function seedReleaseRule(
 }
 
 
-async function findAccessibleOffering(access: AccessContext) {
-  const database = await getSchoolDatabase();
-  const administrator =
-    access.role === "school-admin" || access.role === "academic-admin";
-  const query = administrator
-    ? `SELECT
-        o.id AS offering_id,
-        o.class_name,
-        s.code,
-        s.name AS subject_name
-      FROM subject_offerings o
-      INNER JOIN subjects s ON s.id = o.subject_id
-      WHERE o.tenant_id = ? AND o.status = 'active'
-      ORDER BY s.name
-      LIMIT 1`
-    : `SELECT
-        o.id AS offering_id,
-        o.class_name,
-        s.code,
-        s.name AS subject_name
-      FROM teacher_assignments a
-      INNER JOIN subject_offerings o ON o.id = a.offering_id
-      INNER JOIN subjects s ON s.id = o.subject_id
-      WHERE a.tenant_id = ?
-        AND a.teacher_person_id = ?
-        AND a.status = 'active'
-        AND o.status = 'active'
-      ORDER BY s.name
-      LIMIT 1`;
-  const statement = database.prepare(query);
-  const offering = administrator
-    ? await statement.bind(access.tenantId).first<OfferingRow>()
-    : await statement
-        .bind(access.tenantId, access.actorPersonId)
-        .first<OfferingRow>();
-  if (!offering) {
+/* The subject the lesson library is about, or a refusal saying which of the
+   two things went wrong: holding no subjects at all, and asking for one that
+   is not yours, are different problems with different fixes.
+
+   This replaced a query ending ORDER BY s.name LIMIT 1, which meant a teacher
+   of Integrated Science and Mathematics could author lessons for whichever
+   sorted first and had no route to the other at all. The list arrives from
+   db/teaching-offerings.ts, resolved once by the caller because the workspace
+   sends it to the switcher as well. */
+function requireTeachingOffering(
+  access: AccessContext,
+  offerings: TeachingOffering[],
+  requestedOfferingId?: string,
+): OfferingRow {
+  if (offerings.length === 0) {
     throw new AuthorizationError(
-      "No active subject offering is assigned to your account.",
+      "No subject offering is assigned to your account. An administrator assigns subjects on the Academics screen.",
     );
   }
-  return offering;
+  if (requestedOfferingId && !canTeachOffering(access, requestedOfferingId)) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+  const offering = selectOffering(offerings, requestedOfferingId);
+  if (!offering) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+  /* The rest of the workspace query already speaks the row shape the old
+     lookup returned, so the two meet here. */
+  return {
+    class_name: offering.className,
+    code: offering.subjectCode,
+    offering_id: offering.id,
+    subject_name: offering.subjectName,
+  };
 }
 
 async function loadLesson(
@@ -1860,6 +2263,9 @@ async function requireBlockAttachments(
       .map((block) => block.config?.activityId)
       .filter((id): id is string => Boolean(id)),
   );
+  const questionIds = new Set(
+    blocks.flatMap((block) => block.config?.questionIds ?? []),
+  );
   for (const assetId of mediaAssetIds) {
     const asset = await database
       .prepare(
@@ -1891,6 +2297,27 @@ async function requireBlockAttachments(
     if (!activity) {
       throw new LessonPolicyError(
         "Every attached H5P activity must be launchable in this subject.",
+      );
+    }
+  }
+  /* A checkpoint may only ask this subject's own approved questions. Without
+     this a block could name any question id in the school and the player,
+     which resolves ids server-side, would happily serve it — a Physics paper
+     leaking through a Social Studies lesson. */
+  for (const questionId of questionIds) {
+    const question = await database
+      .prepare(
+        `SELECT id
+        FROM question_bank_items
+        WHERE id = ? AND tenant_id = ? AND offering_id = ?
+          AND status = 'approved'
+        LIMIT 1`,
+      )
+      .bind(questionId, tenantId, offeringId)
+      .first<{ id: string }>();
+    if (!question) {
+      throw new LessonPolicyError(
+        "Every checkpoint question must be an approved question in this subject.",
       );
     }
   }

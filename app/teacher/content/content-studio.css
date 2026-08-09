@@ -120,114 +120,33 @@
   max-width: 1440px;
 }
 
-.content-hero {
+/* The banner and the four metric cards that stood here are gone; the header is
+   .workspace-context in app/workspace.css, shared with the markbook and the
+   assessment screen, and the counts are one line of facts under it. */
+
+/* Quiet, because leaving for a lesson is not what this screen is for. It was a
+   filled gold button — the highest-contrast element on the page, pointing
+   away from it. */
+.content-lesson-link {
   align-items: center;
-  background:
-    radial-gradient(circle at 85% 20%, rgba(239, 191, 82, 0.26), transparent 19rem),
-    linear-gradient(120deg, #0e544b, #177064);
-  border-radius: var(--radius-lg);
-  color: #ffffff;
-  display: flex;
-  justify-content: space-between;
-  min-height: 190px;
-  overflow: hidden;
-  padding: 28px 32px;
-}
-
-.content-hero .eyebrow {
-  color: #f1c763;
-}
-
-.content-hero h1 {
-  font-family: var(--font-serif);
-  font-size: var(--fs-page);
-  font-weight: var(--fw-regular);
-  letter-spacing: var(--tracking-display);
-  margin: 8px 0 0;
-}
-
-.content-hero > div > p:nth-of-type(2) {
-  color: #c7ddd7;
-  font-size: var(--fs-14);
-  line-height: 1.55;
-  margin: 8px 0 0;
-  max-width: 620px;
-}
-
-.content-hero > div > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.content-hero > div > div span {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  color: #dcebe7;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  padding: 8px 8px;
-}
-
-.content-hero > a {
-  align-items: center;
-  background: #f2c55d;
-  border-radius: var(--radius-sm);
-  color: #173d38;
-  display: flex;
+  align-self: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+  display: inline-flex;
   flex: 0 0 auto;
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
-  min-height: 39px;
-  padding: 0 12px;
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
 }
 
-.content-metrics {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(4, 1fr);
-  margin-top: 12px;
-}
-
-.content-metrics article {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #dfe5dd;
-  border-radius: var(--radius-md);
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 35px 1fr;
-  padding: 12px;
-}
-
-.content-metrics article > span {
-  align-items: center;
-  background: #e4f0eb;
-  border-radius: var(--radius-sm);
-  color: #0d5f55;
-  display: flex;
-  font-size: var(--fs-14);
-  height: 35px;
-  justify-content: center;
-}
-
-.content-metrics p,
-.content-metrics small,
-.content-metrics strong {
-  display: block;
-  margin: 0;
-}
-
-.content-metrics small {
-  color: #74827e;
-  font-size: var(--fs-13);
-}
-
-.content-metrics strong {
-  font-size: var(--fs-18);
-  margin-top: 4px;
+.content-lesson-link:hover {
+  background: var(--brand-tint);
+  border-color: var(--brand-line);
 }
 
 .content-notice {
@@ -247,7 +166,6 @@
   width: 100%;
 }
 
-.content-authoring-grid,
 .content-library-grid {
   display: grid;
   gap: 16px;
@@ -328,6 +246,83 @@
   min-height: 62px;
   padding-top: 8px;
   resize: vertical;
+}
+
+/* The file field ----------------------------------------------------------
+
+   What rendered here was the browser's own control: a grey "Choose File" chip
+   and "No file chosen" set in the user agent's font, sitting inside a box this
+   sheet had styled. It was the only piece of chrome on the screen that did not
+   look like the product.
+
+   The input is still a real <input type="file"> — the label wraps it, so a
+   click and a keyboard activation both reach it, and the accept list and the
+   required flag still apply. It is visually hidden rather than display:none,
+   which would take it out of the focus order. */
+.file-picker-label {
+  color: #52625e;
+  display: block;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  margin-bottom: var(--space-1);
+}
+
+.file-picker-control {
+  align-items: center;
+  background: #f8faf7;
+  border: 1px solid #dbe1da;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-3);
+  min-height: 2.5rem;
+  padding: var(--space-1);
+  transition: border-color 160ms ease;
+}
+
+.file-picker-control:hover {
+  border-color: var(--brand-line);
+}
+
+/* Visible to the keyboard and to assistive technology; not to the eye. */
+.content-form-card .file-picker-control input[type="file"] {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.file-picker-control:focus-within {
+  border-color: var(--brand);
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.file-picker-action {
+  background: var(--brand-soft);
+  border-radius: var(--radius-xs);
+  color: var(--brand);
+  flex: 0 0 auto;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* A long filename truncates rather than pushing the panel wider. */
+.file-picker-name {
+  color: var(--ink-soft);
+  font-size: var(--fs-14);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-picker small {
@@ -418,25 +413,57 @@
 .content-panel-heading {
   align-items: center;
   display: flex;
+  gap: var(--space-3);
   justify-content: space-between;
 }
 
-.content-panel-heading p,
 .content-panel-heading h2 {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
   margin: 0;
 }
 
-.content-panel-heading > span {
+/* The count rides with the title rather than sitting at the far end of the
+   row, so the panel reads as one thing. */
+.content-panel-count {
   align-items: center;
-  background: #e7f1ec;
-  border-radius: 999px;
-  color: #0d5f55;
-  display: flex;
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+  color: var(--brand);
+  display: inline-flex;
+  font-family: var(--font-numeric);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  justify-content: center;
+  min-width: 1.625rem;
+  padding: 0 var(--space-2);
+}
+
+.content-panel-add {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+  cursor: pointer;
+  flex: 0 0 auto;
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
-  height: 28px;
-  justify-content: center;
-  min-width: 26px;
+  padding: var(--space-1) var(--space-3);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.content-panel-add:hover {
+  background: var(--brand-tint);
+  border-color: var(--brand-line);
+}
+
+.content-panel-add:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 .media-list,
@@ -641,19 +668,38 @@
   text-align: center;
 }
 
-.content-empty > span {
+/* This was a <span> that looked precisely like this and did nothing. */
+.content-empty-add {
   align-items: center;
-  background: #e5f0eb;
+  background: var(--brand-soft);
+  border: 0;
   border-radius: 50%;
-  color: #0d5f55;
+  color: var(--brand);
+  cursor: pointer;
   display: flex;
+  font-size: var(--fs-18);
   height: 34px;
   justify-content: center;
+  line-height: 1;
+  padding: 0;
+  transition: background 160ms ease;
   width: 34px;
 }
 
+.content-empty-add:hover {
+  background: var(--brand-line);
+}
+
+.content-empty-add:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
 .content-empty strong {
-  font-size: var(--fs-13);
+  font-size: var(--fs-16);
+  /* The scale has four weights and 700 is not the one for a card title; the
+     user agent's bold was showing through. */
+  font-weight: var(--fw-semibold);
   margin-top: 8px;
 }
 
@@ -664,7 +710,6 @@
 }
 
 @media (max-width: 1100px) {
-  .content-authoring-grid,
   .content-library-grid {
     grid-template-columns: 1fr;
   }
@@ -674,30 +719,9 @@
   .content-mode {
     display: none !important;
   }
-
-  .content-hero {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 20px;
-    padding: 24px;
-  }
-
-  .content-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 @media (max-width: 520px) {
-  .content-metrics {
-    gap: 8px;
-  }
-
-  .content-metrics article {
-    align-items: flex-start;
-    display: flex;
-    flex-direction: column;
-  }
-
   .h5p-field-row {
     grid-template-columns: 1fr;
   }

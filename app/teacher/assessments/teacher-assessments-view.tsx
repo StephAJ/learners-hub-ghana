@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   QuestionBankSummary,
   ReviewAttempt,
@@ -10,6 +10,7 @@ import type { QuestionType } from "../../../domain/assessment/types";
 import { QuestionComposer, type ComposedQuestion } from "./question-composer";
 import { QuizBuilder, type QuizDraft } from "./quiz-builder";
 import { QUESTION_TYPES } from "./question-types";
+import { useOfferingParam } from "../../components/offering-param";
 import "../../admin/academic/academic.css";
 import "./teacher-assessments.css";
 
@@ -67,23 +68,18 @@ export function TeacherAssessmentsView() {
   const [problem, setProblem] = useState("");
   const [notice, setNotice] = useState("");
 
-  const load = useCallback(async (offeringId?: string) => {
-    setState("loading");
-    const result = await fetchWorkspace(offeringId);
-    if ("error" in result) {
-      setProblem(result.error);
-      setState("error");
-      return;
-    }
-    setWorkspace(result.workspace);
-    setState("ready");
-  }, []);
+  /* The subject comes from the address bar, so a teacher who chose one on
+     their markbook opens their assessments already on it. */
+  const { offeringId, setOfferingId } = useOfferingParam();
+  /* Bumped by Try again, which needs to re-run a load the URL would not
+     change on its own. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function loadOnce() {
-      const result = await fetchWorkspace();
+      const result = await fetchWorkspace(offeringId);
       if (!active) return;
       if ("error" in result) {
         setProblem(result.error);
@@ -98,7 +94,23 @@ export function TeacherAssessmentsView() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [offeringId, reloadKey]);
+
+  /* Both put the screen into its loading state from an event handler, where
+     the spinner should appear the moment the control is pressed. */
+  function selectOffering(next: string) {
+    /* Nothing to wait for if it is already the subject on screen — and
+       setting the loading state without a URL change would leave the
+       spinner up with no effect due to run. */
+    if (next === offeringId) return;
+    setState("loading");
+    setOfferingId(next);
+  }
+
+  function retry() {
+    setState("loading");
+    setReloadKey((current) => current + 1);
+  }
 
   if (state === "loading") {
     return <p className="workspace-loading">Loading your assessments…</p>;
@@ -109,7 +121,7 @@ export function TeacherAssessmentsView() {
       <div className="workspace-failure">
         <h2>Your assessments could not be loaded.</h2>
         <p>{problem}</p>
-        <button onClick={() => void load()} type="button">
+        <button onClick={retry} type="button">
           Try again
         </button>
       </div>
@@ -119,7 +131,7 @@ export function TeacherAssessmentsView() {
   return (
     <LoadedAssessments
       notice={notice}
-      selectOffering={(offeringId) => void load(offeringId)}
+      selectOffering={selectOffering}
       setNotice={setNotice}
       setWorkspace={(update) =>
         setWorkspace((current) => (current ? update(current) : current))
@@ -282,14 +294,19 @@ function LoadedAssessments({
       <section className="assessment-main">
 
         <div className="assessment-content">
-          <section className="assessment-hero">
-            <div>
-              <span className="subject-code">{workspace.code}</span>
+          {/* The banner this replaces was 205px of gradient carrying a subject
+              code tile, "Build, deliver and review with confidence." and a
+              paragraph explaining what an assessment workspace is for. A
+              teacher who has navigated to their assessments does not need to be
+              sold them. Which subject, and what is waiting, is the whole of
+              what belongs above the work. */}
+          <header className="screen-context">
+            <div className="screen-identity">
               {/* This said "Integrated Science · JHS 2 Gold" to everyone,
                   because the workspace was gated on that one offering. A
                   teacher of several subjects chooses here. */}
               {workspace.offerings.length > 1 ? (
-                <label className="assessment-subject-switch">
+                <label className="screen-subject-switch">
                   <span className="sr-only">Subject</span>
                   <select
                     onChange={(event) => selectOffering(event.target.value)}
@@ -303,28 +320,19 @@ function LoadedAssessments({
                   </select>
                 </label>
               ) : (
-                <p>
-                  {workspace.subjectName} · {workspace.className}
-                </p>
+                <h2>{workspace.subjectName}</h2>
               )}
-              <h2>Build, deliver and review with confidence.</h2>
               <p>
-                Reuse approved questions, pin exact versions, and keep
-                automatic and teacher-awarded marks clearly separated.
+                {workspace.className} · {workspace.code}
               </p>
             </div>
-            <button
-              className="learner-preview-link"
-              onClick={() =>
-                setNotice(
-                  "Learner preview will open in a clearly labelled preview session.",
-                )
-              }
-              type="button"
-            >
-              Preview assessment
-            </button>
-          </section>
+            {/* A "Preview as learner" button stood here and set a notice
+                saying the preview "will open in a clearly labelled preview
+                session". There is no assessment preview screen — the lesson
+                player has one now, an assessment paper does not — so the
+                button was describing a feature rather than running one. It is
+                gone until there is something behind it. */}
+          </header>
 
           {notice ? (
             <button
@@ -336,41 +344,57 @@ function LoadedAssessments({
             </button>
           ) : null}
 
-          <section className="assessment-metrics" aria-label="Assessment summary">
+          {/* Four cards, on the small card the content library already used.
+              The label was the same size as the figure before, so neither read
+              as the answer; the figure is the largest thing in the card now and
+              the label the smallest. */}
+          <section className="screen-stats" aria-label="Assessment summary">
             <article>
-              <span>Question bank</span>
-              <strong>{workspace.bank.length}</strong>
-              <small>{workspace.typeCoverage} item types</small>
+              <span aria-hidden="true">?</span>
+              <div>
+                <small>Question bank</small>
+                <strong>{workspace.bank.length}</strong>
+                <small>{workspace.typeCoverage} item types</small>
+              </div>
             </article>
             <article>
-              <span>Published quizzes</span>
-              <strong>
-                {
-                  workspace.assessments.filter(
-                    (assessment) => assessment.status === "published",
-                  ).length
-                }
-              </strong>
-              <small>Ready for learners</small>
+              <span aria-hidden="true">▲</span>
+              <div>
+                <small>Published quizzes</small>
+                <strong>
+                  {
+                    workspace.assessments.filter(
+                      (assessment) => assessment.status === "published",
+                    ).length
+                  }
+                </strong>
+                <small>Ready for learners</small>
+              </div>
             </article>
             <article>
-              <span>Awaiting marking</span>
-              <strong>{needsMarking}</strong>
-              <small>Constructed response</small>
+              <span aria-hidden="true">✎</span>
+              <div>
+                <small>Awaiting marking</small>
+                <strong>{needsMarking}</strong>
+                <small>Constructed response</small>
+              </div>
             </article>
             <article>
-              <span>Attempts</span>
-              <strong>
-                {workspace.assessments.reduce(
-                  (sum, assessment) => sum + assessment.attemptCount,
-                  0,
-                )}
-              </strong>
-              <small>Current versions</small>
+              <span aria-hidden="true">◷</span>
+              <div>
+                <small>Attempts</small>
+                <strong>
+                  {workspace.assessments.reduce(
+                    (sum, assessment) => sum + assessment.attemptCount,
+                    0,
+                  )}
+                </strong>
+                <small>Current versions</small>
+              </div>
             </article>
           </section>
 
-          <div className="assessment-tabs" role="tablist">
+          <div className="screen-tabs" role="tablist">
             {[
               ["bank", "Question bank"],
               ["quizzes", "Quizzes"],

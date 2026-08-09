@@ -30,7 +30,10 @@ import type { MediaKind } from "../domain/content/types";
 import { ensureReportingFoundation } from "./reporting-repository";
 import { getMediaStore, getSchoolDatabase } from "./index";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
-import { SCIENCE_OFFERING_ID } from "./learning-repository";
+import {
+  SCIENCE_OFFERING_ID,
+  seededDemoOfferingIds,
+} from "./learning-repository";
 import {
   loadTeachingOfferings,
   selectOffering,
@@ -1257,10 +1260,14 @@ export async function ensureOperationsFoundation() {
   await ensurePeopleSeed();
   await ensureReportingFoundation();
   const database = await getSchoolDatabase();
+  /* A timetable entry names its offering, and the homework below is Integrated
+     Science's, so both reach only what the learning seed created — see
+     seededDemoOfferingIds(). */
+  const seeded = await seededDemoOfferingIds();
   await database.batch([
     ...seedTimetablePeriods(database),
-    ...seedTimetableEntries(database),
-    ...seedAssignments(database),
+    ...seedTimetableEntries(database, seeded),
+    ...(seeded.has(SCIENCE_OFFERING_ID) ? seedAssignments(database) : []),
     ...seedAttendance(database),
   ]);
 }
@@ -1437,11 +1444,17 @@ function seedTimetablePeriods(database: SchoolDatabase) {
   );
 }
 
-function seedTimetableEntries(database: SchoolDatabase) {
+function seedTimetableEntries(
+  database: SchoolDatabase,
+  seeded: Set<string>,
+) {
   /* Every entry now carries the offering it belongs to, so a learner can open
      the subject from their timetable — three of the four could not before —
-     and the teacher on it is the teacher who owns the subject. */
-  return demoTimetable.map((entry) =>
+     and the teacher on it is the teacher who owns the subject. An entry whose
+     offering was not seeded is left off rather than pointed at nothing. */
+  return demoTimetable
+    .filter((entry) => !entry.offeringId || seeded.has(entry.offeringId))
+    .map((entry) =>
     database
       .prepare(
         `INSERT OR IGNORE INTO timetable_entries

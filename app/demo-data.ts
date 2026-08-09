@@ -1,22 +1,15 @@
 import type {
-  LearnerAssessment,
-  LearnerQuestion,
-} from "../db/assessment-repository";
-import type {
   LearnerLesson,
   LearnerSubject,
 } from "../db/learning-repository";
 import {
   DEMO_CLASS_NAME,
-  demoAssessmentBySlug,
-  demoAssessmentQuestions,
   demoMediaAssets,
   demoPersonName,
   demoSubjectByOffering,
   demoSubjectProgress,
   demoSubjects,
   demoYearGroup,
-  type DemoAssessment,
   type DemoSubject,
 } from "../domain/demo/greenfield";
 import type { LessonBlock } from "../domain/learning/types";
@@ -133,41 +126,10 @@ function toLearnerLesson(lesson: DemoSubject["lessons"][number]): LearnerLesson 
   };
 }
 
-/** An assessment as the learner quiz runner expects it, answer keys removed. */
-export function demoLearnerAssessment(
-  assessment: DemoAssessment,
-): LearnerAssessment {
-  return {
-    attempt: null,
-    id: assessment.id,
-    instructions: assessment.instructions,
-    passMarkPercent: assessment.passMarkPercent,
-    purpose: assessment.purpose,
-    /* Answer keys never leave the server side of this projection: a learner
-       is handed the paper, not the mark scheme. */
-    questions: demoAssessmentQuestions(assessment).map(
-      (question, index): LearnerQuestion => ({
-        id: question.id,
-        marks: question.marks,
-        options: question.options,
-        position: index + 1,
-        prompt: question.prompt,
-        questionVersion: 1,
-        type: question.type,
-      }),
-    ),
-    result: null,
-    timeLimitMinutes: assessment.timeLimitMinutes,
-    title: assessment.title,
-    version: 1,
-  };
-}
-
-export function demoLearnerAssessmentBySlug(
-  slug: string,
-): LearnerAssessment | undefined {
-  const assessment = demoAssessmentBySlug(slug);
-  return assessment ? demoLearnerAssessment(assessment) : undefined;
-}
+/* demoLearnerAssessment() and demoLearnerAssessmentBySlug() stood here. They
+   projected a fixture into the learner's runner, which is what let a paper
+   that exists in no database be opened and sat. The seed creates real
+   published assessments, so the runner reads those and these had no callers
+   left. */
 
 export { demoSubjectByOffering, demoSubjects };

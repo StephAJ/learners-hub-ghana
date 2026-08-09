@@ -250,6 +250,31 @@ export async function startMessageThread(
     role === "learner" ? access.actorPersonId : recipientPersonId;
   const teacherPersonId =
     role === "learner" ? recipientPersonId : access.actorPersonId;
+
+  /* Two people have one conversation, not one per time either of them pressed
+     New. Starting a thread with someone already written to used to insert a
+     second row, so an inbox filled with repeated names and the history of
+     what had been said was split across them.
+
+     Matched on the pair alone rather than the pair and the offering: a
+     teacher who takes a class for both Science and Mathematics is still the
+     same person to that learner, and splitting by subject would put half a
+     conversation behind each. The offering on the thread stays as the one it
+     was opened from, which is all it is used for — a label. */
+  const existing = await database
+    .prepare(
+      `SELECT id
+      FROM message_threads
+      WHERE tenant_id = ? AND learner_person_id = ? AND teacher_person_id = ?
+      ORDER BY created_at
+      LIMIT 1`,
+    )
+    .bind(access.tenantId, learnerPersonId, teacherPersonId)
+    .first<{ id: string }>();
+  if (existing) {
+    return sendMessage(access, existing.id, trimmed);
+  }
+
   const threadId = crypto.randomUUID();
 
   await database.batch([

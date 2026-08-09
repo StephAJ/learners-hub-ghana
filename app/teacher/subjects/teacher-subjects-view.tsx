@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   FormEvent,
-  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -18,6 +17,7 @@ import type {
   LessonBlockType,
 } from "../../../domain/learning/types";
 import { resolveVideoUrl } from "../../../domain/learning/video";
+import { useOfferingParam } from "../../components/offering-param";
 import "../../admin/academic/academic.css";
 import "./teacher-subjects.css";
 
@@ -40,15 +40,24 @@ const EMPTY_CONTENT: TeacherContentWorkspace = {
   className: "",
   mediaAssets: [],
   offeringId: "",
+  offerings: [],
   subjectName: "",
   totalBytes: 0,
 };
 
-async function fetchWorkspace(): Promise<
-  { error: string } | { workspace: TeacherLessonWorkspace }
-> {
+/* Omitted on first load, when the server picks the teacher's first subject
+   and tells us which that was. */
+function offeringQuery(offeringId?: string) {
+  return offeringId ? `?offeringId=${encodeURIComponent(offeringId)}` : "";
+}
+
+async function fetchWorkspace(
+  offeringId?: string,
+): Promise<{ error: string } | { workspace: TeacherLessonWorkspace }> {
   try {
-    const response = await fetch("/api/teacher/lessons");
+    const response = await fetch(
+      `/api/teacher/lessons${offeringQuery(offeringId)}`,
+    );
     const payload = (await response.json()) as {
       error?: string;
       workspace?: TeacherLessonWorkspace;
@@ -61,6 +70,29 @@ async function fetchWorkspace(): Promise<
     return { workspace: payload.workspace };
   } catch {
     return { error: "Your lesson library could not be reached." };
+  }
+}
+
+/* The library is a second request because a subject can be taught without
+   one. A teacher whose media library fails to load still gets their lessons;
+   the attach control simply has nothing to offer.
+
+   It takes the offering the lessons resolved to rather than being asked
+   separately, so the two cannot end up showing different subjects. */
+async function fetchContent(
+  offeringId: string,
+): Promise<TeacherContentWorkspace | undefined> {
+  try {
+    const response = await fetch(
+      `/api/teacher/content${offeringQuery(offeringId)}`,
+    );
+    if (!response.ok) return undefined;
+    const payload = (await response.json()) as {
+      workspace?: TeacherContentWorkspace;
+    };
+    return payload.workspace;
+  } catch {
+    return undefined;
   }
 }
 
@@ -79,25 +111,22 @@ export function TeacherSubjectsView() {
      drafts: a published lesson is a version learners may already hold progress
      against, so changing it is a new version rather than an edit. */
   const [editingLessonId, setEditingLessonId] = useState<string>();
+  /* Bumped by Try again, which needs to re-run a load that the URL alone
+     would not change. */
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const load = useCallback(async () => {
-    setState("loading");
-    const result = await fetchWorkspace();
-    if ("error" in result) {
-      setProblem(result.error);
-      setState("error");
-      return;
-    }
-    setWorkspace(result.workspace);
-    setSelectedLessonId(result.workspace.lessons[0]?.id ?? "");
-    setState("ready");
-  }, []);
+  /* The subject comes from the address bar, so it survives navigating away
+     and back and follows the teacher to their markbook. Switching is a
+     reload rather than a filter because units, standards, media and the
+     question bank all belong to the offering — none of it can be derived
+     from what is already on the page. */
+  const { offeringId, setOfferingId } = useOfferingParam();
 
   useEffect(() => {
     let active = true;
 
     async function loadOnce() {
-      const result = await fetchWorkspace();
+      const result = await fetchWorkspace(offeringId);
       if (!active) return;
       if ("error" in result) {
         setProblem(result.error);
@@ -110,26 +139,38 @@ export function TeacherSubjectsView() {
           ? current
           : (result.workspace.lessons[0]?.id ?? ""),
       );
+      /* Anything half-written belonged to the subject being left. */
+      setEditingLessonId(undefined);
+      setNotice("");
       setState("ready");
 
-      /* The library is a second request because a subject can be taught
-         without one. A teacher whose media library fails to load still gets
-         their lessons; the attach control simply has nothing to offer. */
-      const contentResponse = await fetch("/api/teacher/content");
-      if (!contentResponse.ok || !active) return;
-      const contentPayload = (await contentResponse.json()) as {
-        workspace?: TeacherContentWorkspace;
-      };
-      if (active && contentPayload.workspace) {
-        setContentWorkspace(contentPayload.workspace);
-      }
+      const content = await fetchContent(result.workspace.offeringId);
+      if (active) setContentWorkspace(content ?? EMPTY_CONTENT);
     }
 
     void loadOnce();
     return () => {
       active = false;
     };
-  }, []);
+  }, [offeringId, reloadKey]);
+
+  /* Both put the screen into its loading state from an event handler, where
+     the spinner should appear the moment the control is pressed. Choosing a
+     subject then changes the URL and the effect above does the rest; Try
+     again has no URL to change, so it bumps a key the effect also watches. */
+  function selectOffering(next: string) {
+    /* Nothing to wait for if it is already the subject on screen — and
+       setting the loading state without a URL change would leave the
+       spinner up with no effect due to run. */
+    if (next === offeringId) return;
+    setState("loading");
+    setOfferingId(next);
+  }
+
+  function retry() {
+    setState("loading");
+    setReloadKey((current) => current + 1);
+  }
 
   if (state === "loading") {
     return <p className="workspace-loading">Loading your lesson library…</p>;
@@ -140,7 +181,7 @@ export function TeacherSubjectsView() {
       <div className="workspace-failure">
         <h2>Your lesson library could not be loaded.</h2>
         <p>{problem}</p>
-        <button onClick={() => void load()} type="button">
+        <button onClick={retry} type="button">
           Try again
         </button>
       </div>
@@ -152,6 +193,7 @@ export function TeacherSubjectsView() {
       contentWorkspace={contentWorkspace}
       editingLessonId={editingLessonId}
       notice={notice}
+      selectOffering={selectOffering}
       selectedLessonId={selectedLessonId}
       selectedUnitId={selectedUnitId}
       setEditingLessonId={setEditingLessonId}
@@ -171,6 +213,7 @@ function LoadedSubjects({
   contentWorkspace,
   editingLessonId,
   notice,
+  selectOffering,
   selectedLessonId,
   selectedUnitId,
   setEditingLessonId,
@@ -183,6 +226,7 @@ function LoadedSubjects({
   contentWorkspace: TeacherContentWorkspace;
   editingLessonId: string | undefined;
   notice: string;
+  selectOffering: (offeringId: string) => void;
   selectedLessonId: string;
   selectedUnitId: string;
   setEditingLessonId: (value: string | undefined) => void;
@@ -194,6 +238,23 @@ function LoadedSubjects({
   ) => void;
   workspace: TeacherLessonWorkspace;
 }) {
+  /* The builder used to be a 330px column pinned to the right of the lesson
+     list, on a screen that already carried a unit outline and a selection bar.
+     Writing a lesson is not a sidebar activity — it is the second thing this
+     screen is for, so it is the second tab, with the whole width to work in. */
+  const [tab, setTab] = useState<"authoring" | "lessons">("lessons");
+
+  /* Opening a draft to edit means going where the editing happens. */
+  function editLesson(lessonId: string) {
+    setEditingLessonId(lessonId);
+    setTab("authoring");
+  }
+
+  function writeNewLesson() {
+    setEditingLessonId(undefined);
+    setTab("authoring");
+  }
+
   const visibleLessons = useMemo(
     () =>
       selectedUnitId === "all"
@@ -255,6 +316,10 @@ function LoadedSubjects({
       ),
     }));
     setEditingLessonId(undefined);
+    /* Back to the library, where the lesson that was just saved is. Staying in
+       the builder left a teacher looking at an empty form and no evidence
+       anything had happened. */
+    setTab("lessons");
     setNotice(`${payload.lesson.title} was updated.`);
   }
 
@@ -281,6 +346,7 @@ function LoadedSubjects({
       lessons: [payload.lesson as LessonSummary, ...current.lessons],
     }));
     setSelectedLessonId(payload.lesson.id);
+    setTab("lessons");
     setNotice(`${payload.lesson.title} was saved as a private draft.`);
   }
 
@@ -344,28 +410,93 @@ function LoadedSubjects({
 
 
         <div className="admin-content teacher-content">
-          <section className="subject-hero">
-            <div className="subject-hero-code" aria-hidden="true">{workspace.code}</div>
-            <div>
-              <p className="eyebrow">Compulsory subject · 2026 / 2027</p>
-              <h1>{workspace.subjectName}</h1>
-              <p>{workspace.className} · 38 learners · Term 1</p>
+          {/* The banner this replaces carried a code tile, "Compulsory subject
+              · 2026 / 2027", the subject name and "38 learners" — a number that
+              was typed into the markup and belonged to no class in
+              particular. */}
+          <header className="screen-context">
+            <div className="screen-identity">
+              {/* The library resolved one offering with ORDER BY s.name
+                  LIMIT 1, so a teacher of Integrated Science and Mathematics
+                  authored lessons for whichever sorted first and had no route
+                  to the other. A teacher of several subjects chooses here. */}
+              {workspace.offerings.length > 1 ? (
+                <label className="screen-subject-switch">
+                  <span className="sr-only">Subject</span>
+                  <select
+                    onChange={(event) => selectOffering(event.target.value)}
+                    value={workspace.offeringId}
+                  >
+                    {workspace.offerings.map((offering) => (
+                      <option key={offering.id} value={offering.id}>
+                        {offering.subjectName} · {offering.className}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <h2>{workspace.subjectName}</h2>
+              )}
+              <p>
+                {workspace.className} · {workspace.code}
+              </p>
             </div>
-            <div className="subject-hero-actions">
-              <a href="#new-lesson">+ New lesson</a>
-            </div>
-          </section>
+            <button
+              className="subject-write-button"
+              onClick={writeNewLesson}
+              type="button"
+            >
+              + Write a lesson
+            </button>
+          </header>
 
-          <section className="teacher-stats" aria-label="Subject summary">
-            <article><span>≡</span><p><small>Total lessons</small><strong>{workspace.lessons.length}</strong></p></article>
-            <article><span>✓</span><p><small>Published</small><strong>{publishedCount}</strong></p></article>
-            <article><span>✎</span><p><small>Drafts</small><strong>{draftCount}</strong></p></article>
-            <article><span>◎</span><p><small>Standards mapped</small><strong>{mappedStandardCount}/{workspace.standards.length}</strong></p></article>
+          <section className="screen-stats" aria-label="Subject summary">
+            <article>
+              <span aria-hidden="true">≡</span>
+              <div><small>Total lessons</small><strong>{workspace.lessons.length}</strong></div>
+            </article>
+            <article>
+              <span aria-hidden="true">✓</span>
+              <div><small>Published</small><strong>{publishedCount}</strong></div>
+            </article>
+            <article>
+              <span aria-hidden="true">✎</span>
+              <div><small>Drafts</small><strong>{draftCount}</strong></div>
+            </article>
+            <article>
+              <span aria-hidden="true">◎</span>
+              <div>
+                <small>Standards mapped</small>
+                <strong>{mappedStandardCount}/{workspace.standards.length}</strong>
+              </div>
+            </article>
           </section>
 
           {notice && <p className="teacher-notice" role="status">{notice}</p>}
 
-          <div className="teacher-workspace">
+          <div className="screen-tabs" role="tablist">
+            <button
+              aria-selected={tab === "lessons"}
+              className={tab === "lessons" ? "is-active" : ""}
+              onClick={() => setTab("lessons")}
+              role="tab"
+              type="button"
+            >
+              Lessons · {workspace.lessons.length}
+            </button>
+            <button
+              aria-selected={tab === "authoring"}
+              className={tab === "authoring" ? "is-active" : ""}
+              onClick={() => setTab("authoring")}
+              role="tab"
+              type="button"
+            >
+              {editingLessonId ? "Editing a draft" : "Write a lesson"}
+            </button>
+          </div>
+
+          {tab === "lessons" ? (
+            <div className="teacher-workspace">
             <aside className="unit-outline" aria-label="Curriculum units">
               <div><p className="eyebrow">Curriculum</p><h2>Term 1 units</h2></div>
               <button
@@ -391,7 +522,7 @@ function LoadedSubjects({
 
             <section className="lesson-library" id="lessons" aria-labelledby="lesson-library-title">
               <div className="lesson-library-heading">
-                <div><p className="eyebrow">Lesson library</p><h2 id="lesson-library-title">{selectedUnitId === "all" ? "All lessons" : workspace.units.find((unit) => unit.id === selectedUnitId)?.title}</h2></div>
+                <h2 id="lesson-library-title">{selectedUnitId === "all" ? "All lessons" : workspace.units.find((unit) => unit.id === selectedUnitId)?.title}</h2>
                 <span>{visibleLessons.length} lessons</span>
               </div>
               {visibleLessons.length === 0 ? (
@@ -424,7 +555,12 @@ function LoadedSubjects({
                       <em>{releaseLabel(lesson)}</em>
                     </span>
                     <span className={`lesson-status lesson-${lesson.status}`}>{lesson.status}</span>
-                    <b aria-hidden="true">›</b>
+                    {/* A chevron used to sit here. It reads as "opens
+                        something", and this button does not open anything — it
+                        selects the lesson, which reveals the actions below the
+                        list. Clicking it and having the page appear not to
+                        respond is what a misplaced arrow buys you. The
+                        selected state is the feedback now. */}
                   </button>
                 ))}
               </div>
@@ -440,12 +576,7 @@ function LoadedSubjects({
                     {selectedLesson.status === "draft" ? (
                       <>
                         <button
-                          onClick={() => {
-                            setEditingLessonId(selectedLesson.id);
-                            document
-                              .getElementById("new-lesson")
-                              ?.scrollIntoView({ behavior: "smooth" });
-                          }}
+                          onClick={() => editLesson(selectedLesson.id)}
                           type="button"
                         >
                           Edit draft
@@ -453,22 +584,21 @@ function LoadedSubjects({
                         <button className="publish-button" onClick={publishSelectedLesson} type="button">Publish to class →</button>
                       </>
                     ) : (
-                      <button
-                        onClick={() =>
-                          setNotice(
-                            "Learner preview will open in a clearly labelled preview session.",
-                          )
-                        }
-                        type="button"
+                      /* This set a notice saying a preview "will open in a
+                         clearly labelled preview session" — a description of a
+                         screen nobody had built. It opens one now. */
+                      <Link
+                        href={`/teacher/subjects/preview?offeringId=${encodeURIComponent(workspace.offeringId)}`}
                       >
                         Preview lesson
-                      </button>
+                      </Link>
                     )}
                   </div>
                 </div>
               )}
             </section>
-
+            </div>
+          ) : (
             <LessonDraftForm
               activities={contentWorkspace.activities}
               assets={contentWorkspace.mediaAssets}
@@ -481,12 +611,16 @@ function LoadedSubjects({
                     )
                   : undefined
               }
-              onCancelEdit={() => setEditingLessonId(undefined)}
+              onCancelEdit={() => {
+                setEditingLessonId(undefined);
+                setTab("lessons");
+              }}
               onCreate={saveDraft}
+              questionBank={workspace.questionBank}
               standards={workspace.standards}
               units={workspace.units}
             />
-          </div>
+          )}
         </div>
 
     </>
@@ -520,6 +654,7 @@ function LessonDraftForm({
   lessons,
   onCancelEdit,
   onCreate,
+  questionBank,
   standards,
   units,
 }: {
@@ -533,6 +668,7 @@ function LessonDraftForm({
   lessons: TeacherLessonWorkspace["lessons"];
   onCancelEdit: () => void;
   onCreate: (input: CreateLessonFormInput) => Promise<void>;
+  questionBank: TeacherLessonWorkspace["questionBank"];
   standards: TeacherLessonWorkspace["standards"];
   units: TeacherLessonWorkspace["units"];
 }) {
@@ -553,6 +689,11 @@ function LessonDraftForm({
   const [blockContent, setBlockContent] = useState("");
   const [attachmentId, setAttachmentId] = useState("");
   const [posterId, setPosterId] = useState("");
+  /* The questions a checkpoint asks, in the order chosen. An array rather
+     than a set because the order is the teacher's — a checkpoint that walks
+     from recall to application is a different lesson from the same questions
+     shuffled. */
+  const [questionIds, setQuestionIds] = useState<string[]>([]);
   /* A published video a teacher wants to teach around, rather than footage the
      school hosts. domain/learning/video.ts decides whether a link is playable;
      this only holds what was typed. */
@@ -606,6 +747,7 @@ function LessonDraftForm({
           noteBody,
           noteTitle,
           posterId,
+          questionIds,
           videoUrl,
         }),
         content: blockContent.trim(),
@@ -621,6 +763,7 @@ function LessonDraftForm({
     setAttachmentId("");
     setVideoUrl("");
     setPosterId("");
+    setQuestionIds([]);
   }
 
   function moveBlock(index: number, direction: -1 | 1) {
@@ -748,7 +891,20 @@ function LessonDraftForm({
           </>
         )}
         {blockType === "interactive" && (
-          <label><span>Interactive activity (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Use native knowledge check</option>{activities.filter((activity) => activity.status === "launchable").map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></label>
+          <>
+            <label><span>Interactive activity (optional)</span><select value={attachmentId} onChange={(event) => setAttachmentId(event.target.value)}><option value="">Ask questions from your question bank</option>{activities.filter((activity) => activity.status === "launchable").map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></label>
+            {/* An H5P package brings its own questions, so the bank picker is
+                only offered for the native checkpoint. Showing both at once
+                invited a block configured two ways, of which the player can
+                only honour one. */}
+            {!attachmentId && (
+              <CheckpointQuestionPicker
+                onChange={setQuestionIds}
+                questionBank={questionBank}
+                selected={questionIds}
+              />
+            )}
+          </>
         )}
         {(blockType === "video" || blockType === "resource") && (
           <label>
@@ -826,7 +982,7 @@ function LessonDraftForm({
           {blocks.map((block, index) => (
             <li key={block.id}>
               <span>{blockSymbol(block.type)}</span>
-              <p><strong>{block.title}</strong><small>{block.type} · Activity {index + 1}{block.config?.activityId ? " · Interactive activity attached" : block.config?.mediaAssetId ? " · Secure media attached" : ""}</small></p>
+              <p><strong>{block.title}</strong><small>{block.type} · Activity {index + 1}{block.config?.activityId ? " · Interactive activity attached" : block.config?.questionIds?.length ? ` · ${block.config.questionIds.length} checkpoint ${block.config.questionIds.length === 1 ? "question" : "questions"}` : block.config?.mediaAssetId ? " · Secure media attached" : ""}</small></p>
               <div>
                 <button aria-label={`Move ${block.title} up`} disabled={index === 0} onClick={() => moveBlock(index, -1)} type="button">↑</button>
                 <button aria-label={`Move ${block.title} down`} disabled={index === blocks.length - 1} onClick={() => moveBlock(index, 1)} type="button">↓</button>
@@ -901,6 +1057,7 @@ function blockConfig({
   noteBody,
   noteTitle,
   posterId,
+  questionIds,
   videoUrl,
 }: {
   attachmentId: string;
@@ -908,12 +1065,12 @@ function blockConfig({
   noteBody: string;
   noteTitle: string;
   posterId: string;
+  questionIds: string[];
   videoUrl: string;
 }): CreateLessonFormInput["blocks"][number]["config"] {
   if (blockType === "interactive") {
-    return attachmentId
-      ? { activityId: attachmentId, provider: "h5p" }
-      : undefined;
+    if (attachmentId) return { activityId: attachmentId, provider: "h5p" };
+    return questionIds.length > 0 ? { questionIds } : undefined;
   }
 
   if (blockType === "video") {
@@ -940,6 +1097,132 @@ function blockConfig({
   }
 
   return undefined;
+}
+
+/**
+ * Choosing which questions a checkpoint asks.
+ *
+ * Ordered rather than a plain multi-select: the sequence is part of the
+ * teaching, and a checkpoint that opens with the hardest question is a
+ * different lesson from one that builds up to it. Selected questions are
+ * listed in their chosen order with the controls to move them; the rest are
+ * grouped by topic, which is how a teacher looks for a question they wrote
+ * weeks ago.
+ */
+function CheckpointQuestionPicker({
+  onChange,
+  questionBank,
+  selected,
+}: {
+  onChange: (questionIds: string[]) => void;
+  questionBank: TeacherLessonWorkspace["questionBank"];
+  selected: string[];
+}) {
+  if (questionBank.length === 0) {
+    return (
+      <p className="checkpoint-picker-empty">
+        Your question bank has no approved questions for this subject yet.
+        Write them on the Assessments screen and they become available here.
+      </p>
+    );
+  }
+
+  const byId = new Map(questionBank.map((question) => [question.id, question]));
+  const chosen = selected
+    .map((id) => byId.get(id))
+    .filter((question): question is NonNullable<typeof question> =>
+      Boolean(question),
+    );
+  const available = questionBank.filter(
+    (question) => !selected.includes(question.id),
+  );
+  const totalMarks = chosen.reduce((sum, question) => sum + question.marks, 0);
+
+  function move(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= selected.length) return;
+    const reordered = [...selected];
+    [reordered[index], reordered[target]] = [
+      reordered[target],
+      reordered[index],
+    ];
+    onChange(reordered);
+  }
+
+  return (
+    <div className="checkpoint-picker">
+      <div className="checkpoint-picker-head">
+        <span>Checkpoint questions</span>
+        <small>
+          {chosen.length === 0
+            ? "None chosen — the block will be empty for learners"
+            : `${chosen.length} chosen · ${totalMarks} ${totalMarks === 1 ? "mark" : "marks"}`}
+        </small>
+      </div>
+
+      {chosen.length > 0 && (
+        <ol className="checkpoint-picker-chosen">
+          {chosen.map((question, index) => (
+            <li key={question.id}>
+              <span className="checkpoint-picker-number">{index + 1}</span>
+              <div>
+                <strong>{question.prompt}</strong>
+                <small>
+                  {question.topic} · {question.type} · {question.marks}{" "}
+                  {question.marks === 1 ? "mark" : "marks"}
+                </small>
+              </div>
+              <div className="checkpoint-picker-controls">
+                <button
+                  aria-label={`Move "${question.prompt}" earlier`}
+                  disabled={index === 0}
+                  onClick={() => move(index, -1)}
+                  type="button"
+                >
+                  ↑
+                </button>
+                <button
+                  aria-label={`Move "${question.prompt}" later`}
+                  disabled={index === chosen.length - 1}
+                  onClick={() => move(index, 1)}
+                  type="button"
+                >
+                  ↓
+                </button>
+                <button
+                  aria-label={`Remove "${question.prompt}"`}
+                  onClick={() =>
+                    onChange(selected.filter((id) => id !== question.id))
+                  }
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {available.length > 0 && (
+        <div className="checkpoint-picker-available">
+          {available.map((question) => (
+            <button
+              key={question.id}
+              onClick={() => onChange([...selected, question.id])}
+              type="button"
+            >
+              <strong>{question.prompt}</strong>
+              <small>
+                {question.topic} · {question.marks}{" "}
+                {question.marks === 1 ? "mark" : "marks"}
+              </small>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function blockSymbol(type: LessonBlockType) {

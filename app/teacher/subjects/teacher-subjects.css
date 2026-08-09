@@ -144,129 +144,35 @@
   font-weight: var(--fw-semibold);
 }
 
-.subject-hero {
+/* The banner, its code tile and its gold action button are gone; the header is
+   .screen-context in app/workspace.css, shared with every other teacher
+   screen. The summary cards below are .screen-stats, the same component. */
+
+.subject-write-button {
   align-items: center;
-  background:
-    radial-gradient(circle at 88% 18%, rgba(218, 185, 92, 0.2), transparent 16rem),
-    linear-gradient(135deg, #154b43, #22675a);
-  border-radius: var(--radius-xl);
-  color: #ffffff;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: 62px 1fr auto;
-  margin-bottom: 16px;
-  overflow: hidden;
-  padding: 20px 24px;
-}
-
-.subject-hero-code {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.17);
-  border-radius: var(--radius-lg);
-  color: #f1cd70;
-  display: flex;
-  font-family: var(--font-serif);
-  font-size: var(--fs-22);
-  font-weight: var(--fw-semibold);
-  height: 62px;
-  justify-content: center;
-}
-
-.subject-hero .eyebrow {
-  color: #a8cdc2;
-}
-
-.subject-hero h1,
-.subject-hero p {
-  margin: 0;
-}
-
-.subject-hero h1 {
-  font-family: var(--font-serif);
-  font-size: var(--fs-page);
-  font-weight: var(--fw-regular);
-  margin-top: 4px;
-}
-
-.subject-hero > div:nth-child(2) > p:last-child {
-  color: #b4d0c9;
-  font-size: var(--fs-14);
-  margin-top: 8px;
-}
-
-.subject-hero-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.subject-hero-actions button,
-.subject-hero-actions a {
-  align-items: center;
-  border-radius: var(--radius-sm);
+  align-self: center;
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-pill);
+  color: #fff;
+  cursor: pointer;
   display: inline-flex;
+  flex: 0 0 auto;
   font-size: var(--fs-14);
   font-weight: var(--fw-semibold);
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  transition: background 160ms ease;
 }
 
-.subject-hero-actions button {
-  background: rgba(255, 255, 255, 0.09);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+.subject-write-button:hover {
+  background: var(--brand-strong);
+  border-color: var(--brand-strong);
 }
 
-.subject-hero-actions a {
-  background: #e7c464;
-  color: #173d38;
-}
-
-.teacher-stats {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(4, 1fr);
-  margin-bottom: 16px;
-}
-
-.teacher-stats article {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 35px 1fr;
-  padding: 12px;
-}
-
-.teacher-stats article > span {
-  align-items: center;
-  background: #e5f0eb;
-  border-radius: var(--radius-sm);
-  color: var(--primary);
-  display: flex;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  height: 35px;
-  justify-content: center;
-}
-
-.teacher-stats p,
-.teacher-stats small,
-.teacher-stats strong {
-  display: block;
-  margin: 0;
-}
-
-.teacher-stats small {
-  color: #7b8984;
-  font-size: var(--fs-13);
-}
-
-.teacher-stats strong {
-  font-size: var(--fs-18);
-  margin-top: 4px;
+.subject-write-button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 .teacher-notice {
@@ -280,11 +186,14 @@
   padding: 8px 12px;
 }
 
+/* Two columns. The third held the lesson builder, wedged into 330px beside a
+   unit outline and a lesson list — three panels competing for one screen. The
+   builder is the second tab now and gets the full width. */
 .teacher-workspace {
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: 205px minmax(0, 1fr) 330px;
+  grid-template-columns: 205px minmax(0, 1fr);
 }
 
 .unit-outline,
@@ -413,7 +322,7 @@
   cursor: pointer;
   display: grid;
   gap: 12px;
-  grid-template-columns: 36px minmax(0, 1fr) auto 9px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   min-height: 72px;
   padding: 8px 16px;
   text-align: left;
@@ -568,9 +477,7 @@
 }
 
 .lesson-builder {
-  padding: 16px;
-  position: sticky;
-  top: 88px;
+  padding: var(--space-6);
 }
 
 .builder-heading {
@@ -864,11 +771,6 @@
     grid-template-columns: 190px minmax(0, 1fr);
   }
 
-  .lesson-builder {
-    grid-column: 1 / -1;
-    position: static;
-  }
-
   .lesson-builder form {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -884,10 +786,6 @@
 }
 
 @media (max-width: 900px) {
-  .teacher-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .teacher-workspace {
     grid-template-columns: 1fr;
   }
@@ -923,42 +821,12 @@
     display: none;
   }
 
-  .subject-hero {
-    grid-template-columns: 50px 1fr;
-    padding: 16px;
-  }
-
-  .subject-hero-code {
-    height: 50px;
-  }
-
-  .subject-hero-actions {
-    grid-column: 1 / -1;
-  }
-
-  .subject-hero-actions button,
-  .subject-hero-actions a {
-    flex: 1;
-    justify-content: center;
-  }
-
   .lesson-builder form {
     display: flex;
   }
 }
 
 @media (max-width: 480px) {
-  .teacher-stats {
-    gap: 8px;
-  }
-
-  .teacher-stats article {
-    align-items: flex-start;
-    display: flex;
-    flex-direction: column;
-    padding: 12px;
-  }
-
   .unit-outline {
     grid-template-columns: 1fr;
   }
@@ -969,7 +837,7 @@
   }
 
   .lesson-list > button {
-    grid-template-columns: 34px minmax(0, 1fr) 8px;
+    grid-template-columns: 34px minmax(0, 1fr);
   }
 
   .lesson-list .lesson-status {
@@ -1044,4 +912,144 @@
 
 .video-link-field small.is-good {
   color: var(--brand-strong);
+}
+
+/* ==========================================================================
+   Choosing a checkpoint's questions
+
+   An interactive block asks questions out of the subject's own bank, so the
+   picker has to answer two things at a glance: which questions are in, and in
+   what order. Ordering is the reason the chosen list is a separate ordered
+   list rather than a set of toggles — the sequence is part of the teaching.
+   ========================================================================== */
+
+.checkpoint-picker {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.checkpoint-picker-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.checkpoint-picker-head span {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.checkpoint-picker-head small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+.checkpoint-picker-chosen {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checkpoint-picker-chosen li {
+  align-items: center;
+  background: var(--canvas);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  padding: var(--space-2) var(--space-3);
+}
+
+.checkpoint-picker-chosen strong {
+  display: block;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.checkpoint-picker-chosen small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+.checkpoint-picker-number {
+  align-items: center;
+  background: var(--brand-soft);
+  border-radius: var(--radius-xs);
+  color: var(--brand-strong);
+  display: flex;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.checkpoint-picker-controls {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.checkpoint-picker-controls button {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  height: 26px;
+  width: 26px;
+}
+
+.checkpoint-picker-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* A flat list of everything still available. Grouped visually by nothing —
+   the query orders by topic, so questions on one topic already arrive
+   together and a second layer of headings would only add chrome. */
+.checkpoint-picker-available {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.checkpoint-picker-available button {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}
+
+.checkpoint-picker-available button:hover {
+  border-color: var(--brand);
+}
+
+.checkpoint-picker-available strong {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+}
+
+.checkpoint-picker-available small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+.checkpoint-picker-empty {
+  background: var(--canvas);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+  margin: 0;
+  padding: var(--space-3);
 }

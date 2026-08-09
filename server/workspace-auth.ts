@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireAuthenticatedUser } from "../app/auth";
 import {
@@ -5,6 +6,7 @@ import {
   type AuthenticatedSchoolUser,
 } from "../db/people-repository";
 import type { SchoolRole } from "../domain/identity/types";
+import { REQUEST_PATH_HEADER, resolveRequestPath } from "./request-path";
 
 export type WorkspaceKind =
   | "admin"
@@ -29,11 +31,18 @@ const roleWorkspace: Record<SchoolRole, string> = {
   teacher: "/teacher",
 };
 
+/**
+ * @param fallbackReturnTo Where to come back to after signing in, when the
+ * page actually asked for is not known. It usually is — proxy.ts puts it on a
+ * header — so this is the section root, used if the proxy did not run.
+ */
 export async function requireWorkspaceUser(
   workspace: WorkspaceKind,
-  returnTo: string,
+  fallbackReturnTo: string,
 ): Promise<AuthenticatedSchoolUser> {
-  const identity = await requireAuthenticatedUser(returnTo);
+  const identity = await requireAuthenticatedUser(
+    await requestedPath(fallbackReturnTo),
+  );
   const schoolUser = await resolveAuthenticatedSchoolUser(
     identity,
     workspaceRoles[workspace],
@@ -44,6 +53,21 @@ export async function requireWorkspaceUser(
   }
 
   return schoolUser;
+}
+
+/**
+ * The page the browser actually asked for, so signing in returns to it.
+ *
+ * A layout cannot learn this on its own, and because a layout renders above
+ * the page it wraps, its guard is the one that reaches the sign-in screen
+ * first — which is why every deep link used to come back to the workspace
+ * root with its query string gone.
+ *
+ * safeReturnPath() sanitises whatever comes back, so a missing or malformed
+ * header costs the section root rather than an open redirect.
+ */
+async function requestedPath(fallback: string): Promise<string> {
+  return resolveRequestPath((await headers()).get(REQUEST_PATH_HEADER), fallback);
 }
 
 export function workspaceHrefForRole(role: SchoolRole): string {

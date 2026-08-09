@@ -195,3 +195,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* A learner who has not been placed in a class yet. Reached before the school
+   finishes setting up, and previously rendered as an empty grid. */
+.subject-index-empty {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+}

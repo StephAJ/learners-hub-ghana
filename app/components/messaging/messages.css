@@ -214,41 +214,73 @@
   width: 2rem;
 }
 
+/* A column, not a grid. As a grid this stretched its rows to fill the panel:
+   a single "Hey Ama!" became a bubble seven hundred pixels tall, and the
+   recipient picker's three people were spread from the top of the panel to
+   the bottom. Grid rows stretch to fill the container by default; flex items
+   in a column do not. */
 .conversation-transcript {
-  display: grid;
+  align-items: flex-start;
+  display: flex;
   flex: 1;
+  flex-direction: column;
   gap: var(--space-3);
-  justify-items: start;
   min-height: 0;
   overflow-y: auto;
   padding: var(--space-5);
 }
 
+/* Messages rest against the composer with the spare space above them, the way
+   every chat client stacks a short conversation.
+
+   Done with a margin rather than justify-content: flex-end because that makes
+   the earliest messages unreachable once the transcript overflows — the
+   overflow goes off the top of the scroll container and cannot be scrolled
+   back to. An auto margin collapses to nothing when there is no spare space,
+   so a long conversation scrolls normally. */
+.conversation-transcript > :first-child {
+  margin-top: auto;
+}
+
+/* A one-line message was a 65px bubble: 12px of padding top and bottom, a line
+   of text at 1.55, a 4px gap, and the timestamp on a row of its own. Four rows
+   of vertical space to carry three words.
+
+   The timestamp shares the last line of the message now, the way every chat
+   client sets it, and only wraps to its own line when the text fills the line
+   it would have sat on. With the tighter padding and line height that is a
+   ~38px bubble for a short message. */
 .bubble {
+  align-items: baseline;
   background: var(--canvas);
   border-radius: var(--radius-lg);
   /* Square off the corner nearest the sender, so the two sides read as a
      conversation rather than two lists. */
   border-bottom-left-radius: var(--radius-xs);
-  display: grid;
-  gap: var(--space-1);
+  column-gap: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
   max-width: min(34rem, 82%);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  row-gap: 0;
 }
 
 .bubble.is-mine {
+  align-self: flex-end;
   background: var(--brand);
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-xs);
   color: #ffffff;
-  justify-self: end;
 }
 
 .bubble p {
-  font-family: var(--font-body);
   font-size: var(--fs-14);
-  line-height: var(--lh-body);
+  /* Snug rather than body: a chat bubble is not a paragraph of prose, and at
+     1.55 a three-line message carried a blank line's worth of air inside it. */
+  line-height: var(--lh-snug);
   margin: 0;
+  /* Lets a long message shrink to the bubble instead of forcing it wider. */
+  min-width: 0;
   /* A pasted line of a hundred characters must wrap rather than widen. */
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -257,6 +289,11 @@
 .bubble time {
   color: var(--muted);
   font-size: var(--fs-12);
+  line-height: var(--lh-snug);
+  /* Right-aligned on the line it lands on, whether that is the message's last
+     line or one of its own. */
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .bubble.is-mine time {
@@ -320,8 +357,23 @@
 
 /* -- Choosing who to write to --------------------------------------------- */
 
+/* Choosing who to write to is not a transcript, and it borrowed the
+   transcript's styles until the bottom-anchoring meant for messages pushed
+   the whole picker to the floor of the panel. Its own container, scrolling
+   from the top. */
+.recipient-picker {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+
 .recipient-list {
   display: grid;
+  /* Packed at the top: without this the rows share the panel's full height
+     between them, which is what put a hand's width between three people. */
+  align-content: start;
   gap: var(--space-2);
   list-style: none;
   margin: 0;

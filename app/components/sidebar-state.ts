@@ -12,7 +12,8 @@
    render once with the wrong value and then correct itself.
    ========================================================================== */
 
-export const SIDEBAR_STORAGE_KEY = "learners-hub.sidebar-collapsed";
+export { SIDEBAR_STORAGE_KEY } from "./sidebar-storage";
+import { SIDEBAR_STORAGE_KEY } from "./sidebar-storage";
 
 const listeners = new Set<() => void>();
 

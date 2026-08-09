@@ -445,7 +445,7 @@ function NewConversation({
         </button>
       </header>
 
-      <div className="conversation-transcript">
+      <div className="recipient-picker">
         <ul className="recipient-list">
           {recipients.map((person) => (
             <li key={person.personId}>

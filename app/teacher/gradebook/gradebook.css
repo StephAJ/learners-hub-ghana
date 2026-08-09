@@ -155,31 +155,10 @@
   justify-content: space-between;
 }
 
-.gradebook-tabs {
-  width: max-content;
-  margin: 24px 0 16px;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--muted) 10%, var(--canvas));
-  display: flex;
-  gap: 4px;
-}
-
-.gradebook-tabs button {
-  padding: 12px 16px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-  font-weight: var(--fw-semibold);
-  cursor: pointer;
-}
-
-.gradebook-tabs button.is-active {
-  background: white;
-  color: var(--brand-strong);
-  box-shadow: 0 2px 9px rgba(28, 55, 46, 0.08);
-}
+/* .gradebook-tabs lived here: a second copy of .screen-tabs with 12px of
+   vertical padding instead of 8 and no font-size, so its labels fell back to
+   body text. The markbook uses the shared control now — see .screen-tabs in
+   app/workspace.css. */
 
 .gradebook-panel {
   padding: 24px;
@@ -537,6 +516,15 @@
 .released-indicator {
   color: var(--brand);
   font-size: var(--fs-14);
+}
+
+/* Replaces the Approve and Release buttons this footer used to carry. A
+   teacher cannot do either — the permissions belong to the head — so the
+   space says who is holding the report instead of offering a refusal. */
+.report-next-step {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  text-align: right;
 }
 
 .policy-layout {

@@ -1,12 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type {
   AcademicYear,
   AdmissionIntake,
 } from "../../../domain/academic/structure";
 import type { ApplicantApplication } from "../../../db/applicant-repository";
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  FileTextIcon,
+  InboxIcon,
+  UsersIcon,
+} from "../../components/icons";
 import "../academic/academic.css";
 import "./admissions.css";
 
@@ -57,6 +72,28 @@ const intakeStatusNames: Record<AdmissionIntake["status"], string> = {
   draft: "Not published",
   open: "Open",
 };
+
+/* The five states an application passes through, in order, each with the
+   glyph and hue that label it. `draft` and `rejected` are deliberately not
+   here: a funnel is the road through, and neither of those is on it — a draft
+   has not been submitted, and a rejection is where the road stops. Both are
+   still reachable from the queue's status filter.
+
+   Labels are shortened from statusNames because these sit under a glyph in a
+   fifth of the row: "Awaiting review" becomes "Submitted", which is the stage
+   rather than the instruction. */
+const PIPELINE_STAGES: ReadonlyArray<{
+  hue: string;
+  Icon: (props: { size?: number }) => ReactNode;
+  label: string;
+  status: ApplicationStatus;
+}> = [
+  { hue: "blue", Icon: InboxIcon, label: "Submitted", status: "submitted" },
+  { hue: "amber", Icon: ClockIcon, label: "Review", status: "under-review" },
+  { hue: "violet", Icon: FileTextIcon, label: "Offered", status: "offered" },
+  { hue: "teal", Icon: CheckIcon, label: "Accepted", status: "accepted" },
+  { hue: "lime", Icon: UsersIcon, label: "Enrolled", status: "enrolled" },
+];
 
 type AdmissionsData = {
   applications: ApplicantApplication[];
@@ -204,9 +241,6 @@ export function AdmissionsView() {
     return tally;
   }, [applications]);
 
-  const offersMade =
-    (byStatus.offered ?? 0) + (byStatus.accepted ?? 0) + (byStatus.enrolled ?? 0);
-
   async function sendIntake(body: unknown, success: string) {
     setBusy(true);
     setNotice("");
@@ -352,68 +386,55 @@ export function AdmissionsView() {
         years={years}
       />
 
-      <section className="admin-stats admissions-stats" aria-label="Admissions summary">
-        <article>
-          <span className="admin-stat-icon blue">↓</span>
-          <div>
-            <small>Applications received</small>
-            <strong>{applications.length}</strong>
-          </div>
-          <em>{activeIntake?.label ?? "no intake"}</em>
-        </article>
-        <article>
-          <span className="admin-stat-icon gold">◷</span>
-          <div>
-            <small>Awaiting review</small>
-            <strong>{byStatus.submitted ?? 0}</strong>
-          </div>
-          <em>
-            {(byStatus.submitted ?? 0) === 0
-              ? "nothing waiting"
-              : "not yet opened"}
-          </em>
-        </article>
-        <article>
-          <span className="admin-stat-icon purple">✉</span>
-          <div>
-            <small>Offers issued</small>
-            <strong>{offersMade}</strong>
-          </div>
-          <em>{byStatus.offered ?? 0} awaiting a reply</em>
-        </article>
-        <article>
-          <span className="admin-stat-icon green">✓</span>
-          <div>
-            <small>Learners enrolled</small>
-            <strong>{byStatus.enrolled ?? 0}</strong>
-          </div>
-          <em>
-            {activeIntake && activeIntake.capacity > 0
-              ? `of ${activeIntake.capacity} places`
-              : "no capacity set"}
-          </em>
-        </article>
-      </section>
+      {/* ==================================================================
+          One funnel, not a funnel and a scoreboard
 
+          A row of four stat cards used to sit above this, and three of its
+          four numbers were already in the pipeline underneath — "Awaiting
+          review" is Submitted, "Offers issued" is Offered plus everything
+          past it, "Learners enrolled" is Enrolled. Nine figures on screen
+          answering five questions, and a reader had to work out which pairs
+          were the same number before trusting either.
+
+          The pipeline is the better of the two, because admissions is a
+          sequence and a funnel says so. It now carries the two facts only
+          the cards had — the total received, and the places available — in
+          its caption, and the stages carry the glyphs.
+          ================================================================== */}
       <section className="pipeline-panel" aria-label="Admissions pipeline">
-        {(
-          [
-            ["Submitted", byStatus.submitted ?? 0],
-            ["Review", byStatus["under-review"] ?? 0],
-            ["Offered", byStatus.offered ?? 0],
-            ["Accepted", byStatus.accepted ?? 0],
-            ["Enrolled", byStatus.enrolled ?? 0],
-          ] as Array<[string, number]>
-        ).map(([label, count], index) => (
-          <div key={label}>
-            <span>{index + 1}</span>
-            <p>
-              {label}
-              <strong>{count}</strong>
-            </p>
-            {index < 4 && <i aria-hidden="true">→</i>}
+        <header>
+          <div>
+            <p className="eyebrow">This intake</p>
+            <h2>
+              {applications.length}{" "}
+              {applications.length === 1 ? "application" : "applications"}
+            </h2>
           </div>
-        ))}
+          <span>
+            {activeIntake && activeIntake.capacity > 0
+              ? `${byStatus.enrolled ?? 0} enrolled of ${activeIntake.capacity} places`
+              : "No capacity set"}
+          </span>
+        </header>
+
+        <ol>
+          {PIPELINE_STAGES.map((stage, index) => (
+            <li data-hue={stage.hue} key={stage.status}>
+              <span className="pipeline-glyph" aria-hidden="true">
+                <stage.Icon size={18} />
+              </span>
+              <p>
+                {stage.label}
+                <strong>{byStatus[stage.status] ?? 0}</strong>
+              </p>
+              {index < PIPELINE_STAGES.length - 1 && (
+                <i aria-hidden="true">
+                  <ChevronRightIcon size={16} />
+                </i>
+              )}
+            </li>
+          ))}
+        </ol>
       </section>
 
       <div className="admissions-workspace">

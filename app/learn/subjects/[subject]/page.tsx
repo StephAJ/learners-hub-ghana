@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { WorkspaceShell } from "../../../components/workspace-shell";
 import { demoLearnerSubject } from "../../../demo-data";
 import { demoSubjectBySlug } from "../../../../domain/demo/greenfield";
+import { getLearnerSubject } from "../../../../db/learning-repository";
 import { requireWorkspaceUser } from "../../../../server/workspace-auth";
 import { LessonPlayer } from "./lesson-player";
 import "./lesson-player.css";
@@ -22,15 +23,18 @@ export default async function SubjectLessonPlayerPage({
 }: {
   params: Promise<{ subject: string }>;
 }) {
-  const { subject: slug } = await params;
-  const demoSubject = demoSubjectBySlug(slug);
-  if (!demoSubject) notFound();
+  const { subject: key } = await params;
+  const user = await requireWorkspaceUser("student", `/learn/subjects/${key}`);
 
-  const user = await requireWorkspaceUser(
-    "student",
-    `/learn/subjects/${slug}`,
-  );
-  const subject = demoLearnerSubject(demoSubject);
+  /* The segment is an offering id, or one of the demo slugs. It used to be
+     only the latter — `if (!demoSubject) notFound()` — so a learner could
+     open Greenfield's four demo subjects and nothing else. Their own subjects
+     404'd, because their offering ids are not demo slugs. */
+  const demoSubject = demoSubjectBySlug(key);
+  const subject = demoSubject
+    ? demoLearnerSubject(demoSubject)
+    : await getLearnerSubject(user.access, key).catch(() => undefined);
+  if (!subject) notFound();
 
   return (
     <WorkspaceShell

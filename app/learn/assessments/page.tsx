@@ -5,11 +5,6 @@ import {
   listLearnerAssessments,
   type LearnerAssessmentCard,
 } from "../../../db/assessment-repository";
-import {
-  demoAssessmentMarks,
-  demoAssessments,
-  demoSubjectByOffering,
-} from "../../../domain/demo/greenfield";
 import type { AccessContext } from "../../../domain/identity/types";
 import { requireWorkspaceUser } from "../../../server/workspace-auth";
 import "./assessment-index.css";
@@ -35,9 +30,12 @@ const statusLabels: Record<LearnerAssessmentCard["status"], string> = {
  *
  * The list itself then lied about something larger: it was built from the
  * static demo dataset, so a paper a teacher actually assembled and published
- * never appeared here at all. It reads from the database now, and falls back
- * to the demo set only when that is unreachable — the same pattern the rest of
- * the learner surfaces use.
+ * never appeared here at all.
+ *
+ * It reads from the database, and a failure says so. It used to fall through
+ * to the demo set instead, which meant a learner whose assessments could not
+ * be loaded — or who simply had none — was shown another school's papers and
+ * invited to sit them.
  */
 export default async function LearnerAssessmentsPage() {
   const user = await requireWorkspaceUser("student", "/learn/assessments");
@@ -82,8 +80,8 @@ export default async function LearnerAssessmentsPage() {
         ))}
         {assessments.length === 0 ? (
           <li className="assessment-list-empty">
-            Nothing has been set for you yet. Your teachers publish papers here
-            when they are ready.
+            Nothing has been set for you yet. Papers appear here once a
+            teacher publishes one for your class.
           </li>
         ) : null}
       </ul>
@@ -106,42 +104,18 @@ type AssessmentListItem = {
 async function listAssessments(
   access: AccessContext,
 ): Promise<AssessmentListItem[]> {
-  try {
-    const rows = await listLearnerAssessments(access);
-    if (rows.length > 0) {
-      return rows.map((assessment) => ({
-        /* Linked by id rather than slug: a paper assembled in the app has no
-           slug — only the demo fixtures do. */
-        href: `/learn/assessments/${assessment.id}`,
-        marks: assessment.totalMarks,
-        purpose: assessment.purpose,
-        questionCount: assessment.questionCount,
-        status: assessment.status,
-        statusLabel: statusLabels[assessment.status],
-        subjectName:
-          demoSubjectByOffering(assessment.offeringId)?.subjectName ??
-          "Subject",
-        timeLimitMinutes: assessment.timeLimitMinutes,
-        title: assessment.title,
-      }));
-    }
-  } catch {
-    /* Falls through to the demo set below, so the page still reads on a
-       deployment whose assessment tables are not reachable. */
-  }
-
-  /* A draft paper is the teacher's business until it is published. */
-  return demoAssessments
-    .filter((assessment) => assessment.status === "published")
-    .map((assessment) => ({
-      href: `/learn/assessments/${assessment.slug}`,
-      marks: demoAssessmentMarks(assessment),
-      purpose: assessment.purpose,
-      questionCount: assessment.questionIds.length,
-      status: "not-started",
-      subjectName:
-        demoSubjectByOffering(assessment.offeringId)?.subjectName ?? "Subject",
-      timeLimitMinutes: assessment.timeLimitMinutes,
-      title: assessment.title,
-    }));
+  const rows = await listLearnerAssessments(access);
+  return rows.map((assessment) => ({
+    /* Linked by id rather than slug: a paper assembled in the app has no
+       slug — only the demo fixtures did. */
+    href: `/learn/assessments/${assessment.id}`,
+    marks: assessment.totalMarks,
+    purpose: assessment.purpose,
+    questionCount: assessment.questionCount,
+    status: assessment.status,
+    statusLabel: statusLabels[assessment.status],
+    subjectName: assessment.subjectName,
+    timeLimitMinutes: assessment.timeLimitMinutes,
+    title: assessment.title,
+  }));
 }

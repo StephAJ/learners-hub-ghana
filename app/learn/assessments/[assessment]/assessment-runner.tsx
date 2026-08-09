@@ -18,31 +18,46 @@ import type {
   LearnerAssessment,
   LearnerQuestion,
 } from "../../../../db/assessment-repository";
-import type {
-  QuestionMedia,
-  QuestionResponse,
-} from "../../../../domain/assessment/types";
-import { QuestionFigure, QuestionFormula } from "./question-media";
+import type { QuestionResponse } from "../../../../domain/assessment/types";
+import {
+  QuestionFigure,
+  QuestionFormula,
+} from "../../../components/question-media";
+import { QuestionInput } from "../../../components/question-input";
+
+/* ==========================================================================
+   No preview attempt
+
+   This runner had a "preview" mode it fell into whenever the assessment could
+   not be re-fetched. In it, pressing Start built an attempt with the id
+   "preview-attempt"; typing an answer reported "Saved in preview" and saved
+   nothing; and submitting invented a result — Math.round(totalMarks * 0.85) —
+   and showed it to the learner as their score.
+
+   A learner cannot tell that screen from the working one. They sit the paper,
+   answer it, hand it in, and are told they scored 85%. Nothing was recorded,
+   and no teacher ever sees it.
+
+   The paper is loaded on the server now and every write goes to the API. A
+   failure says so.
+   ========================================================================== */
 
 export function AssessmentRunner({
-  previewAssessment,
+  assessment: initialAssessment,
 }: {
-  previewAssessment: LearnerAssessment;
+  assessment: LearnerAssessment;
 }) {
-  const [assessment, setAssessment] = useState(previewAssessment);
+  const [assessment, setAssessment] = useState(initialAssessment);
   const [activeIndex, setActiveIndex] = useState(0);
   const [responses, setResponses] = useState<
     Record<string, QuestionResponse>
   >({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
-  const [dataMode, setDataMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
-  );
   const [saveState, setSaveState] = useState("All changes saved");
   const [notice, setNotice] = useState("");
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(
-    previewAssessment.timeLimitMinutes * 60,
+    initialAssessment.timeLimitMinutes * 60,
   );
   const saveTimers = useRef<
     Record<string, ReturnType<typeof setTimeout>>
@@ -68,26 +83,28 @@ export function AssessmentRunner({
     celebratePass();
   }, [hasPassed]);
 
-  const assessmentId = previewAssessment.id;
+  const assessmentId = initialAssessment.id;
 
   useEffect(() => {
     let active = true;
     const timers = saveTimers.current;
+    /* A refresh, not a fallback: the server already rendered this paper, so
+       a failure here leaves what is on screen and says nothing. Picking up an
+       attempt in progress is the reason it runs at all. */
     async function loadAssessment() {
       try {
         const response = await fetch(
           `/api/learn/assessments?assessmentId=${encodeURIComponent(assessmentId)}`,
         );
-        if (!response.ok) throw new Error("Assessment unavailable.");
+        if (!response.ok) return;
         const payload = (await response.json()) as {
-          assessment: LearnerAssessment;
+          assessment?: LearnerAssessment;
         };
-        if (!active) return;
+        if (!active || !payload.assessment) return;
         setAssessment(payload.assessment);
         setResponses(payload.assessment.attempt?.responses ?? {});
-        setDataMode("protected");
       } catch {
-        if (active) setDataMode("preview");
+        /* Left as the server rendered it. */
       }
     }
     void loadAssessment();
@@ -127,49 +144,30 @@ export function AssessmentRunner({
   );
 
   async function startAttempt() {
-    if (dataMode === "protected") {
-      const response = await fetch("/api/learn/assessments", {
-        body: JSON.stringify({
-          action: "start",
-          assessmentId: assessment.id,
-        }),
-        headers: { "content-type": "application/json" },
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        assessment?: LearnerAssessment;
-        error?: string;
-      };
-      if (!response.ok || !payload.assessment) {
-        setNotice(payload.error ?? "Attempt could not be started.");
-        return;
-      }
-      setAssessment(payload.assessment);
-      setResponses(payload.assessment.attempt?.responses ?? {});
+    const response = await fetch("/api/learn/assessments", {
+      body: JSON.stringify({
+        action: "start",
+        assessmentId: assessment.id,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as {
+      assessment?: LearnerAssessment;
+      error?: string;
+    };
+    if (!response.ok || !payload.assessment) {
+      setNotice(payload.error ?? "Attempt could not be started.");
       return;
     }
-    const startedAt = new Date();
-    setAssessment((current) => ({
-      ...current,
-      attempt: {
-        deadlineAt: new Date(
-          startedAt.getTime() + current.timeLimitMinutes * 60_000,
-        ).toISOString(),
-        id: "preview-attempt",
-        responses: {},
-        startedAt: startedAt.toISOString(),
-        status: "in-progress",
-      },
-    }));
+    setAssessment(payload.assessment);
+    setResponses(payload.assessment.attempt?.responses ?? {});
   }
 
   function updateResponse(questionId: string, value: unknown) {
     const response = { value };
     setResponses((current) => ({ ...current, [questionId]: response }));
-    if (!assessment.attempt || dataMode !== "protected") {
-      setSaveState("Saved in preview");
-      return;
-    }
+    if (!assessment.attempt) return;
     setSaveState("Saving…");
     clearTimeout(saveTimers.current[questionId]);
     saveTimers.current[questionId] = setTimeout(() => {
@@ -182,7 +180,7 @@ export function AssessmentRunner({
     response: QuestionResponse,
     isFlagged: boolean,
   ) {
-    if (!assessment.attempt || dataMode !== "protected") return;
+    if (!assessment.attempt) return;
     const result = await fetch("/api/learn/assessments", {
       body: JSON.stringify({
         action: "save",
@@ -212,23 +210,6 @@ export function AssessmentRunner({
   async function submitAttempt() {
     if (!assessment.attempt) return;
     setConfirmSubmit(false);
-    if (dataMode !== "protected") {
-      setAssessment((current) => ({
-        ...current,
-        attempt: current.attempt
-          ? { ...current.attempt, status: "needs-marking" }
-          : null,
-        result: {
-          maximumMarks: totalMarks,
-          released: false,
-          /* No answer key ships to the client, so preview mode cannot mark
-             the attempt for real — this stands in for a plausible pass until
-             a protected session provides the actual auto-marked score. */
-          score: Math.round(totalMarks * 0.85),
-        },
-      }));
-      return;
-    }
     Object.values(saveTimers.current).forEach(clearTimeout);
     setSaveState("Saving final responses…");
     const savedResponses = await Promise.all(
@@ -313,13 +294,7 @@ export function AssessmentRunner({
               Start assessment
               <ChevronRightIcon size={16} />
             </button>
-            <small>
-              {dataMode === "protected"
-                ? "Your attempt will be recorded."
-                : dataMode === "loading"
-                  ? "Connecting to your school record…"
-                  : "Preview mode — no school record will change."}
-            </small>
+            <small>Your attempt will be recorded.</small>
           </div>
         </section>
 
@@ -376,8 +351,8 @@ export function AssessmentRunner({
               </strong>
             </article>
           </div>
-          <Link href="/learn/subjects/integrated-science">
-            Return to Integrated Science
+          <Link href={`/learn/subjects/${assessment.offeringId}`}>
+            Back to the subject
           </Link>
         </section>
       </div>
@@ -592,237 +567,6 @@ export function AssessmentRunner({
         </div>
       ) : null}
     </>
-  );
-}
-
-/**
- * What sits inside one choice tile.
- *
- * A picture option keeps its label as the accessible name rather than
- * dropping it: "the diagram showing the small intestine" is what a learner
- * using a screen reader needs, and it is also what shows if the image fails.
- */
-function ChoiceBody({
-  option,
-}: {
-  option: { label: string; media?: QuestionMedia };
-}) {
-  if (option.media?.alt?.trim()) {
-    return (
-      <span className="choice-media">
-        <QuestionFigure media={option.media} variant="option" />
-        <strong>{option.label}</strong>
-      </span>
-    );
-  }
-  return <strong>{option.label}</strong>;
-}
-
-function QuestionInput({
-  onChange,
-  question,
-  value,
-}: {
-  onChange: (value: unknown) => void;
-  question: LearnerQuestion;
-  value: unknown;
-}) {
-  if (question.type === "single-choice" || question.type === "true-false") {
-    const options =
-      question.type === "true-false"
-        ? [
-            { id: "true", label: "True", value: true },
-            { id: "false", label: "False", value: false },
-          ]
-        : question.options.map((option) => ({ ...option, value: option.id }));
-    return (
-      <div className="choice-list">
-        {options.map((option, index) => (
-          <label
-            className={
-              value === option.value ? "choice-option is-selected" : "choice-option"
-            }
-            key={option.id}
-          >
-            <input
-              checked={value === option.value}
-              name={question.id}
-              onChange={() => onChange(option.value)}
-              type="radio"
-            />
-            <span>{String.fromCharCode(65 + index)}</span>
-            <ChoiceBody option={option} />
-          </label>
-        ))}
-      </div>
-    );
-  }
-
-  if (question.type === "multiple-choice") {
-    const selected = Array.isArray(value) ? value.map(String) : [];
-    return (
-      <div className="choice-list">
-        {question.options.map((option, index) => (
-          <label
-            className={
-              selected.includes(option.id)
-                ? "choice-option is-selected"
-                : "choice-option"
-            }
-            key={option.id}
-          >
-            <input
-              checked={selected.includes(option.id)}
-              onChange={() =>
-                onChange(
-                  selected.includes(option.id)
-                    ? selected.filter((id) => id !== option.id)
-                    : [...selected, option.id],
-                )
-              }
-              type="checkbox"
-            />
-            <span>{String.fromCharCode(65 + index)}</span>
-            <ChoiceBody option={option} />
-          </label>
-        ))}
-      </div>
-    );
-  }
-
-  if (question.type === "matching") {
-    const matches =
-      typeof value === "object" && value
-        ? (value as Record<string, string>)
-        : {};
-    const left = question.options.filter((option) =>
-      option.id.startsWith("left:"),
-    );
-    const right = question.options.filter((option) =>
-      option.id.startsWith("right:"),
-    );
-    return (
-      <div className="matching-list">
-        {left.map((item) => {
-          const key = item.id.replace("left:", "");
-          return (
-            <label key={item.id}>
-              <strong>{item.label}</strong>
-              <span>matches with</span>
-              <select
-                aria-label={`What ${item.label} matches with`}
-                onChange={(event) =>
-                  onChange({ ...matches, [key]: event.target.value })
-                }
-                value={matches[key] ?? ""}
-              >
-                {/* Not "Choose an action". These placeholders were written
-                    against the one demo question in front of the developer at
-                    the time — a matching question about digestive organs and
-                    their actions — so every matching question in every subject
-                    asked the learner to choose an action, and every ordering
-                    question asked them to select an organ. The select cannot
-                    know what its options are, so it says what it is for. */}
-                <option value="">Choose a match</option>
-                {right.map((option) => (
-                  <option
-                    key={option.id}
-                    value={option.id.replace("right:", "")}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          );
-        })}
-      </div>
-    );
-  }
-
-  if (question.type === "ordering") {
-    const order = Array.isArray(value)
-      ? value.map(String)
-      : question.options.map(() => "");
-    return (
-      <div className="ordering-list">
-        {question.options.map((_, index) => (
-          <label key={index}>
-            <span>{index + 1}</span>
-            <select
-              aria-label={`Position ${index + 1}`}
-              onChange={(event) => {
-                const next = [...order];
-                next[index] = event.target.value;
-                onChange(next);
-              }}
-              value={order[index] ?? ""}
-            >
-              <option value="">Choose an item</option>
-              {question.options.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
-      </div>
-    );
-  }
-
-  if (question.type === "essay" || question.type === "composite") {
-    return (
-      <div className="written-response">
-        <textarea
-          aria-label="Written response"
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="Write your explanation here…"
-          rows={8}
-          value={String(value ?? "")}
-        />
-        <small>{String(value ?? "").trim().split(/\s+/).filter(Boolean).length} words</small>
-      </div>
-    );
-  }
-
-  if (question.type === "file-upload") {
-    return (
-      <div className="upload-response">
-        <span>↑</span>
-        <strong>Secure file response</strong>
-        <p>Uploads will be enabled when your school activates file storage.</p>
-      </div>
-    );
-  }
-
-  if (question.type === "hotspot") {
-    return (
-      <div className="hotspot-response">
-        {[1, 2, 3, 4, 5, 6].map((zone) => (
-          <button
-            className={value === `zone-${zone}` ? "is-selected" : ""}
-            key={zone}
-            onClick={() => onChange(`zone-${zone}`)}
-            type="button"
-          >
-            {zone}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <label className="short-response">
-      Your answer
-      <input
-        inputMode={question.type === "numeric" ? "decimal" : "text"}
-        onChange={(event) => onChange(event.target.value)}
-        type={question.type === "numeric" ? "number" : "text"}
-        value={String(value ?? "")}
-      />
-    </label>
   );
 }
 

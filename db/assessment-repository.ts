@@ -26,7 +26,10 @@ import {
   canTeachOffering,
 } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
-import { ensureLearningFoundation } from "./learning-repository";
+import {
+  ensureLearningFoundation,
+  seededDemoOfferingIds,
+} from "./learning-repository";
 import { getSchoolDatabase } from "./index";
 import {
   demoAssessmentBySlug,
@@ -115,6 +118,10 @@ export type LearnerAssessment = {
   } | null;
   id: string;
   instructions: string;
+  /* Which subject set it, so the runner can send the learner back to it. The
+     finished screen linked at the demo Integrated Science slug, so every
+     assessment in every subject offered "Return to Integrated Science". */
+  offeringId: string;
   passMarkPercent: number;
   purpose: AssessmentPurpose;
   questions: LearnerQuestion[];
@@ -539,6 +546,7 @@ export type LearnerAssessmentCard = {
   id: string;
   /** Which subject set it, so the card can say so. */
   offeringId: string;
+  subjectName: string;
   purpose: AssessmentPurpose;
   questionCount: number;
   status: AssessmentAttemptStatus | "not-started";
@@ -574,6 +582,7 @@ export async function listLearnerAssessments(
         v.title,
         v.purpose,
         v.time_limit_minutes,
+        s.name AS subject_name,
         (
           SELECT COUNT(*)
           FROM assessment_questions aq
@@ -595,16 +604,27 @@ export async function listLearnerAssessments(
       FROM assessments a
       INNER JOIN assessment_versions v
         ON v.assessment_id = a.id AND v.version = a.current_version
+      INNER JOIN subject_offerings o ON o.id = a.offering_id
+      INNER JOIN subjects s ON s.id = o.subject_id
+      /* Scoped to the classes this learner is in. Without this join the
+         query returned every published paper in the school, so a JHS 2
+         learner's assessment list carried SHS 1 papers they could open —
+         and the page had to ask a demo lookup what subject each one was,
+         because nothing here told it. */
+      INNER JOIN tenant_memberships m
+        ON m.tenant_id = a.tenant_id AND m.scope_id = o.class_name
+        AND m.person_id = ? AND m.status = 'active' AND m.scope_type = 'class'
       WHERE a.tenant_id = ? AND v.status = 'published'
       ORDER BY a.updated_at DESC`,
     )
-    .bind(access.actorPersonId, access.tenantId)
+    .bind(access.actorPersonId, access.actorPersonId, access.tenantId)
     .all<{
       attempt_status: AssessmentAttemptStatus | null;
       id: string;
       offering_id: string;
       purpose: AssessmentPurpose;
       question_count: number;
+      subject_name: string;
       time_limit_minutes: number;
       title: string;
       total_marks: number;
@@ -614,6 +634,7 @@ export async function listLearnerAssessments(
     id: row.id,
     offeringId: row.offering_id,
     purpose: row.purpose,
+    subjectName: row.subject_name,
     questionCount: Number(row.question_count),
     status: row.attempt_status ?? "not-started",
     timeLimitMinutes: Number(row.time_limit_minutes),
@@ -1014,13 +1035,27 @@ export async function releasePersistentResult(
 export async function ensureAssessmentFoundation() {
   await ensureLearningFoundation();
   const database = await getSchoolDatabase();
-  /* The published paper's snapshots, which the review attempt marks against. */
-  const publishedQuizQuestions = assessmentSnapshots(
-    demoAssessmentBySlug("digestive-system-check")!,
+  /* Only the offerings the learning seed actually created. A question bank item
+     carries offering_id across a foreign key, so a paper written for an
+     offering the school owns under its own id has nothing to attach to — see
+     seededDemoOfferingIds(). */
+  const seeded = await seededDemoOfferingIds();
+  const questions = demoQuestionBank.filter((question) =>
+    seeded.has(question.offeringId),
   );
+  const assessments = demoAssessments.filter((assessment) =>
+    seeded.has(assessment.offeringId),
+  );
+
+  const publishedQuiz = demoAssessmentBySlug("digestive-system-check")!;
+  /* The published paper's snapshots, which the review attempt marks against.
+     The attempt goes in only when its paper did. */
+  const publishedQuizQuestions = assessments.includes(publishedQuiz)
+    ? assessmentSnapshots(publishedQuiz)
+    : [];
   await database.batch([
-    ...seedQuestions(database),
-    ...seedAssessments(database),
+    ...seedQuestions(database, questions),
+    ...seedAssessments(database, assessments),
     ...seedReviewAttempt(database, publishedQuizQuestions),
   ]);
 }
@@ -1043,13 +1078,16 @@ function assessmentSnapshots(
   }));
 }
 
-function seedQuestions(database: SchoolDatabase) {
+function seedQuestions(
+  database: SchoolDatabase,
+  bank: typeof demoQuestionBank,
+) {
   /* The bank comes from the shared dataset, which also renders the paper a
      learner sits. It used to be defined here as well, so the two could — and
      did — drift: the fractions homework defined in the dataset never reached
      the database at all. */
   const statements: SchoolStatement[] = [];
-  for (const question of demoQuestionBank) {
+  for (const question of bank) {
     const subject = demoSubjectByOffering(question.offeringId);
     statements.push(
       database
@@ -1089,9 +1127,12 @@ function seedQuestions(database: SchoolDatabase) {
   return statements;
 }
 
-function seedAssessments(database: SchoolDatabase) {
+function seedAssessments(
+  database: SchoolDatabase,
+  papers: typeof demoAssessments,
+) {
   const statements: SchoolStatement[] = [];
-  for (const assessment of demoAssessments) {
+  for (const assessment of papers) {
     const published = assessment.status === "published";
     /* A published paper is version 1; a draft has not been versioned yet. */
     const version = published ? 1 : 0;
@@ -1277,6 +1318,7 @@ async function loadAssessmentSummaries(
         v.title,
         v.purpose,
         v.time_limit_minutes,
+        s.name AS subject_name,
         (
           SELECT COUNT(*)
           FROM assessment_questions aq
@@ -1574,6 +1616,7 @@ function toLearnerAssessment(
       : null,
     id: assessment.id,
     instructions: assessment.instructions,
+    offeringId: assessment.offeringId,
     passMarkPercent: assessment.passMarkPercent,
     purpose: assessment.purpose,
     /* Everything except the answer key. Written as a rest-destructure rather

@@ -32,7 +32,7 @@ export default async function TeacherHomePage() {
               ? "One class has no register submitted for today"
               : `${overview.registersOutstanding} classes have no register submitted for today`,
           eyebrow: "Attendance",
-          href: "/teacher/operations",
+          href: "/teacher/operations?tab=attendance",
           title: "Take today’s register",
         }
       : null,
@@ -40,7 +40,7 @@ export default async function TeacherHomePage() {
       ? {
           detail: "Handed in, and not yet released back to the learner",
           eyebrow: "Marking",
-          href: "/teacher/operations",
+          href: "/teacher/operations?tab=assignments",
           title:
             overview.awaitingMarking === 1
               ? "One submission is waiting"
@@ -83,7 +83,7 @@ export default async function TeacherHomePage() {
         <Link className="workspace-primary-action" href="/teacher/subjects#new-lesson">
           Create a lesson
         </Link>
-        <Link href="/teacher/operations">Take attendance</Link>
+        <Link href="/teacher/operations?tab=attendance">Take attendance</Link>
         <Link href="/teacher/gradebook">Open marking queue</Link>
       </section>
 
@@ -109,7 +109,7 @@ export default async function TeacherHomePage() {
           </div>
           <div>
             <Link href="/teacher/subjects">Open lesson</Link>
-            <Link href="/teacher/operations">Open class register</Link>
+            <Link href="/teacher/operations?tab=attendance">Open class register</Link>
           </div>
         </section>
       ) : (
@@ -140,7 +140,7 @@ export default async function TeacherHomePage() {
         <article>
           <small>Submissions to review</small>
           <strong>{overview.awaitingMarking}</strong>
-          <Link href="/teacher/operations">Review work</Link>
+          <Link href="/teacher/operations?tab=assignments">Review work</Link>
         </article>
         <article>
           <small>Lesson drafts</small>
@@ -150,7 +150,7 @@ export default async function TeacherHomePage() {
         <article>
           <small>Registers due</small>
           <strong>{overview.registersOutstanding}</strong>
-          <Link href="/teacher/operations">Complete register</Link>
+          <Link href="/teacher/operations?tab=attendance">Complete register</Link>
         </article>
       </section>
 
@@ -161,7 +161,7 @@ export default async function TeacherHomePage() {
               <p className="workspace-eyebrow">My timetable</p>
               <h2>Today’s teaching</h2>
             </div>
-            <Link href="/teacher/operations">Full school day</Link>
+            <Link href="/teacher/operations?tab=timetable">Full school day</Link>
           </header>
           {overview.timetable.length === 0 ? (
             <p className="attention-empty">

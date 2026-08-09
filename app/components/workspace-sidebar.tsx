@@ -25,6 +25,8 @@ import {
   setSidebarCollapsed,
   subscribeToSidebar,
 } from "./sidebar-state";
+import { useOfferingParam } from "./offering-param";
+import { withOffering } from "./offering-links";
 import { PersonAvatar } from "./person-avatar";
 import { SignOutButton } from "./sign-out-button";
 
@@ -88,6 +90,9 @@ export function WorkspaceSidebar({
     getSidebarCollapsed,
     getSidebarCollapsedOnServer,
   );
+  /* The subject the teacher is working in travels with them between the
+     screens that are about one. See offering-param.ts. */
+  const { offeringId } = useOfferingParam();
 
   return (
     <aside className="workspace-sidebar">
@@ -120,7 +125,7 @@ export function WorkspaceSidebar({
             <Link
               aria-current={isActive ? "page" : undefined}
               className={isActive ? "is-active" : undefined}
-              href={item.href}
+              href={withOffering(item.href, offeringId)}
               key={item.href}
               title={item.label}
             >

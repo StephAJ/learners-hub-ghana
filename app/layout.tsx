@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 import { headers } from "next/headers";
+import { restoreSidebarState } from "./components/sidebar-storage";
 import "./globals.css";
 import "./workspace.css";
 
@@ -77,7 +78,31 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html className={`${inter.variable} ${poppins.variable}`} lang="en">
+    /* suppressHydrationWarning because the script below is meant to change
+       this element before React reaches it: it sets data-sidebar from the
+       stored preference so a returning user never sees the sidebar open wide
+       and then snap shut. The server cannot know that preference, so the
+       markup React rendered and the markup in the document differ by design,
+       and only on this one element. */
+    <html
+      className={`${inter.variable} ${poppins.variable}`}
+      lang="en"
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Restores the collapsed sidebar before first paint. It sat in the
+            workspace shell, inside the rendered tree, where React refuses to
+            execute a script on the client and says so on every render:
+            "Scripts inside React components are never executed when
+            rendering on the client".
+
+            The document head is where a script that must run before paint
+            belongs, and it is the placement React does not object to. It is
+            in the root layout rather than a workspace one because the
+            preference is a single flag on <html> that no one workspace
+            owns. */}
+        <script dangerouslySetInnerHTML={{ __html: restoreSidebarState }} />
+      </head>
       <body>{children}</body>
     </html>
   );

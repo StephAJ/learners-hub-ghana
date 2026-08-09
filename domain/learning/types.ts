@@ -27,6 +27,16 @@ export type LessonBlock = {
     activityId?: string;
     mediaAssetId?: string;
     provider?: "h5p";
+    /* An interactive block's questions, taken from the subject's question
+       bank rather than written into the lesson. A checkpoint is the same kind
+       of question a teacher already writes for a paper, so it is the same
+       row: fixing a wrong answer key once fixes it everywhere it is asked,
+       and a block cannot drift out of step with the bank it came from.
+
+       Ids only. The prompts, options and — crucially — the answer keys are
+       resolved server-side at play time, so a learner reading the lesson
+       payload never receives the answers. */
+    questionIds?: string[];
     /* An optional aside a teacher can attach to a reading block — the
        "did you know" panel. Both fields are the author's; the player renders
        nothing when they are absent, rather than inventing a fact. */

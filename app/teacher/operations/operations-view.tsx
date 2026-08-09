@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   AttendanceRow,
   MarkingSubmission,
@@ -8,6 +8,8 @@ import type {
   TimetableEntryView,
 } from "../../../db/operations-repository";
 import type { AttendanceCode } from "../../../domain/operations/types";
+import { useOfferingParam } from "../../components/offering-param";
+import { useTabParam } from "../../components/tab-param";
 import "../../admin/academic/academic.css";
 import "./operations.css";
 
@@ -48,7 +50,14 @@ async function fetchWorkspace(
   }
 }
 
-type OperationsTab = "today" | "assignments" | "attendance" | "timetable";
+const OPERATIONS_TABS = [
+  "today",
+  "assignments",
+  "attendance",
+  "timetable",
+] as const;
+
+type OperationsTab = (typeof OPERATIONS_TABS)[number];
 
 export function OperationsView() {
   const [workspace, setWorkspace] = useState<TeacherOperationsWorkspace | null>(
@@ -59,23 +68,19 @@ export function OperationsView() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async (offeringId?: string) => {
-    setState("loading");
-    const result = await fetchWorkspace(offeringId);
-    if ("error" in result) {
-      setProblem(result.error);
-      setState("error");
-      return;
-    }
-    setWorkspace(result.workspace);
-    setState("ready");
-  }, []);
+  /* The subject comes from the address bar, so choosing one here also chooses
+     it for the lesson library, the markbook and the assessments. Choosing a
+     subject chooses its class with it. */
+  const { offeringId, setOfferingId } = useOfferingParam();
+  /* Bumped by Try again, which needs to re-run a load the URL would not
+     change on its own. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function loadOnce() {
-      const result = await fetchWorkspace();
+      const result = await fetchWorkspace(offeringId);
       if (!active) return;
       if ("error" in result) {
         setProblem(result.error);
@@ -90,7 +95,23 @@ export function OperationsView() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [offeringId, reloadKey]);
+
+  /* Both put the screen into its loading state from an event handler, where
+     the spinner should appear the moment the control is pressed. */
+  function selectOffering(next: string) {
+    /* Nothing to wait for if it is already the subject on screen — and
+       setting the loading state without a URL change would leave the
+       spinner up with no effect due to run. */
+    if (next === offeringId) return;
+    setState("loading");
+    setOfferingId(next);
+  }
+
+  function retry() {
+    setState("loading");
+    setReloadKey((current) => current + 1);
+  }
 
   if (state === "loading") {
     return <p className="workspace-loading">Loading your classes…</p>;
@@ -101,7 +122,7 @@ export function OperationsView() {
       <div className="workspace-failure">
         <h2>Your classes could not be loaded.</h2>
         <p>{problem}</p>
-        <button onClick={() => void load()} type="button">
+        <button onClick={retry} type="button">
           Try again
         </button>
       </div>
@@ -112,7 +133,7 @@ export function OperationsView() {
     <LoadedOperations
       busy={busy}
       notice={notice}
-      selectOffering={(offeringId) => void load(offeringId)}
+      selectOffering={selectOffering}
       setBusy={setBusy}
       setNotice={setNotice}
       setWorkspace={setWorkspace}
@@ -139,7 +160,9 @@ function LoadedOperations({
   setWorkspace: (value: TeacherOperationsWorkspace) => void;
   workspace: TeacherOperationsWorkspace;
 }) {
-  const [tab, setTab] = useState<OperationsTab>("today");
+  /* In the URL rather than in state, so "Take attendance" on the Today
+     screen can point straight at the register. */
+  const { setTab, tab } = useTabParam(OPERATIONS_TABS, "today");
 
   async function runAction(body: Record<string, unknown>) {
     setBusy(true);
@@ -179,14 +202,16 @@ function LoadedOperations({
       <section className="operations-main">
 
         <div className="operations-content">
-          <section className="operations-hero">
-            <div>
-              <span className="operations-class-code">J2</span>
+          {/* The banner this replaces carried a class-code tile, "Registers,
+              marking, and guardian alerts" — a list of the tabs directly below
+              it — and a sentence saying that what you record gets recorded. */}
+          <header className="screen-context">
+            <div className="screen-identity">
               {/* Read "JHS 2 Gold · Integrated Science" to everyone, because
                   the screen was gated on that one offering and its register on
                   that one class. Choosing a subject here chooses its class. */}
               {workspace.offerings.length > 1 ? (
-                <label className="operations-subject-switch">
+                <label className="screen-subject-switch">
                   <span className="sr-only">Class and subject</span>
                   <select
                     onChange={(event) => selectOffering(event.target.value)}
@@ -200,39 +225,20 @@ function LoadedOperations({
                   </select>
                 </label>
               ) : (
-                <p>
-                  {workspace.className} · {workspace.subjectName}
-                </p>
+                <h2>{workspace.className}</h2>
               )}
-              <h2>Registers, marking, and guardian alerts</h2>
-              <p>
-                Everything recorded here writes to the {workspace.className}{" "}
-                class record.
-              </p>
+              <p>{workspace.subjectName}</p>
             </div>
             {/* Defaulted to "Integrated Science · 09:10 · Science Lab" when
                 the day held no second period — a lesson the teacher does not
                 have, at a time they are not teaching. A class with nothing
                 left on its timetable says so. */}
-            <div className="operations-next">
-              <span>Next lesson</span>
-              {nextEntry ? (
-                <>
-                  <strong>{nextEntry.subjectName}</strong>
-                  <small>
-                    {periodFor(workspace, nextEntry)?.startsAt} ·{" "}
-                    {nextEntry.room}
-                  </small>
-                  <i>On schedule</i>
-                </>
-              ) : (
-                <>
-                  <strong>Nothing scheduled</strong>
-                  <small>No further periods on today’s timetable</small>
-                </>
-              )}
-            </div>
-          </section>
+            <span className={`screen-state ${nextEntry ? "is-open" : "is-quiet"}`}>
+              {nextEntry
+                ? `Next: ${nextEntry.subjectName} · ${periodFor(workspace, nextEntry)?.startsAt} · ${nextEntry.room}`
+                : "Nothing further scheduled today"}
+            </span>
+          </header>
 
           {notice ? (
             <button
@@ -244,32 +250,47 @@ function LoadedOperations({
             </button>
           ) : null}
 
-          <section className="operations-metrics">
+          {/* The same card the subject and assessment screens use. These four
+              were the taller serif-figure version, so the three screens a
+              teacher moves between showed three different summary cards. */}
+          <section className="screen-stats" aria-label="Class summary">
             <article>
-              <span>Attendance</span>
-              <strong>
-                {workspace.attendance.summary.percentage.toFixed(1)}%
-              </strong>
-              <small>{workspace.attendance.status} register</small>
+              <span aria-hidden="true">◍</span>
+              <div>
+                <small>Attendance</small>
+                <strong>
+                  {workspace.attendance.summary.percentage.toFixed(1)}%
+                </strong>
+                <small>{workspace.attendance.status} register</small>
+              </div>
             </article>
             <article>
-              <span>Needs marking</span>
-              <strong>{workspace.markingQueue.length}</strong>
-              <small>Rubric-ready submissions</small>
+              <span aria-hidden="true">✎</span>
+              <div>
+                <small>Needs marking</small>
+                <strong>{workspace.markingQueue.length}</strong>
+                <small>Rubric-ready submissions</small>
+              </div>
             </article>
             <article>
-              <span>Open assignments</span>
-              <strong>{workspace.assignments.length}</strong>
-              <small>Published to learners</small>
+              <span aria-hidden="true">≡</span>
+              <div>
+                <small>Open assignments</small>
+                <strong>{workspace.assignments.length}</strong>
+                <small>Published to learners</small>
+              </div>
             </article>
             <article>
-              <span>Today&apos;s periods</span>
-              <strong>{todayEntries.length}</strong>
-              <small>No timetable clashes</small>
+              <span aria-hidden="true">◷</span>
+              <div>
+                <small>Today&apos;s periods</small>
+                <strong>{todayEntries.length}</strong>
+                <small>No timetable clashes</small>
+              </div>
             </article>
           </section>
 
-          <div className="operations-tabs" role="tablist">
+          <div className="screen-tabs" role="tablist">
             {[
               ["today", "Today"],
               ["assignments", "Assignments & rubrics"],

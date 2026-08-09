@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   FormEvent,
-  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -12,6 +11,7 @@ import type {
   TeacherContentWorkspace,
 } from "../../../db/content-repository";
 import type { MediaKind } from "../../../domain/content/types";
+import { useOfferingParam } from "../../components/offering-param";
 import "../../admin/academic/academic.css";
 import "./content-studio.css";
 
@@ -26,11 +26,17 @@ import "./content-studio.css";
    that existed nowhere. A teacher could fill a library that did not exist.
    ========================================================================== */
 
-async function fetchWorkspace(): Promise<
-  { error: string } | { workspace: TeacherContentWorkspace }
-> {
+async function fetchWorkspace(
+  offeringId?: string,
+): Promise<{ error: string } | { workspace: TeacherContentWorkspace }> {
   try {
-    const response = await fetch("/api/teacher/content");
+    /* Omitted on first load, when the server picks the teacher's first
+       subject and tells us which that was. */
+    const response = await fetch(
+      `/api/teacher/content${
+        offeringId ? `?offeringId=${encodeURIComponent(offeringId)}` : ""
+      }`,
+    );
     const payload = (await response.json()) as {
       error?: string;
       workspace?: TeacherContentWorkspace;
@@ -55,23 +61,20 @@ export function ContentStudioView() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setState("loading");
-    const result = await fetchWorkspace();
-    if ("error" in result) {
-      setProblem(result.error);
-      setState("error");
-      return;
-    }
-    setWorkspace(result.workspace);
-    setState("ready");
-  }, []);
+  /* The subject comes from the address bar, so it survives navigating away
+     and back and matches whatever the lesson library was showing. Switching
+     is a reload rather than a filter: the media and the activities both
+     belong to the offering, and neither is on the page. */
+  const { offeringId, setOfferingId } = useOfferingParam();
+  /* Bumped by Try again, which needs to re-run a load the URL would not
+     change on its own. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function loadOnce() {
-      const result = await fetchWorkspace();
+      const result = await fetchWorkspace(offeringId);
       if (!active) return;
       if ("error" in result) {
         setProblem(result.error);
@@ -79,6 +82,8 @@ export function ContentStudioView() {
         return;
       }
       setWorkspace(result.workspace);
+      /* A notice about an upload belonged to the subject being left. */
+      setNotice("");
       setState("ready");
     }
 
@@ -86,7 +91,23 @@ export function ContentStudioView() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [offeringId, reloadKey]);
+
+  /* Both put the screen into its loading state from an event handler, where
+     the spinner should appear the moment the control is pressed. */
+  function selectOffering(next: string) {
+    /* Nothing to wait for if it is already the subject on screen — and
+       setting the loading state without a URL change would leave the
+       spinner up with no effect due to run. */
+    if (next === offeringId) return;
+    setState("loading");
+    setOfferingId(next);
+  }
+
+  function retry() {
+    setState("loading");
+    setReloadKey((current) => current + 1);
+  }
 
   if (state === "loading") {
     return <p className="workspace-loading">Loading the subject library…</p>;
@@ -97,7 +118,7 @@ export function ContentStudioView() {
       <div className="workspace-failure">
         <h2>The subject library could not be loaded.</h2>
         <p>{problem}</p>
-        <button onClick={() => void load()} type="button">
+        <button onClick={retry} type="button">
           Try again
         </button>
       </div>
@@ -108,6 +129,7 @@ export function ContentStudioView() {
     <LoadedContentStudio
       busy={busy}
       notice={notice}
+      selectOffering={selectOffering}
       setBusy={setBusy}
       setNotice={setNotice}
       setWorkspace={setWorkspace}
@@ -121,6 +143,7 @@ export function ContentStudioView() {
 function LoadedContentStudio({
   busy,
   notice,
+  selectOffering,
   setBusy,
   setNotice,
   setWorkspace,
@@ -128,11 +151,17 @@ function LoadedContentStudio({
 }: {
   busy: boolean;
   notice: string;
+  selectOffering: (offeringId: string) => void;
   setBusy: (value: boolean) => void;
   setNotice: (value: string) => void;
   setWorkspace: (value: TeacherContentWorkspace) => void;
   workspace: TeacherContentWorkspace;
 }) {
+  /* Which composer is open, if either. One at a time: both forms standing
+     open at once is what made this screen feel like a form to fill in rather
+     than a library to look through. */
+  const [composer, setComposer] = useState<"activity" | "media" | null>(null);
+
   const packageAssets = useMemo(
     () =>
       workspace.mediaAssets.filter(
@@ -164,6 +193,7 @@ function LoadedContentStudio({
         throw new Error(payload.error ?? "The upload could not be saved.");
       }
       setWorkspace(payload.workspace);
+      setComposer(null);
       setNotice(`${input.file.name} is secured in the subject library.`);
     } catch (error) {
       setNotice(
@@ -197,6 +227,7 @@ function LoadedContentStudio({
         );
       }
       setWorkspace(payload.workspace);
+      setComposer(null);
       setNotice(
         input.launchUrl || input.packageAssetId
           ? `${input.title} is now available to lesson authors.`
@@ -256,48 +287,102 @@ function LoadedContentStudio({
 
 
         <div className="admin-content content-content">
-          <section className="content-hero">
-            <div>
-              <p className="eyebrow">Media and interactive learning</p>
-              <h1>Content studio</h1>
-              <p>Create one secure library for {workspace.subjectName}, then reuse its files and interactive activities across lessons.</p>
-              <div><span>{workspace.className}</span><span>25 MB upload limit</span><span>Mobile-ready contracts</span></div>
+          {/* What stood here was a 190px gradient panel — "Media and
+              interactive learning", "Content studio", a sentence explaining
+              that a library lets you reuse files, and three pills — above four
+              metric cards, above two open upload forms, above the library
+              itself. Six surfaces before the first file. The library is the
+              screen; everything else was preamble. */}
+          <header className="screen-context">
+            <div className="screen-identity">
+              {/* The library resolved one offering with ORDER BY s.name
+                  LIMIT 1, so a teacher of several subjects could upload to
+                  whichever sorted first and reach no other. */}
+              {workspace.offerings.length > 1 ? (
+                <label className="screen-subject-switch">
+                  <span className="sr-only">Subject</span>
+                  <select
+                    onChange={(event) => selectOffering(event.target.value)}
+                    value={workspace.offeringId}
+                  >
+                    {workspace.offerings.map((offering) => (
+                      <option key={offering.id} value={offering.id}>
+                        {offering.subjectName} · {offering.className}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <h2>{workspace.subjectName}</h2>
+              )}
+              <p>{workspace.className}</p>
             </div>
-            <Link href="/teacher/subjects">Use content in a lesson →</Link>
-          </section>
+            <Link className="content-lesson-link" href="/teacher/subjects">
+              Use in a lesson →
+            </Link>
+          </header>
 
-          <section className="content-metrics">
-            <article><span>◫</span><p><small>Private assets</small><strong>{workspace.mediaAssets.length}</strong></p></article>
-            <article><span>✦</span><p><small>Interactive activities</small><strong>{workspace.activities.length}</strong></p></article>
-            <article><span>▶</span><p><small>Launchable now</small><strong>{launchableCount}</strong></p></article>
-            <article><span>↓</span><p><small>Storage used</small><strong>{formatBytes(workspace.totalBytes)}</strong></p></article>
-          </section>
+          {/* The four cards these replace repeated two numbers the panel
+              headings below already carry. A line of facts states them once. */}
+          <p className="screen-facts">
+            <span>
+              <b>{workspace.mediaAssets.length}</b> files
+            </span>
+            <span>
+              <b>{workspace.activities.length}</b> activities
+            </span>
+            <span>{launchableCount} launchable now</span>
+            <span>{formatBytes(workspace.totalBytes)} of 25 MB used</span>
+          </p>
 
           {notice ? <button className="content-notice" onClick={() => setNotice("")} type="button">{notice}<span>×</span></button> : null}
 
-          <div className="content-authoring-grid">
-            <MediaUploadForm busy={busy} onUpload={uploadMedia} />
-            <H5pActivityForm
-              busy={busy}
-              onCreate={createActivity}
-              packages={packageAssets}
-            />
-          </div>
-
           <div className="content-library-grid">
             <section className="content-panel">
-              <PanelHeading eyebrow="R2-backed subject files" title="Media library" count={workspace.mediaAssets.length} />
+              {/* The upload form used to sit open above the library whether or
+                  not anyone wanted it. It opens from here now, in the panel it
+                  fills, which is also what makes the + in the empty state below
+                  mean something — it was decoration. */}
+              <PanelHeading
+                count={workspace.mediaAssets.length}
+                onAdd={() => setComposer(composer === "media" ? null : "media")}
+                open={composer === "media"}
+                title="Media library"
+              />
+              {composer === "media" ? (
+                <MediaUploadForm busy={busy} onUpload={uploadMedia} />
+              ) : null}
               {workspace.mediaAssets.length ? (
                 <div className="media-list">
                   {workspace.mediaAssets.map((asset) => (
                     <MediaRow asset={asset} key={asset.id} />
                   ))}
                 </div>
-              ) : <EmptyState title="No media uploaded yet" copy="Add a low-data lesson file or import an existing interactive activity above." />}
+              ) : (
+                <EmptyState
+                  copy="Add a video, document or image and it becomes available to every lesson in this subject."
+                  onAdd={() => setComposer("media")}
+                  title="No media uploaded yet"
+                />
+              )}
             </section>
 
             <section className="content-panel">
-              <PanelHeading eyebrow="Built-in interactive learning" title="Interactive activities" count={workspace.activities.length} />
+              <PanelHeading
+                count={workspace.activities.length}
+                onAdd={() =>
+                  setComposer(composer === "activity" ? null : "activity")
+                }
+                open={composer === "activity"}
+                title="Interactive activities"
+              />
+              {composer === "activity" ? (
+                <H5pActivityForm
+                  busy={busy}
+                  onCreate={createActivity}
+                  packages={packageAssets}
+                />
+              ) : null}
               {workspace.activities.length ? (
                 <div className="activity-list">
                   {workspace.activities.map((activity) => (
@@ -325,7 +410,13 @@ function LoadedContentStudio({
                     </article>
                   ))}
                 </div>
-              ) : <EmptyState title="No interactive activities yet" copy="Create the first activity for this subject above." />}
+              ) : (
+                <EmptyState
+                  copy="Build a quiz, drag-and-drop or interactive video, or import an existing .h5p package."
+                  onAdd={() => setComposer("activity")}
+                  title="No interactive activities yet"
+                />
+              )}
             </section>
           </div>
         </div>
@@ -405,7 +496,27 @@ function MediaUploadForm({
       <div className="content-form-heading"><span>↑</span><div><p className="eyebrow">Secure upload</p><h2>Add lesson media</h2></div></div>
       <form onSubmit={submit}>
         <label><span>Content kind</span><select value={kind} onChange={(event) => setKind(event.target.value as MediaKind)}>{(["document", "image", "audio", "video", "h5p-package"] as MediaKind[]).map((item) => <option key={item} value={item}>{humanise(item)}</option>)}</select></label>
-        <label className="file-picker"><span>Choose file</span><input accept={acceptFor(kind)} onChange={(event) => setFile(event.target.files?.[0])} required type="file" /><small>{file ? `${file.name} · ${formatBytes(file.size)}` : "Validated by file type, extension, and size"}</small></label>
+        {/* The browser's own file control was sitting inside a bordered box —
+            a grey "Choose File" chip and "No file chosen" in the user agent's
+            font, next to inputs styled by this sheet. The input is still the
+            input; it is visually hidden and the label is the control, so the
+            chosen file reads in the same type as everything around it. */}
+        <div className="file-picker">
+          <span className="file-picker-label">Choose file</span>
+          <label className="file-picker-control">
+            <input
+              accept={acceptFor(kind)}
+              onChange={(event) => setFile(event.target.files?.[0])}
+              required
+              type="file"
+            />
+            <span className="file-picker-action">Browse…</span>
+            <span className="file-picker-name">
+              {file ? `${file.name} · ${formatBytes(file.size)}` : "No file chosen"}
+            </span>
+          </label>
+          <small>Validated by file type, extension, and size</small>
+        </div>
         <button disabled={busy || !file} type="submit">{busy ? "Securing file…" : "Upload to private library"}<span>→</span></button>
       </form>
       <p><span>i</span>Files use opaque storage keys. Original names are shown only as safe display metadata.</p>
@@ -501,12 +612,60 @@ function H5pActivityForm({
   );
 }
 
-function PanelHeading({ count, eyebrow, title }: { count: number; eyebrow: string; title: string }) {
-  return <header className="content-panel-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div><span>{count}</span></header>;
+/* The eyebrow above each of these — "R2-backed subject files", "Built-in
+   interactive learning" — named the storage bucket and the vendor rather than
+   anything a teacher needs, so the heading stands on its own now. */
+function PanelHeading({
+  count,
+  onAdd,
+  open,
+  title,
+}: {
+  count: number;
+  onAdd: () => void;
+  open: boolean;
+  title: string;
+}) {
+  return (
+    <header className="content-panel-heading">
+      <h2>
+        {title} <span className="content-panel-count">{count}</span>
+      </h2>
+      <button
+        aria-expanded={open}
+        className="content-panel-add"
+        onClick={onAdd}
+        type="button"
+      >
+        {open ? "Cancel" : "+ Add"}
+      </button>
+    </header>
+  );
 }
 
-function EmptyState({ copy, title }: { copy: string; title: string }) {
-  return <div className="content-empty"><span>+</span><strong>{title}</strong><p>{copy}</p></div>;
+/* The + here was a <span>. It looked exactly like a button, sat in the middle
+   of an empty panel where the only sensible action is to add something, and
+   did nothing at all when clicked — on both panels. It is the button it always
+   appeared to be, and it opens the same composer the panel heading does. */
+function EmptyState({
+  copy,
+  onAdd,
+  title,
+}: {
+  copy: string;
+  onAdd: () => void;
+  title: string;
+}) {
+  return (
+    <div className="content-empty">
+      <button className="content-empty-add" onClick={onAdd} type="button">
+        <span aria-hidden="true">+</span>
+        <span className="sr-only">{title} — add the first one</span>
+      </button>
+      <strong>{title}</strong>
+      <p>{copy}</p>
+    </div>
+  );
 }
 
 function acceptFor(kind: MediaKind) {

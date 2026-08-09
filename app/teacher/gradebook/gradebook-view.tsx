@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   GradebookLearner,
   TeacherGradebookWorkspace,
 } from "../../../db/reporting-repository";
+import { useOfferingParam } from "../../components/offering-param";
 import "../../admin/academic/academic.css";
 import "./gradebook.css";
 
@@ -61,26 +62,18 @@ export function GradebookView() {
   const [notice, setNotice] = useState("");
   const [busyAction, setBusyAction] = useState("");
 
-  /* Used by the Try again button. The mount path below repeats it rather than
-     depending on it, so an in-flight load from a unmounting view cannot land
-     on state that no longer exists. */
-  const load = useCallback(async (offeringId?: string) => {
-    setState("loading");
-    const result = await fetchWorkspace(offeringId);
-    if ("error" in result) {
-      setProblem(result.error);
-      setState("error");
-      return;
-    }
-    setWorkspace(result.workspace);
-    setState("ready");
-  }, []);
+  /* The subject comes from the address bar, so a teacher who chose one on
+     their lesson library opens the markbook already on it. */
+  const { offeringId, setOfferingId } = useOfferingParam();
+  /* Bumped by Try again, which needs to re-run a load the URL would not
+     change on its own. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function loadOnce() {
-      const result = await fetchWorkspace();
+      const result = await fetchWorkspace(offeringId);
       if (!active) return;
       if ("error" in result) {
         setProblem(result.error);
@@ -95,7 +88,23 @@ export function GradebookView() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [offeringId, reloadKey]);
+
+  /* Both put the screen into its loading state from an event handler, where
+     the spinner should appear the moment the control is pressed. */
+  function selectOffering(next: string) {
+    /* Nothing to wait for if it is already the subject on screen — and
+       setting the loading state without a URL change would leave the
+       spinner up with no effect due to run. */
+    if (next === offeringId) return;
+    setState("loading");
+    setOfferingId(next);
+  }
+
+  function retry() {
+    setState("loading");
+    setReloadKey((current) => current + 1);
+  }
 
   if (state === "loading") {
     return <p className="workspace-loading">Loading your markbook…</p>;
@@ -106,7 +115,7 @@ export function GradebookView() {
       <div className="workspace-failure">
         <h2>Your markbook could not be loaded.</h2>
         <p>{problem}</p>
-        <button onClick={() => void load()} type="button">
+        <button onClick={retry} type="button">
           Try again
         </button>
       </div>
@@ -122,7 +131,7 @@ export function GradebookView() {
       setTab={setTab}
       setWorkspace={setWorkspace}
       tab={tab}
-      selectOffering={(offeringId) => void load(offeringId)}
+      selectOffering={selectOffering}
       workspace={workspace}
     />
   );
@@ -274,7 +283,11 @@ function LoadedGradebook({
             </button>
           ) : null}
 
-          <div className="gradebook-tabs" role="tablist">
+          {/* The shared control, not a copy of it. The markbook had its own
+              tab styles with taller padding and no font size, so it inherited
+              body text and stood a step larger than the same switcher on
+              Assessments, My subjects and My classes. */}
+          <div className="screen-tabs" role="tablist">
             {[
               ["marks", "Subject marks"],
               ["reports", "Report workflow"],
@@ -302,11 +315,7 @@ function LoadedGradebook({
             />
           ) : null}
           {tab === "reports" ? (
-            <ReportsPanel
-              busy={Boolean(busyAction)}
-              runAction={runAction}
-              workspace={workspace}
-            />
+            <ReportsPanel workspace={workspace} />
           ) : null}
           {tab === "policy" ? <PolicyPanel workspace={workspace} /> : null}
         </div>
@@ -510,20 +519,19 @@ function MissingMarkInput({
   );
 }
 
+/* Read-only since approving and releasing moved to the head's own screen.
+   The panel stays because a teacher does need to know where their marks have
+   got to — it just no longer offers them a press they are not allowed. */
 function ReportsPanel({
-  busy,
-  runAction,
   workspace,
 }: {
-  busy: boolean;
-  runAction: (body: Record<string, unknown>) => Promise<void>;
   workspace: TeacherGradebookWorkspace;
 }) {
   return (
     <section className="gradebook-panel">
       <div className="gradebook-panel-heading">
         <div>
-          <p>Approval and release</p>
+          <p>Where these marks are</p>
           <h2>Term report workflow</h2>
         </div>
         <span className="guardian-preview-link">Released reports only</span>
@@ -566,41 +574,24 @@ function ReportsPanel({
                   : "All academic fields complete"}
               </small>
             </div>
+            {/* This footer used to carry "Approve report" and "Release to
+                guardian", shown on the report's status rather than on what
+                the person looking at it may do. Approving needs
+                report:approve, which no teaching role holds — so the buttons
+                appeared for exactly the people the server would refuse, and a
+                teacher pressing Approve got a 403 for their trouble.
+
+                A teacher's part ends at submission. What belongs here is
+                where the report has got to and who has it now. */}
             <footer>
               <span>Report version {reportItem.version}</span>
-              {reportItem.status === "submitted" ? (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void runAction({
-                      action: "approve-report",
-                      offeringId: workspace.offeringId,
-                      reportId: reportItem.id,
-                    })
-                  }
-                  type="button"
-                >
-                  Approve report
-                </button>
-              ) : null}
-              {reportItem.status === "approved" ? (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void runAction({
-                      action: "release-report",
-                      offeringId: workspace.offeringId,
-                      reportId: reportItem.id,
-                    })
-                  }
-                  type="button"
-                >
-                  Release to guardian
-                </button>
-              ) : null}
               {reportItem.status === "released" ? (
                 <strong className="released-indicator">Released securely</strong>
-              ) : null}
+              ) : (
+                <small className="report-next-step">
+                  {handoffNote(reportItem.status)}
+                </small>
+              )}
             </footer>
           </article>
         ))}
@@ -688,12 +679,18 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+/** Where a report has got to, said as who is holding it. */
+function handoffNote(status: string) {
+  if (status === "draft") return "With you — submit the markbook to send it on";
+  if (status === "submitted") return "With the head for approval";
+  if (status === "approved") return "Approved — the head releases it to guardians";
+  return "";
+}
+
 function actionNotice(action: string) {
   if (action === "save-entry") return "Missing mark recorded.";
-  if (action === "submit-gradebook") return "Gradebook submitted for review.";
-  if (action === "approve-report") return "Report approved.";
-  if (action === "release-report") {
-    return "Report released to authorised guardians.";
+  if (action === "submit-gradebook") {
+    return "Gradebook submitted. The head approves and releases the reports.";
   }
   return "Gradebook updated.";
 }

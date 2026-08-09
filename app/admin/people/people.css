@@ -90,66 +90,6 @@
   margin-top: 4px;
 }
 
-.access-principles {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
-  margin-bottom: 20px;
-  padding: 12px 16px;
-}
-
-.access-principles article {
-  align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 29px 1fr;
-  min-width: 0;
-}
-
-.access-principles article > span {
-  align-items: center;
-  background: #edf3ef;
-  border-radius: var(--radius-sm);
-  color: var(--primary);
-  display: flex;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  height: 29px;
-  justify-content: center;
-}
-
-.access-principles article.decision > span {
-  background: var(--primary);
-  color: #ffffff;
-}
-
-.access-principles p,
-.access-principles strong,
-.access-principles small {
-  display: block;
-  margin: 0;
-}
-
-.access-principles strong {
-  font-size: var(--fs-13);
-}
-
-.access-principles small {
-  color: #7c8985;
-  font-size: var(--fs-13);
-  margin-top: 4px;
-}
-
-.access-principles > i {
-  color: #b0bbb7;
-  font-size: var(--fs-14);
-  font-style: normal;
-}
-
 .people-notice {
   background: #eaf4ef;
   border: 1px solid #cfe3d9;
@@ -169,8 +109,7 @@
 }
 
 .people-directory,
-.person-access-card,
-.invite-card {
+.person-access-card {
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -185,13 +124,16 @@
 .directory-heading {
   align-items: center;
   display: flex;
+  /* Three children now — title, count, invite button — so the row is told it
+     may wrap rather than squeezing the button to nothing on a phone. */
+  flex-wrap: wrap;
+  gap: var(--space-2);
   justify-content: space-between;
   padding: 20px 20px 12px;
 }
 
 .directory-heading h2,
-.person-access-card h2,
-.invite-card h2 {
+.person-access-card h2 {
   font-size: var(--fs-18);
   margin: 4px 0 0;
 }
@@ -202,7 +144,55 @@
   color: #60736d;
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
+  /* Pushed off the right edge by the invite button, which is the action the
+     corner belongs to. The count is a caption on the heading, not a control. */
+  margin-right: auto;
+  margin-left: var(--space-2);
   padding: 4px 8px;
+}
+
+/* Opens the invite panel. Where the sidebar used to hold six form fields
+   permanently, the directory now holds one button. */
+.directory-invite {
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+}
+
+.directory-invite:hover {
+  background: var(--brand-line);
+}
+
+/* -- Inside the invite panel ---------------------------------------------- */
+
+/* Two columns, not the composer's three: these pairs are first/last name and
+   scope type/scope value, and a third empty column would leave both hanging. */
+.invite-names {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* What the chosen role can reach, restated as the role changes. */
+.invite-permissions {
+  background: var(--brand-tint);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-body);
+  margin: 0;
+  padding: var(--space-3);
+}
+
+.invite-permissions strong {
+  color: var(--ink);
+  display: block;
+  margin-bottom: var(--space-1);
 }
 
 .directory-controls {
@@ -386,8 +376,7 @@
   gap: 16px;
 }
 
-.person-access-card,
-.invite-card {
+.person-access-card {
   padding: 20px;
 }
 
@@ -521,56 +510,6 @@
   margin: 0;
 }
 
-.invite-card > div:first-child {
-  margin-bottom: 12px;
-}
-
-.invite-card form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.invite-card label > span {
-  color: #52625e;
-  display: block;
-  font-size: var(--fs-13);
-  font-weight: var(--fw-semibold);
-  margin-bottom: 4px;
-}
-
-.invite-card input,
-.invite-card select {
-  background: #f8faf7;
-  border: 1px solid #dbe1da;
-  border-radius: var(--radius-sm);
-  color: var(--ink);
-  font-size: var(--fs-14);
-  height: 36px;
-  padding: 0 8px;
-  width: 100%;
-}
-
-.name-fields {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr 1fr;
-}
-
-.invite-card form > button {
-  align-items: center;
-  background: var(--primary);
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: #ffffff;
-  cursor: pointer;
-  display: flex;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  justify-content: space-between;
-  min-height: 39px;
-  padding: 0 12px;
-}
 
 @media (max-width: 1200px) {
   .people-workspace {
@@ -592,22 +531,9 @@
     grid-template-columns: 1fr;
   }
 
-  .access-sidebar {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .access-principles {
-    grid-template-columns: repeat(4, minmax(120px, 1fr));
-    overflow-x: auto;
-  }
-
-  .access-principles > i {
-    display: none;
-  }
-
+  /* One child now that inviting is a panel rather than a permanent card, so
+     the two-column split this used to take below the desktop breakpoint would
+     leave the access card at half width beside nothing. */
   .access-sidebar {
     display: flex;
   }
@@ -627,8 +553,8 @@
     padding: 0 4px;
   }
 
-  .name-fields {
-    grid-template-columns: 1fr;
+  .invite-names {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
