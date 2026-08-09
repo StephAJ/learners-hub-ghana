@@ -783,13 +783,17 @@ export async function getLearnerSchoolDay(
   requestedLearnerId?: string,
 ) {
   await ensureOperationsFoundation();
-  const learnerId = resolveLearnerId(access, requestedLearnerId);
+  const database = await getSchoolDatabase();
+  const learnerId = await resolveLearnerId(
+    database,
+    access,
+    requestedLearnerId,
+  );
   if (!canAccessLearner(access, learnerId)) {
     throw new AuthorizationError(
       "You are not authorised to view this learner's school day.",
     );
   }
-  const database = await getSchoolDatabase();
   return buildLearnerSchoolDay(database, access.tenantId, learnerId);
 }
 
@@ -1223,12 +1227,15 @@ export async function getGuardianSchoolDay(
   await ensureOperationsFoundation();
   const database = await getSchoolDatabase();
   const linkedChildren = await loadAccessibleChildren(database, access);
+  /* An administrator previewing a family's view gets their own id and is
+     refused unless they may see it, rather than being handed one particular
+     demo learner by name. */
   const defaultLearnerId =
     access.role === "guardian"
       ? linkedChildren[0]?.id
       : access.role === "learner"
         ? access.actorPersonId
-        : "person-kwame";
+        : access.actorPersonId;
   const learnerId =
     requestedLearnerId ?? defaultLearnerId ?? access.actorPersonId;
   if (!canAccessLearner(access, learnerId)) {
@@ -1622,6 +1629,7 @@ async function loadMarkingQueue(
     .prepare(
       `SELECT s.id, s.status, s.response_text, s.submitted_at,
         p.id AS learner_id, p.first_name || ' ' || p.last_name AS learner_name,
+        p.student_number,
         a.id AS assignment_id, v.id AS version_id, v.title
       FROM assignment_submissions s
       INNER JOIN people p ON p.id = s.learner_person_id
@@ -1641,6 +1649,7 @@ async function loadMarkingQueue(
       learner_id: string;
       learner_name: string;
       response_text: string;
+      student_number: string | null;
       status: SubmissionStatus;
       submitted_at: string;
       title: string;
@@ -1665,7 +1674,7 @@ async function loadMarkingQueue(
       learnerName: row.learner_name,
       responseText: row.response_text,
       status: row.status,
-      studentId: studentNumber(row.learner_id),
+      studentId: row.student_number ?? "",
       submittedAt: row.submitted_at,
     })),
   );
@@ -1731,7 +1740,7 @@ async function loadAttendanceWorkspace(
   }
   const result = await database
     .prepare(
-      `SELECT r.id, r.learner_person_id, r.code, r.note,
+      `SELECT r.id, r.learner_person_id, r.code, r.note, p.student_number,
         p.first_name || ' ' || p.last_name AS learner_name
       FROM attendance_records r
       INNER JOIN people p ON p.id = r.learner_person_id
@@ -1745,6 +1754,7 @@ async function loadAttendanceWorkspace(
       learner_name: string;
       learner_person_id: string;
       note: string;
+      student_number: string | null;
     }>();
   const rows: AttendanceRow[] = result.results.map((row) => ({
     code: row.code,
@@ -1752,7 +1762,7 @@ async function loadAttendanceWorkspace(
     learnerPersonId: row.learner_person_id,
     note: row.note,
     recordId: row.id,
-    studentId: studentNumber(row.learner_person_id),
+    studentId: row.student_number ?? "",
   }));
   return {
     date: session.session_date,
@@ -1838,12 +1848,12 @@ async function buildLearnerSchoolDay(
 ): Promise<LearnerSchoolDayWorkspace> {
   const learner = await database
     .prepare(
-      `SELECT id, first_name || ' ' || last_name AS name
+      `SELECT id, student_number, first_name || ' ' || last_name AS name
       FROM people WHERE id = ? AND tenant_id = ? AND kind = 'learner'
       LIMIT 1`,
     )
     .bind(learnerId, tenantId)
-    .first<{ id: string; name: string }>();
+    .first<{ id: string; name: string; student_number: string | null }>();
   if (!learner) {
     throw new DailyOperationsPolicyError("Learner was not found.");
   }
@@ -1893,10 +1903,13 @@ async function buildLearnerSchoolDay(
     },
     currentDate: CURRENT_DATE,
     learner: {
-      className: CLASS_NAME,
+      /* The class this learner is actually placed in. CLASS_NAME — the
+         demo school's "JHS 2 Gold" — stood here, so every learner's school
+         day claimed the same class whatever their placement said. */
+      className: placement?.name ?? "",
       id: learner.id,
       name: learner.name,
-      studentId: studentNumber(learner.id),
+      studentId: learner.student_number ?? "",
     },
     periods,
     timetable: timetable.filter(
@@ -2161,13 +2174,31 @@ async function loadClassLearnerIds(
   return result.results.map((row) => row.id);
 }
 
-function resolveLearnerId(
+/**
+ * Whose school day this is.
+ *
+ * The last line returned the string "person-kwame" — one learner from the
+ * demo school. A guardian who did not name a child got that child, which in
+ * a real school is a learner who does not exist, and in the demo school is
+ * somebody else's. The refusal below caught it, so the guardian met an
+ * authorisation error instead of their own child's day.
+ *
+ * A guardian's first linked child is the answer; anyone else who did not ask
+ * for a learner gets their own id and is refused by canAccessLearner if that
+ * is not a learner they may see.
+ */
+async function resolveLearnerId(
+  database: SchoolDatabase,
   access: AccessContext,
   requestedLearnerId?: string,
-) {
+): Promise<string> {
   if (requestedLearnerId) return requestedLearnerId;
   if (access.role === "learner") return access.actorPersonId;
-  return "person-kwame";
+  if (access.role === "guardian") {
+    const children = await loadAccessibleChildren(database, access);
+    return children[0]?.id ?? access.actorPersonId;
+  }
+  return access.actorPersonId;
 }
 
 function requireTeacherOperationsAccess(access: AccessContext) {
@@ -2256,12 +2287,6 @@ function auditStatement(
       entityId,
       JSON.stringify(metadata),
     );
-}
-
-function studentNumber(personId: string) {
-  if (personId === "person-kwame") return "LH-260138";
-  if (personId === "person-ama") return "LH-260112";
-  return "LH-260145";
 }
 
 function toMinutes(time: string) {

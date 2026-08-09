@@ -7,7 +7,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { demoDirectoryPeople } from "../../../domain/demo/greenfield";
 import type {
   DirectoryPerson,
   SchoolRole,
@@ -33,10 +32,15 @@ const roleLabels: Record<SchoolRole, string> = {
   learner: "Learner",
 };
 
-/* Projected from the shared demo dataset rather than written out again
-   here: the hand-kept copy this replaces had drifted to five of the nine
-   people and none of the photographs. */
-const previewPeople: DirectoryPerson[] = demoDirectoryPeople;
+/* ==========================================================================
+   No preview directory
+
+   This screen opened on the demo school's staff and kept them whenever
+   /api/admin/people failed, so an administrator could be looking at nine
+   people who work somewhere else. Inviting in that state refused with a
+   sentence about "the authenticated private site" — a state the product no
+   longer has.
+   ========================================================================== */
 
 type DirectoryResponse = {
   actor: { email: string; name: string; role: SchoolRole };
@@ -46,15 +50,15 @@ type DirectoryResponse = {
 
 export function PeopleView() {
   const searchParams = useSearchParams();
-  const [people, setPeople] = useState(previewPeople);
-  const [selectedId, setSelectedId] = useState(previewPeople[0].id);
+  const [people, setPeople] = useState<DirectoryPerson[]>([]);
+  const [selectedId, setSelectedId] = useState("");
   const [kindFilter, setKindFilter] = useState<DirectoryPerson["kind"] | "all">(
     "all",
   );
   const [query, setQuery] = useState("");
-  const [dataMode, setDataMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
-  );
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [problem, setProblem] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [notice, setNotice] = useState("");
   /* The academic screen sends people here to invite a teacher. That used to
      be a #invite fragment scrolling to a form that was always on screen; now
@@ -71,18 +75,28 @@ export function PeopleView() {
     async function loadDirectory() {
       try {
         const response = await fetch("/api/admin/people");
-        if (!response.ok) throw new Error("Protected records unavailable.");
-        const directory = (await response.json()) as DirectoryResponse;
+        const directory = (await response.json()) as DirectoryResponse & {
+          error?: string;
+        };
         if (!active) return;
+        if (!response.ok || !directory.people) {
+          throw new Error(directory.error ?? "The directory is unavailable.");
+        }
         setPeople(directory.people);
         setSelectedId((current) =>
           directory.people.some((person) => person.id === current)
             ? current
-            : directory.people[0]?.id ?? "",
+            : (directory.people[0]?.id ?? ""),
         );
-        setDataMode("protected");
-      } catch {
-        if (active) setDataMode("preview");
+        setState("ready");
+      } catch (thrown) {
+        if (!active) return;
+        setProblem(
+          thrown instanceof Error
+            ? thrown.message
+            : "The directory could not be reached.",
+        );
+        setState("error");
       }
     }
 
@@ -90,7 +104,7 @@ export function PeopleView() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const visiblePeople = useMemo(() => {
     const normalisedQuery = query.trim().toLowerCase();
@@ -120,13 +134,6 @@ export function PeopleView() {
       scopeType: "tenant" | "class" | "subject" | "learner";
     },
   ) {
-    if (dataMode !== "protected") {
-      setNotice(
-        "Invitations become persistent when this page is opened through the authenticated private site.",
-      );
-      return;
-    }
-
     const response = await fetch("/api/admin/people", {
       body: JSON.stringify({
         ...input,
@@ -147,6 +154,22 @@ export function PeopleView() {
     setPeople((current) => [payload.person as DirectoryPerson, ...current]);
     setSelectedId(payload.person.id);
     setNotice(`${payload.person.name} has been added with invited access.`);
+  }
+
+  if (state === "loading") {
+    return <p className="workspace-loading">Loading the school directory…</p>;
+  }
+
+  if (state === "error") {
+    return (
+      <div className="workspace-failure">
+        <h2>The school directory could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => setReloadKey((key) => key + 1)} type="button">
+          Try again
+        </button>
+      </div>
+    );
   }
 
   return (

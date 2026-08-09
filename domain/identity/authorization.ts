@@ -107,7 +107,20 @@ export function canAccessLearner(
     return context.linkedLearnerIds.includes(learnerPersonId);
   }
 
-  return context.role !== "teacher";
+  /* A class teacher answers for their own class. This used to end
+     `return context.role !== "teacher"`, which said yes to every role that
+     was not a subject teacher — so a class teacher could open any learner in
+     the school, and so could an admissions officer, who holds
+     student-record:read to review applicants rather than to read a current
+     learner's report card. */
+  if (context.role === "class-teacher") {
+    return context.classLearnerIds.includes(learnerPersonId);
+  }
+
+  /* The two administrative roles answer for the whole school; a subject
+     teacher reaches learners through the offering they teach, not through
+     this. */
+  return context.role === "school-admin" || context.role === "academic-admin";
 }
 
 export function canTeachOffering(

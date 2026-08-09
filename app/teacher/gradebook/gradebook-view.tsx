@@ -628,9 +628,12 @@ function PolicyPanel({
               <b>{category.weightPercent}%</b>
             </div>
           ))}
+          {/* Summed, not asserted. This printed 100% whatever the weights
+              added up to, so a policy a school had left at 90 still claimed
+              to be whole — on the screen a teacher checks it against. */}
           <footer>
             <span>Total</span>
-            <strong>100%</strong>
+            <strong>{categoryWeightTotal(workspace.categories)}%</strong>
           </footer>
         </article>
         <article className="scale-policy">
@@ -677,6 +680,21 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+/* The weights as they actually stand. A school part-way through setting its
+   policy is the normal state of this screen, and it should show the number it
+   has rather than the number it is aiming at. */
+function categoryWeightTotal(
+  categories: TeacherGradebookWorkspace["categories"],
+): number {
+  const total = categories.reduce(
+    (sum, category) => sum + category.weightPercent,
+    0,
+  );
+  /* Weights are whole numbers in practice; rounded anyway so a policy stored
+     as thirds does not print 99.99999999999999%. */
+  return Math.round(total * 10) / 10;
 }
 
 /** Where a report has got to, said as who is holding it. */

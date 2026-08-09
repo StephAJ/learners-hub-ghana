@@ -791,12 +791,15 @@ export async function getGuardianReportWorkspace(
   await ensureReportingFoundation();
   const database = await getSchoolDatabase();
   const linkedChildren = await resolveAccessibleChildren(database, access);
+  /* Was "person-kwame": one demo learner, handed to anybody who did not name
+     a child. An administrator gets their own id and is refused unless they
+     may see it. */
   const defaultLearnerId =
     access.role === "guardian"
       ? linkedChildren[0]?.id
       : access.role === "learner"
         ? access.actorPersonId
-        : "person-kwame";
+        : access.actorPersonId;
   const learnerId =
     requestedLearnerId ?? defaultLearnerId ?? access.actorPersonId;
   if (!canAccessLearner(access, learnerId)) {
@@ -806,13 +809,13 @@ export async function getGuardianReportWorkspace(
   }
   const child = await database
     .prepare(
-      `SELECT id, first_name || ' ' || last_name AS name
+      `SELECT id, student_number, first_name || ' ' || last_name AS name
       FROM people
       WHERE id = ? AND tenant_id = ? AND kind = 'learner'
       LIMIT 1`,
     )
     .bind(learnerId, access.tenantId)
-    .first<{ id: string; name: string }>();
+    .first<{ id: string; name: string; student_number: string | null }>();
   if (!child) throw new ReportingPolicyError("Learner was not found.");
   const reports = await loadReleasedReports(database, access, learnerId);
   return {
@@ -820,7 +823,7 @@ export async function getGuardianReportWorkspace(
       className: "JHS 2 Gold",
       id: child.id,
       name: child.name,
-      studentId: studentNumber(child.id),
+      studentId: child.student_number ?? "",
     },
     linkedChildren:
       linkedChildren.length > 0 ? linkedChildren : [{ id: child.id, name: child.name }],
@@ -1347,6 +1350,7 @@ async function loadGradebookLearners(
     .prepare(
       `SELECT DISTINCT person.id,
         person.first_name || ' ' || person.last_name AS name,
+        person.student_number,
         person.first_name,
         person.last_name
       FROM people AS person
@@ -1359,7 +1363,7 @@ async function loadGradebookLearners(
       ORDER BY person.first_name, person.last_name`,
     )
     .bind(tenantId, offering.classGroupId, offering.className)
-    .all<{ id: string; name: string }>();
+    .all<{ id: string; name: string; student_number: string | null }>();
   const result: GradebookLearner[] = [];
   for (const learner of learners.results) {
     const entryRows = await database
@@ -1420,7 +1424,7 @@ async function loadGradebookLearners(
       missingCount,
       name: learner.name,
       remark: grade.remark,
-      studentId: studentNumber(learner.id),
+      studentId: learner.student_number ?? "",
       totalPercent,
     });
   }
@@ -1755,16 +1759,6 @@ function auditStatement(
       entityId,
       JSON.stringify(metadata),
     );
-}
-
-function studentNumber(personId: string) {
-  const suffix =
-    personId === "person-kwame"
-      ? "260138"
-      : personId === "person-ama"
-        ? "260112"
-        : "260145";
-  return `LH-${suffix}`;
 }
 
 type ReportVersionRow = {

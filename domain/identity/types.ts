@@ -62,6 +62,10 @@ export type SchoolBrand = {
 export type AccessContext = {
   actorPersonId: string;
   classGroupIds: string[];
+  /* The learners in those classes. A class teacher answers for the children
+     in front of them and no others, and that cannot be decided from a class
+     id alone — so the list is resolved once per request beside the rest. */
+  classLearnerIds: string[];
   linkedLearnerIds: string[];
   membershipStatus: MembershipStatus;
   role: SchoolRole;

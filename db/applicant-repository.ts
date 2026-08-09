@@ -11,6 +11,7 @@ import {
   requireOpenIntakeId,
   resolveCurrentIntakeId,
 } from "./intake-repository";
+import { allocateStudentNumber } from "./people-repository";
 import { ensurePlatformReady } from "../server/platform-ready";
 import { getPostgresPool } from "./postgres";
 
@@ -457,4 +458,210 @@ function isAllowedStatusChange(
     "under-review": ["offered", "rejected"],
   };
   return allowedTransitions[currentStatus]?.includes(nextStatus) ?? false;
+}
+
+/* ==========================================================================
+   Turning an accepted application into a learner
+
+   Moving an application to "enrolled" changed one word in one row. No learner
+   was created, no class membership, no guardian link and no student number —
+   so a child the school had admitted did not exist in the product. They had
+   no subjects, no register entry, no report card, and their guardian had
+   nothing to open.
+
+   domain/admissions/admissions.ts has convertAcceptedApplication(), which
+   encodes the same rule and is covered by tests, but it is written against a
+   different application type and returns a class placement for a table this
+   schema does not have — placement here is a class-scoped tenant membership,
+   which is what every scoping query actually reads. The rule it protects is
+   kept: only an accepted application becomes a learner.
+
+   One transaction. A learner with no guardian link, or a guardian link to a
+   learner with no class, is a worse state than an application still waiting.
+   ========================================================================== */
+
+export type EnrolApplicantInput = {
+  /** The class the learner joins. Its name becomes their membership scope. */
+  classGroupId: string;
+};
+
+export type EnrolApplicantResult = {
+  application: ApplicantApplication;
+  guardian: { created: boolean; id: string };
+  learner: { className: string; id: string; name: string; studentNumber: string };
+};
+
+export async function enrolApplicant(
+  access: AccessContext,
+  applicationId: string,
+  input: EnrolApplicantInput,
+): Promise<EnrolApplicantResult> {
+  if (!canPerform(access, "admissions:manage")) {
+    throw new AuthorizationError(
+      "You do not have permission to manage admissions.",
+    );
+  }
+  await ensurePlatformReady();
+  const database = getPostgresPool();
+
+  const currentResult = await database.query<ApplicationRow>(
+    `${applicationSelect}
+     WHERE tenant_id = $1 AND id = $2
+     LIMIT 1`,
+    [access.tenantId, applicationId],
+  );
+  const current = currentResult.rows[0];
+  if (!current) {
+    throw new ApplicantApplicationError("The application could not be found.");
+  }
+  if (current.status !== "accepted") {
+    throw new ApplicantApplicationError(
+      `Only an accepted application can become a learner. This one is ${current.status}.`,
+    );
+  }
+
+  const classGroup = await database.query<{ id: string; name: string }>(
+    `SELECT id, name FROM class_groups
+     WHERE id = $1 AND tenant_id = $2 AND status = 'active'`,
+    [input.classGroupId, access.tenantId],
+  );
+  const placement = classGroup.rows[0];
+  if (!placement) {
+    throw new ApplicantApplicationError(
+      "Choose a class the school is currently running.",
+    );
+  }
+
+  const client = await database.connect();
+  try {
+    await client.query("BEGIN");
+
+    const learnerId = crypto.randomUUID();
+    const studentNumber = await allocateStudentNumber(client, access.tenantId);
+    await client.query(
+      `INSERT INTO people
+        (id, tenant_id, kind, first_name, last_name, email, student_number,
+         status)
+       VALUES ($1, $2, 'learner', $3, $4, $5, $6, 'active')`,
+      [
+        learnerId,
+        access.tenantId,
+        current.applicant_first_name,
+        current.applicant_last_name,
+        current.applicant_email,
+        studentNumber,
+      ],
+    );
+
+    /* The class membership is the placement. scope_id holds the class name
+       rather than its id because that is what the offering join matches on —
+       see listLearnerSubjects() and loadAccessScopes(). */
+    await client.query(
+      `INSERT INTO tenant_memberships
+        (id, tenant_id, person_id, role, status, scope_type, scope_id)
+       VALUES ($1, $2, $3, 'learner', 'active', 'class', $4)`,
+      [crypto.randomUUID(), access.tenantId, learnerId, placement.name],
+    );
+
+    /* A guardian who already has a person record — a second child at the
+       school — is linked rather than duplicated. */
+    const guardianEmail = (current.guardian_email ?? "").trim().toLowerCase();
+    const existingGuardian = guardianEmail
+      ? await client.query<{ id: string }>(
+          `SELECT id FROM people
+           WHERE tenant_id = $1 AND kind = 'guardian' AND lower(email) = $2
+           LIMIT 1`,
+          [access.tenantId, guardianEmail],
+        )
+      : { rows: [] as Array<{ id: string }> };
+
+    let guardianId = existingGuardian.rows[0]?.id;
+    const guardianCreated = !guardianId;
+    if (!guardianId) {
+      guardianId = crypto.randomUUID();
+      const [firstName, ...rest] = (current.guardian_name ?? "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      await client.query(
+        `INSERT INTO people
+          (id, tenant_id, kind, first_name, last_name, email, phone, status)
+         VALUES ($1, $2, 'guardian', $3, $4, $5, $6, 'invited')`,
+        [
+          guardianId,
+          access.tenantId,
+          firstName ?? "Guardian",
+          rest.join(" "),
+          guardianEmail || null,
+          current.guardian_phone || null,
+        ],
+      );
+      await client.query(
+        `INSERT INTO tenant_memberships
+          (id, tenant_id, person_id, role, status, scope_type, scope_id)
+         VALUES ($1, $2, $3, 'guardian', 'invited', 'tenant', NULL)`,
+        [crypto.randomUUID(), access.tenantId, guardianId],
+      );
+    }
+
+    await client.query(
+      `INSERT INTO guardian_relationships
+        (id, tenant_id, guardian_person_id, learner_person_id, relationship)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT DO NOTHING`,
+      [
+        crypto.randomUUID(),
+        access.tenantId,
+        guardianId,
+        learnerId,
+        current.guardian_relationship || "guardian",
+      ],
+    );
+
+    const updated = await client.query<ApplicationRow>(
+      `UPDATE admission_application_records
+       SET status = 'enrolled', updated_at = CURRENT_TIMESTAMP
+       WHERE tenant_id = $1 AND id = $2
+       RETURNING${applicationColumns}`,
+      [access.tenantId, applicationId],
+    );
+
+    await client.query(
+      `INSERT INTO audit_events
+        (id, tenant_id, actor_person_id, action, entity_type, entity_id,
+         metadata)
+       VALUES ($1, $2, $3, 'admissions.enrolled', 'admission_application', $4,
+         $5::jsonb)`,
+      [
+        crypto.randomUUID(),
+        access.tenantId,
+        access.actorPersonId,
+        applicationId,
+        JSON.stringify({
+          classGroupId: placement.id,
+          guardianCreated,
+          guardianPersonId: guardianId,
+          learnerPersonId: learnerId,
+          studentNumber,
+        }),
+      ],
+    );
+
+    await client.query("COMMIT");
+    return {
+      application: mapApplication(updated.rows[0]),
+      guardian: { created: guardianCreated, id: guardianId },
+      learner: {
+        className: placement.name,
+        id: learnerId,
+        name: `${current.applicant_first_name} ${current.applicant_last_name}`.trim(),
+        studentNumber,
+      },
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

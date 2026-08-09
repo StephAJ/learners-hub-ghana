@@ -7,101 +7,92 @@ import type {
 } from "../../../db/reporting-repository";
 import "./guardian-reports.css";
 
-const previewWorkspace: GuardianReportWorkspace = {
-  child: {
-    className: "JHS 2 Gold",
-    id: "person-kwame",
-    name: "Kwame Agyeman",
-    studentId: "LH-260138",
-  },
-  linkedChildren: [{ id: "person-kwame", name: "Kwame Agyeman" }],
-  reports: [
-    {
-      approved: true,
-      attendance: { present: 56, total: 58 },
-      classTeacherComment:
-        "Kwame is thoughtful and consistent. He should keep asking questions when a concept is not immediately clear.",
-      conduct: "Very good",
-      headteacherComment:
-        "A commendable term. Keep building confidence through regular practice.",
-      id: "report-kwame-term2",
-      nextTermBeginsOn: "2026-05-05",
-      overallAverage: 74.8,
-      periodName: "Term 2 · 2025 / 2026",
-      promotionDecision: "Progressing",
-      releasedAt: "2026-04-14T08:00:00.000Z",
-      subjects: [
-        subject("MA", "Mathematics", 74, "B", "Very good", "Good progress in algebra and number work."),
-        subject("EN", "English Language", 71, "B", "Very good", "Written expression is becoming clearer."),
-        subject("IS", "Integrated Science", 79, "B", "Very good", "Shows strong understanding of body systems."),
-        subject("SS", "Social Studies", 66, "C", "Good", "Participates thoughtfully in civic discussions."),
-        subject("CT", "Computing", 81, "A", "Excellent", "Works confidently with data and documents."),
-        subject("RM", "Religious & Moral Education", 78, "B", "Very good", "Demonstrates respect and sound moral judgement."),
-      ],
-      version: 1,
-    },
-  ],
-  schoolName: "Greenfield Academy",
-};
+/* ==========================================================================
+   No preview report card
+
+   A complete report card stood here as a constant: Kwame Agyeman of JHS 2
+   Gold, six subjects with grades and remarks, attendance of 56 out of 58, a
+   conduct grade, both teachers' comments and a promotion decision. The view
+   opened on it and kept it whenever /api/guardian/reports failed.
+
+   A report card is the document a family acts on. A guardian shown somebody
+   else's, with no way to tell, is the worst version of the preview-mode
+   problem the rest of the product has now shed.
+   ========================================================================== */
 
 export function ReportsView() {
-  const [workspace, setWorkspace] = useState(previewWorkspace);
-  const [mode, setMode] = useState<"loading" | "protected" | "preview">(
-    "loading",
-  );
-  const [selectedReportId, setSelectedReportId] = useState(
-    previewWorkspace.reports[0]?.id ?? "",
-  );
+  const [workspace, setWorkspace] = useState<GuardianReportWorkspace>();
+  const [state, setState] = useState<"error" | "loading" | "ready">("loading");
+  const [problem, setProblem] = useState("");
+  const [selectedReportId, setSelectedReportId] = useState("");
+  const [childId, setChildId] = useState<string>();
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
-    void load();
 
-    async function load() {
+    async function loadOnce() {
       try {
-        const response = await fetch("/api/guardian/reports");
-        if (!response.ok) throw new Error("Reports unavailable.");
+        const response = await fetch(
+          childId
+            ? `/api/guardian/reports?learnerId=${encodeURIComponent(childId)}`
+            : "/api/guardian/reports",
+        );
         const payload = (await response.json()) as {
-          actor: string;
-          workspace: GuardianReportWorkspace;
+          error?: string;
+          workspace?: GuardianReportWorkspace;
         };
         if (!active) return;
+        if (!response.ok || !payload.workspace) {
+          throw new Error(payload.error ?? "Reports are unavailable.");
+        }
         setWorkspace(payload.workspace);
         setSelectedReportId(payload.workspace.reports[0]?.id ?? "");
-        setMode("protected");
-      } catch {
-        if (active) setMode("preview");
+        setState("ready");
+      } catch (thrown) {
+        if (!active) return;
+        setProblem(
+          thrown instanceof Error
+            ? thrown.message
+            : "Reports could not be reached.",
+        );
+        setState("error");
       }
     }
 
+    void loadOnce();
     return () => {
       active = false;
     };
-  }, []);
+  }, [childId, reloadKey]);
+
+  /* Switching child changes what is loaded, so it goes through the same
+     effect rather than a second copy of the fetch. */
+  function selectChild(learnerId: string) {
+    if (learnerId === childId) return;
+    setState("loading");
+    setChildId(learnerId);
+  }
+
+  if (state === "loading") {
+    return <p className="workspace-loading">Loading your child’s reports…</p>;
+  }
+
+  if (state === "error" || !workspace) {
+    return (
+      <div className="workspace-failure">
+        <h2>Reports could not be loaded.</h2>
+        <p>{problem}</p>
+        <button onClick={() => setReloadKey((key) => key + 1)} type="button">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   const report =
     workspace.reports.find((item) => item.id === selectedReportId) ??
     workspace.reports[0];
-
-  async function selectChild(learnerId: string) {
-    if (mode !== "protected") return;
-    setMode("loading");
-    try {
-      const response = await fetch(
-        `/api/guardian/reports?learnerId=${encodeURIComponent(learnerId)}`,
-      );
-      if (!response.ok) throw new Error("Child report unavailable.");
-      const payload = (await response.json()) as {
-        actor: string;
-        workspace: GuardianReportWorkspace;
-      };
-      setWorkspace(payload.workspace);
-      setSelectedReportId(payload.workspace.reports[0]?.id ?? "");
-      setMode("protected");
-    } catch {
-      setMode("protected");
-    }
-  }
 
   return (
     <>
@@ -153,13 +144,12 @@ export function ReportsView() {
               </select>
             </label>
           ) : (
-            <span className={`guardian-connection ${mode}`}>
+            /* One child, so nothing to switch between. The badge here read
+               "Preview report" in the state that no longer exists; what is
+               worth saying is whose reports these are. */
+            <span className="guardian-connection protected">
               <i />
-              {mode === "protected"
-                ? "School records connected"
-                : mode === "loading"
-                  ? "Connecting records"
-                  : "Preview report"}
+              {workspace.child.name}
             </span>
           )}
         </section>
@@ -364,23 +354,6 @@ function ReportCard({
   );
 }
 
-function subject(
-  subjectCode: string,
-  subjectName: string,
-  scorePercent: number,
-  grade: string,
-  remark: string,
-  teacherComment: string,
-) {
-  return {
-    grade,
-    remark,
-    scorePercent,
-    subjectCode,
-    subjectName,
-    teacherComment,
-  };
-}
 
 function initials(name: string) {
   return name

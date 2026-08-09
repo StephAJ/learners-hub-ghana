@@ -30,6 +30,11 @@ export const people = sqliteTable(
        media path once schools bring their own. Nullable because a school will
        always be part-way through collecting them. */
     photoUrl: text("photo_url"),
+    /* The number the school knows a learner by, on registers and report
+       cards. Nullable: only learners have one, and a school that brings its
+       own numbering writes it here rather than into a second column. Unique
+       per tenant — see people_student_number_idx. */
+    studentNumber: text("student_number"),
     status: text("status", {
       enum: ["active", "invited", "inactive", "alumni"],
     })

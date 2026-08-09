@@ -37,6 +37,7 @@ const entries: GradeEntry[] = [
 const administrator: AccessContext = {
   actorPersonId: "admin-1",
   classGroupIds: [],
+  classLearnerIds: [],
   linkedLearnerIds: [],
   membershipStatus: "active",
   role: "academic-admin",
@@ -115,6 +116,7 @@ describe("gradebook and reports", () => {
     const guardian: AccessContext = {
       actorPersonId: "guardian-1",
       classGroupIds: [],
+      classLearnerIds: [],
       linkedLearnerIds: ["learner-1"],
       membershipStatus: "active",
       role: "guardian",

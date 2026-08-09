@@ -77,6 +77,7 @@ export async function resolveAuthenticatedSchoolUser(
     access: {
       actorPersonId: identity.person_id,
       classGroupIds: scopes.classGroupIds,
+      classLearnerIds: scopes.classLearnerIds,
       linkedLearnerIds: scopes.linkedLearnerIds,
       membershipStatus: identity.membership_status,
       role: identity.role,
@@ -114,7 +115,7 @@ export async function resolveAuthenticatedSchoolUser(
    by accident. Each list is simply empty for someone it does not apply to,
    which is also the correct answer.
 
-   One round trip. Three correlated subqueries cost less than the three
+   One round trip. Four correlated subqueries cost less than the four
    sequential awaits they replace, and this sits in front of every
    authenticated request. */
 async function loadAccessScopes(
@@ -122,11 +123,13 @@ async function loadAccessScopes(
   personId: string,
 ): Promise<{
   classGroupIds: string[];
+  classLearnerIds: string[];
   linkedLearnerIds: string[];
   subjectOfferingIds: string[];
 }> {
   const result = await getPostgresPool().query<{
     class_group_ids: string[];
+    class_learner_ids: string[];
     learner_ids: string[];
     offering_ids: string[];
   }>(
@@ -177,13 +180,47 @@ async function loadAccessScopes(
                  )
              )
            )
-       ), '{}'::text[]) AS class_group_ids`,
+       ), '{}'::text[]) AS class_group_ids,
+       /* The learners in those classes. A class teacher answers for the
+          children in front of them, which canAccessLearner() cannot decide
+          from a class id — so the ids come back with the rest of the scope
+          rather than costing a query wherever the question is asked.
+
+          Matched on class name as well as id for the same reason the block
+          above is: that is what a learner's membership actually holds. */
+       COALESCE((
+         SELECT array_agg(DISTINCT learner.person_id)
+         FROM tenant_memberships AS learner
+         INNER JOIN class_groups AS class_group
+           ON class_group.tenant_id = learner.tenant_id
+           AND (
+             learner.scope_id = class_group.id
+             OR learner.scope_id = class_group.name
+           )
+         WHERE learner.tenant_id = $1
+           AND learner.role = 'learner'
+           AND learner.status = 'active'
+           AND learner.scope_type = 'class'
+           AND EXISTS (
+             SELECT 1
+             FROM tenant_memberships AS mine
+             WHERE mine.tenant_id = $1
+               AND mine.person_id = $2
+               AND mine.status = 'active'
+               AND mine.scope_type = 'class'
+               AND (
+                 mine.scope_id = class_group.id
+                 OR mine.scope_id = class_group.name
+               )
+           )
+       ), '{}'::text[]) AS class_learner_ids`,
     [tenantId, personId],
   );
 
   const scopes = result.rows[0];
   return {
     classGroupIds: scopes?.class_group_ids ?? [],
+    classLearnerIds: scopes?.class_learner_ids ?? [],
     linkedLearnerIds: scopes?.learner_ids ?? [],
     subjectOfferingIds: scopes?.offering_ids ?? [],
   };
@@ -259,10 +296,19 @@ export async function inviteDirectoryPerson(
 
   try {
     await client.query("BEGIN");
+    /* Allocated inside the transaction so two invitations racing cannot be
+       handed the same number — the unique index on (tenant_id,
+       student_number) is the backstop, and the loser gets a 409 rather than
+       a duplicate. */
+    const studentNumber =
+      input.kind === "learner"
+        ? await allocateStudentNumber(client, access.tenantId)
+        : null;
     await client.query(
       `INSERT INTO people
-        (id, tenant_id, kind, first_name, last_name, email, phone, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'invited')`,
+        (id, tenant_id, kind, first_name, last_name, email, phone,
+         student_number, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'invited')`,
       [
         personId,
         access.tenantId,
@@ -271,6 +317,7 @@ export async function inviteDirectoryPerson(
         input.lastName.trim(),
         email,
         input.phone?.trim() || null,
+        studentNumber,
       ],
     );
     await client.query(
@@ -382,3 +429,43 @@ function formatScope(scopeType: string, scopeId: string | null) {
 function scopeTypeLabel(scopeType: string) {
   return scopeType.charAt(0).toUpperCase() + scopeType.slice(1);
 }
+
+/* ==========================================================================
+   Student numbers
+
+   The number a school knows a learner by. There was no column for it: both
+   the register and the report card computed one from a three-way map of demo
+   person ids, so every learner but two carried the same number.
+
+   Generated as LH-YYnnnn — the two-digit year the learner was admitted, then
+   a per-tenant sequence. The prefix is a default rather than a standard; the
+   column is free text and unique per tenant, so a school with its own
+   numbering can hold that instead once there is a screen to enter it.
+   ========================================================================== */
+
+const STUDENT_NUMBER_PATTERN = "^LH-[0-9]{6}$";
+
+export async function allocateStudentNumber(
+  client: { query: PoolLikeQuery },
+  tenantId: string,
+): Promise<string> {
+  /* The maximum is taken only over numbers this generator produced, so a
+     school that has entered its own format for some learners does not push
+     the sequence somewhere strange — or crash it on a non-numeric tail. */
+  const result = await client.query(
+    `SELECT COALESCE(MAX(substring(student_number from '([0-9]{4})$')::int), 0)
+              AS highest
+     FROM people
+     WHERE tenant_id = $1 AND kind = 'learner'
+       AND student_number ~ $2`,
+    [tenantId, STUDENT_NUMBER_PATTERN],
+  );
+  const next = Number(result.rows[0]?.highest ?? 0) + 1;
+  const year = String(new Date().getFullYear()).slice(-2);
+  return `LH-${year}${String(next).padStart(4, "0")}`;
+}
+
+type PoolLikeQuery = (
+  text: string,
+  values?: unknown[],
+) => Promise<{ rows: Array<{ highest: string | number }> }>;

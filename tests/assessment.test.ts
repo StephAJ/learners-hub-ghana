@@ -16,6 +16,7 @@ import type {
 const teacher: AccessContext = {
   actorPersonId: "teacher-1",
   classGroupIds: ["class-jhs2-gold"],
+  classLearnerIds: [],
   linkedLearnerIds: [],
   membershipStatus: "active",
   role: "teacher",

@@ -307,4 +307,49 @@ const additiveMigrations = `
      map new work to. */
   ALTER TABLE curriculum_standards
     ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
+
+  /* ------------------------------------------------------------------------
+     Student numbers that identify a student
+
+     There was no column for this. Both surfaces that show a student number —
+     the register and the report card — computed one from a three-way map:
+
+       if (personId === "person-kwame") return "LH-260138";
+       if (personId === "person-ama")   return "LH-260112";
+       return "LH-260145";
+
+     So in a real school every learner but two carried the identical number,
+     printed on the document a school issues to a family. An identifier that
+     does not identify is worse than none at all.
+
+     Nullable, so a school that has its own numbering can put it here later
+     without a second column, and unique per tenant so two learners cannot
+     share one.
+     ---------------------------------------------------------------------- */
+  ALTER TABLE people
+    ADD COLUMN IF NOT EXISTS student_number text;
+
+  /* Backfilled in creation order, which is the order a school admitted them.
+     The window covers every learner rather than only the unnumbered ones, so
+     a learner who already has a number keeps their place in the sequence and
+     the rest fill in around it. */
+  UPDATE people AS person
+  SET student_number = numbered.assigned
+  FROM (
+    SELECT
+      id,
+      'LH-' || to_char(created_at, 'YY') || lpad(
+        (row_number() OVER (
+          PARTITION BY tenant_id ORDER BY created_at, id
+        ))::text, 4, '0') AS assigned
+    FROM people
+    WHERE kind = 'learner'
+  ) AS numbered
+  WHERE person.id = numbered.id AND person.student_number IS NULL;
+
+  /* After the backfill, so the first run cannot fail on rows it is about to
+     fix. Partial, because everyone who is not a learner has no number. */
+  CREATE UNIQUE INDEX IF NOT EXISTS people_student_number_idx
+    ON people (tenant_id, student_number)
+    WHERE student_number IS NOT NULL;
 `;

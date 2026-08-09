@@ -12,6 +12,7 @@ import {
 import type {
   AcademicYear,
   AdmissionIntake,
+  ClassGroup,
 } from "../../../domain/academic/structure";
 import type { ApplicantApplication } from "../../../db/applicant-repository";
 import {
@@ -97,6 +98,8 @@ const PIPELINE_STAGES: ReadonlyArray<{
 
 type AdmissionsData = {
   applications: ApplicantApplication[];
+  /* The classes an accepted applicant can be enrolled into. */
+  classGroups: ClassGroup[];
   counts: Record<string, number>;
   error?: string;
   intakes: AdmissionIntake[];
@@ -107,7 +110,13 @@ type AdmissionsData = {
    itself being a dependency, and so nothing in it touches state — the caller
    decides what to do with the answer. */
 async function fetchAdmissions(): Promise<AdmissionsData> {
-  const empty = { applications: [], counts: {}, intakes: [], years: [] };
+  const empty = {
+    applications: [],
+    classGroups: [],
+    counts: {},
+    intakes: [],
+    years: [],
+  };
   try {
     const [applicationsResponse, intakeResponse] = await Promise.all([
       fetch("/api/admin/admissions"),
@@ -115,6 +124,7 @@ async function fetchAdmissions(): Promise<AdmissionsData> {
     ]);
     const applicationsPayload = (await applicationsResponse.json()) as {
       applications?: ApplicantApplication[];
+      classGroups?: ClassGroup[];
       error?: string;
     };
     if (!applicationsResponse.ok || !applicationsPayload.applications) {
@@ -138,6 +148,7 @@ async function fetchAdmissions(): Promise<AdmissionsData> {
 
     return {
       applications: applicationsPayload.applications,
+      classGroups: applicationsPayload.classGroups ?? [],
       counts: intakePayload.applicationCounts ?? {},
       intakes: intakePayload.intakes,
       years: intakePayload.years ?? [],
@@ -155,6 +166,11 @@ export function AdmissionsView() {
   const [intakes, setIntakes] = useState<AdmissionIntake[]>([]);
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [classGroups, setClassGroups] = useState<ClassGroup[]>([]);
+  /* The class an accepted applicant is being enrolled into. Chosen per
+     applicant rather than defaulted: putting a child in the wrong class is
+     not something to do by pressing one button quickly. */
+  const [enrolClassId, setEnrolClassId] = useState("");
   const [state, setState] = useState<"error" | "loading" | "ready">("loading");
   const [selectedId, setSelectedId] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "all">(
@@ -173,6 +189,7 @@ export function AdmissionsView() {
       return false;
     }
     setApplications(loaded.applications);
+    setClassGroups(loaded.classGroups);
     setIntakes(loaded.intakes);
     setYears(loaded.years);
     setCounts(loaded.counts);
@@ -192,6 +209,7 @@ export function AdmissionsView() {
         return;
       }
       setApplications(loaded.applications);
+      setClassGroups(loaded.classGroups);
       setIntakes(loaded.intakes);
       setYears(loaded.years);
       setCounts(loaded.counts);
@@ -263,6 +281,53 @@ export function AdmissionsView() {
         error instanceof Error ? error.message : "Something went wrong.",
       );
       return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* Enrolling is not a status change, so it does not go through advance().
+     It creates a person, a class membership, a guardian link and a student
+     number — which is what "Create student record" has always claimed to do
+     and, until now, did not. */
+  async function enrol(application: ApplicantApplication) {
+    if (!enrolClassId) return;
+    setBusy(true);
+    setNotice("");
+    setProblem("");
+    try {
+      const response = await fetch("/api/admin/admissions", {
+        body: JSON.stringify({
+          applicationId: application.id,
+          classGroupId: enrolClassId,
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        application?: ApplicantApplication;
+        error?: string;
+        guardian?: { created: boolean };
+        learner?: { className: string; name: string; studentNumber: string };
+      };
+      if (!response.ok || !payload.application || !payload.learner) {
+        throw new Error(payload.error ?? "The learner could not be created.");
+      }
+      const updated = payload.application;
+      setApplications((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setEnrolClassId("");
+      setNotice(
+        `${payload.learner.name} joined ${payload.learner.className} as ${payload.learner.studentNumber}` +
+          (payload.guardian?.created
+            ? ". Their guardian was invited to the family hub."
+            : "."),
+      );
+    } catch (error) {
+      setProblem(
+        error instanceof Error ? error.message : "Something went wrong.",
+      );
     } finally {
       setBusy(false);
     }
@@ -620,7 +685,47 @@ export function AdmissionsView() {
             )}
 
             <div className="detail-actions">
-              {nextStep[selected.status] ? (
+              {selected.status === "accepted" ? (
+                <div className="enrol-panel">
+                  <label>
+                    <span>Class</span>
+                    <select
+                      onChange={(event) => setEnrolClassId(event.target.value)}
+                      value={enrolClassId}
+                    >
+                      <option value="">Choose a class</option>
+                      {classGroups
+                        .filter((group) => group.status === "active")
+                        .map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.name} · {group.learnerCount} learners
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <button
+                    className="primary-action"
+                    disabled={busy || !enrolClassId}
+                    onClick={() => void enrol(selected)}
+                    type="button"
+                  >
+                    {busy ? "Creating…" : "Create student record"}{" "}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                  {/* Said plainly, because it is a lot to happen behind one
+                      button and none of it is easy to undo. */}
+                  <small>
+                    Creates the learner, places them in the class, links their
+                    guardian and issues a student number.
+                  </small>
+                  {classGroups.length === 0 ? (
+                    <small>
+                      No classes are set up yet. Add one on the Academics
+                      screen first.
+                    </small>
+                  ) : null}
+                </div>
+              ) : nextStep[selected.status] ? (
                 <button
                   className="primary-action"
                   disabled={busy}

@@ -10,6 +10,7 @@ import type { AccessContext } from "../domain/identity/types";
 const administrator: AccessContext = {
   actorPersonId: "person-admin",
   classGroupIds: [],
+  classLearnerIds: [],
   linkedLearnerIds: [],
   membershipStatus: "active",
   role: "school-admin",
@@ -54,6 +55,48 @@ describe("tenant-scoped authorisation", () => {
 
     expect(canAccessLearner(guardian, "learner-2")).toBe(true);
     expect(canAccessLearner(guardian, "learner-3")).toBe(false);
+  });
+
+  /* This ended `return context.role !== "teacher"`, so every role that was
+     not a subject teacher could open every learner in the school. */
+  it("allows a class teacher only the learners in their own class", () => {
+    const classTeacher: AccessContext = {
+      ...administrator,
+      actorPersonId: "teacher-1",
+      classLearnerIds: ["learner-1", "learner-2"],
+      role: "class-teacher",
+    };
+
+    expect(canAccessLearner(classTeacher, "learner-2")).toBe(true);
+    expect(canAccessLearner(classTeacher, "learner-9")).toBe(false);
+  });
+
+  /* An admissions officer holds student-record:read to review applicants,
+     not to read an enrolled learner's report card. */
+  it("refuses an admissions officer a learner's record", () => {
+    const officer: AccessContext = {
+      ...administrator,
+      actorPersonId: "officer-1",
+      role: "admissions-officer",
+    };
+
+    expect(canAccessLearner(officer, "learner-1")).toBe(false);
+  });
+
+  it("lets the two administrative roles answer for the whole school", () => {
+    expect(canAccessLearner(administrator, "learner-1")).toBe(true);
+    expect(
+      canAccessLearner({ ...administrator, role: "academic-admin" }, "learner-1"),
+    ).toBe(true);
+  });
+
+  it("refuses a subject teacher, who reaches learners through offerings", () => {
+    expect(
+      canAccessLearner(
+        { ...administrator, classLearnerIds: ["learner-1"], role: "teacher" },
+        "learner-1",
+      ),
+    ).toBe(false);
   });
 
   it("allows a learner to access only their own record", () => {

@@ -843,3 +843,45 @@
     flex-direction: column;
   }
 }
+
+
+/* ==========================================================================
+   Creating a student record
+
+   The one press on this screen that creates a person rather than moving an
+   application along, so it says what it will do before it is pressed and
+   asks for the class it cannot guess.
+   ========================================================================== */
+
+.enrol-panel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.enrol-panel label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.enrol-panel label > span {
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+}
+
+.enrol-panel select {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-14);
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+  width: 100%;
+}
+
+.enrol-panel small {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  line-height: var(--lh-snug);
+}

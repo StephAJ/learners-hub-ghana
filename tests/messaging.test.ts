@@ -20,6 +20,7 @@ function access(
   return {
     actorPersonId,
     classGroupIds: [],
+    classLearnerIds: [],
     linkedLearnerIds: [],
     membershipStatus,
     role,

@@ -21,6 +21,7 @@ import type { AccessContext } from "../domain/identity/types";
 const access: AccessContext = {
   actorPersonId: "person-grace",
   classGroupIds: ["class-jhs2-gold"],
+  classLearnerIds: [],
   linkedLearnerIds: [],
   membershipStatus: "active",
   role: "teacher",
