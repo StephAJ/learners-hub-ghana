@@ -152,32 +152,38 @@ export function LessonPlayer({
 
   const lessons = subject.lessons;
 
-  const selectedLesson =
+  /* `lessons[0]` on an empty list is undefined, and the line under it read
+     .blocks off it — so a subject a school has created but not yet written a
+     lesson for took down the whole page. Every derivation below tolerates the
+     empty case; the render refuses it explicitly, further down, once the
+     hooks have all run. */
+  const selectedLesson: (typeof lessons)[number] | undefined =
     lessons.find((lesson) => lesson.id === selectedLessonId) ?? lessons[0];
-  const activeBlock =
-    selectedLesson.blocks[activeBlockIndex] ?? selectedLesson.blocks[0];
+  const blocks = selectedLesson?.blocks ?? [];
+  const activeBlock = blocks[activeBlockIndex] ?? blocks[0];
   const subjectProgress = Math.round(
     lessons.reduce((total, lesson) => total + lesson.progressPercent, 0) /
       Math.max(1, lessons.length),
   );
   const completedBlocks = Math.max(
     1,
-    Math.round((progress / 100) * selectedLesson.blocks.length),
+    Math.round((progress / 100) * blocks.length),
   );
+  const selectedLessonId_ = selectedLesson?.id;
   const lessonPosition = useMemo(
     () =>
       Math.max(
         1,
-        lessons.findIndex((lesson) => lesson.id === selectedLesson.id) + 1,
+        lessons.findIndex((lesson) => lesson.id === selectedLessonId_) + 1,
       ),
-    [lessons, selectedLesson.id],
+    [lessons, selectedLessonId_],
   );
 
   async function moveToBlock(index: number) {
     setActiveBlockIndex(index);
     const nextProgress = Math.max(
       progress,
-      Math.round(((index + 1) / selectedLesson.blocks.length) * 100),
+      Math.round(((index + 1) / Math.max(1, blocks.length)) * 100),
     );
     setProgress(nextProgress);
     await persistProgress(nextProgress);
@@ -206,6 +212,10 @@ export function LessonPlayer({
   async function persistProgress(percent: number) {
     /* A preview reads the lesson; it does not record having read it. */
     if (preview) return;
+    /* No lesson open means nothing to record against — reachable only if the
+       subject emptied under the learner, but a write with no lesson id is a
+       400 rather than a no-op, so it stops here. */
+    if (!selectedLesson) return;
     const response = await fetch("/api/learn/subjects", {
       body: JSON.stringify({
         lessonId: selectedLesson.id,
@@ -226,6 +236,51 @@ export function LessonPlayer({
   ).length;
 
   const drawer = useOutlineDrawer();
+
+  /* After every hook above, so the order is the same on the empty render as
+     on the full one.
+
+     A subject with no lessons is an ordinary state, not a fault: a school
+     creates the subject when it builds its timetable and writes the lessons
+     afterwards. It said "This page could not be loaded" before, which blames
+     the product for the school's own work being unfinished — and told a
+     learner nothing about why their subject was empty. */
+  if (!selectedLesson || !activeBlock) {
+    return (
+      <div className="lesson-shell">
+        <header className="lesson-toprail">
+          <div className="lesson-toprail-heading">
+            <Link className="course-back" href="/learn/subjects">
+              <ArrowLeftIcon size={14} />
+              All subjects
+            </Link>
+            <span className="lesson-toprail-divider" aria-hidden="true" />
+            <div className="lesson-toprail-title">
+              <p className="lesson-eyebrow">
+                {subject.subjectName} · {subject.className}
+              </p>
+              <h2>Nothing to study here yet</h2>
+            </div>
+          </div>
+        </header>
+        <div className="lesson-empty">
+          <h3>
+            {selectedLesson
+              ? "This lesson has no content yet."
+              : "No lessons have been added to this subject yet."}
+          </h3>
+          <p>
+            Your teacher builds these as the term goes on. There is nothing for
+            you to do here until they do &mdash; check back, or open another
+            subject.
+          </p>
+          <Link className="course-primary" href="/learn/subjects">
+            Back to my subjects
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <LessonPreviewContext.Provider value={preview}>

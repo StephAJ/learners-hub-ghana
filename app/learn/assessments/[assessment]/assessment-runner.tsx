@@ -315,6 +315,27 @@ export function AssessmentRunner({
     setAssessment(payload.assessment);
   }
 
+  /* Before the intro, because a paper with no questions is not one a learner
+     should be invited to start — the runner would offer the rules and the
+     clock, then read questions[0] off an empty list and take the page down.
+     The same fault the lesson player had for a subject with no lessons. */
+  if (assessment.questions.length === 0) {
+    return (
+      <div className="quiz-intro">
+        <section className="quiz-intro-main">
+          <p className="quiz-intro-instructions">
+            This paper has no questions in it yet, so there is nothing to
+            answer. Your teacher adds them before releasing it &mdash; nothing
+            has gone wrong with your account, and you have not missed anything.
+          </p>
+          <Link className="course-primary" href="/learn/assessments">
+            Back to my assessments
+          </Link>
+        </section>
+      </div>
+    );
+  }
+
   if (!assessment.attempt) {
     return (
       <div className="quiz-intro">

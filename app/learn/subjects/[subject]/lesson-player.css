@@ -641,6 +641,36 @@
   background: var(--brand-strong);
 }
 
+/* A subject whose lessons are not written yet. Centred in the stage the
+   player would have filled, rather than a notice pinned to the top of an
+   otherwise empty screen. */
+.lesson-empty {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  margin: 0 auto;
+  max-width: 34rem;
+  padding: var(--space-16) var(--space-6);
+}
+
+.lesson-empty h3 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-medium);
+  margin: 0;
+}
+
+.lesson-empty p {
+  color: var(--muted);
+  font-size: var(--fs-16);
+  line-height: var(--lh-relaxed);
+  margin: 0;
+}
+
+.lesson-empty .course-primary {
+  margin-top: var(--space-3);
+}
+
 /* -- The outline off-canvas ----------------------------------------------- */
 
 /* Above the breakpoint the outline is simply a column and none of this
