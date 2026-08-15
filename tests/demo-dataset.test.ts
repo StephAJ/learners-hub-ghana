@@ -309,6 +309,44 @@ describe("demo dataset integrity", () => {
     }
   });
 
+  /* A question mapped to another subject's outcome would quietly corrupt that
+     subject's mastery picture, and the seed drops such a row silently — so
+     the dataset is held to it here, where the mistake is visible. */
+  it("only maps a question to an outcome its own subject declares", () => {
+    for (const question of demoQuestionBank) {
+      const subject = demoSubjects.find(
+        (candidate) => candidate.offeringId === question.offeringId,
+      );
+      const codes = new Set(
+        (subject?.standards ?? []).map((standard) => standard.code),
+      );
+      for (const code of question.standardCodes) {
+        expect(codes, `${question.id} -> ${code}`).toContain(code);
+      }
+    }
+  });
+
+  /* An outcome nothing tests can only ever read "covered in class, not tested
+     yet" — fine for a real school mid-term, but a demo that shipped like that
+     would look broken rather than honest. Every outcome with lessons behind
+     it has at least one question too. */
+  it("gives every taught outcome something that tests it", () => {
+    const tested = new Set(
+      demoQuestionBank.flatMap((question) => question.standardCodes),
+    );
+    for (const subject of demoSubjects) {
+      for (const standard of subject.standards) {
+        const taught = subject.lessons.some((lesson) =>
+          lesson.standardCodes.includes(standard.code),
+        );
+        if (!taught) continue;
+        expect(tested, `${standard.code} is taught but never tested`).toContain(
+          standard.code,
+        );
+      }
+    }
+  });
+
   it("averages subject progress over published lessons only", () => {
     const science = demoSubjectBySlug("integrated-science");
     expect(science).toBeDefined();

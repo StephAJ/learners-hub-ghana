@@ -116,6 +116,15 @@ export type DemoQuestion = {
   prompt: string;
   /* Shown to a learner after release, and to a teacher while marking. */
   rationale: string;
+  /**
+   * The curriculum outcomes a right answer here is evidence for.
+   *
+   * Cited by code rather than by id, the way lessons cite them, so the
+   * mapping reads as the curriculum a teacher recognises. Empty is allowed
+   * and means what it means in the composer: the question works, it just does
+   * not count towards what a learner is told they can do.
+   */
+  standardCodes: string[];
   topic: string;
   type: QuestionType;
 };
@@ -593,6 +602,14 @@ const mathematics: DemoSubject = {
       strand: "Number",
       subStrand: "Ratio and proportion",
     },
+    {
+      code: "JHS2.MA.NUM.3",
+      description: "Represent whole numbers and fractions on a number line.",
+      id: "standard-number-line-1",
+      position: 3,
+      strand: "Number",
+      subStrand: "Number sense",
+    },
   ],
   lessons: [
     {
@@ -830,6 +847,15 @@ const socialStudies: DemoSubject = {
       strand: "Governance",
       subStrand: "Citizenship",
     },
+    {
+      code: "JHS2.SO.WAF.1",
+      description:
+        "Name the countries of West Africa with their capitals and currencies.",
+      id: "standard-west-africa-1",
+      position: 2,
+      strand: "Our nation and neighbours",
+      subStrand: "West Africa",
+    },
   ],
   lessons: [
     {
@@ -1011,6 +1037,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { value: "small-intestine" },
     difficulty: "foundation",
     id: "question-absorption-site",
+    standardCodes: ["JHS2.IS.HBS.1"],
     marks: 1,
     media: {
       alt: "A labelled diagram of the human digestive system, showing the mouth, oesophagus, stomach, liver, small intestine and large intestine.",
@@ -1032,6 +1059,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { value: true },
     difficulty: "foundation",
     id: "question-bile-true-false",
+    standardCodes: ["JHS2.IS.HBS.1"],
     marks: 1,
     offeringId: "offering-science-jhs2",
     options: [],
@@ -1044,6 +1072,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { value: ["saliva", "gastric-juice", "bile"] },
     difficulty: "standard",
     id: "question-digestive-fluids",
+    standardCodes: ["JHS2.IS.HBS.1"],
     marks: 2,
     offeringId: "offering-science-jhs2",
     options: [
@@ -1061,6 +1090,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { value: "villi" },
     difficulty: "standard",
     id: "question-villi-name",
+    standardCodes: ["JHS2.IS.HBS.1"],
     marks: 1,
     offeringId: "offering-science-jhs2",
     options: [],
@@ -1074,6 +1104,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { tolerance: 1, value: 7 },
     difficulty: "foundation",
     id: "question-intestine-length",
+    standardCodes: ["JHS2.IS.HBS.1"],
     marks: 1,
     offeringId: "offering-science-jhs2",
     options: [],
@@ -1093,6 +1124,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     },
     difficulty: "standard",
     id: "question-organ-action-match",
+    standardCodes: ["JHS2.IS.HBS.1"],
     marks: 2,
     offeringId: "offering-science-jhs2",
     options: [
@@ -1121,6 +1153,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     },
     difficulty: "standard",
     id: "question-nutrient-sort",
+    standardCodes: ["JHS2.IS.NUT.1"],
     marks: 3,
     offeringId: "offering-science-jhs2",
     options: [
@@ -1145,6 +1178,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { value: ["mouth", "small-intestine"] },
     difficulty: "standard",
     id: "question-digestion-cloze",
+    standardCodes: ["JHS2.IS.HBS.1"],
     marks: 2,
     offeringId: "offering-science-jhs2",
     options: [
@@ -1164,6 +1198,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { tolerance: 0.5, value: { max: 10, min: 0, value: 7 } },
     difficulty: "standard",
     id: "question-number-line-seven",
+    standardCodes: ["JHS2.MA.NUM.3"],
     marks: 1,
     offeringId: "offering-maths-jhs2",
     options: [],
@@ -1176,6 +1211,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { value: { "1:1": "Accra", "2:1": "Abuja" } },
     difficulty: "standard",
     id: "question-capitals-table",
+    standardCodes: ["JHS2.SO.WAF.1"],
     marks: 2,
     offeringId: "offering-social-jhs2",
     options: [],
@@ -1194,6 +1230,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     },
     difficulty: "standard",
     id: "question-digestion-order",
+    standardCodes: ["JHS2.IS.HBS.1", "JHS2.IS.HBS.2"],
     marks: 2,
     offeringId: "offering-science-jhs2",
     options: [
@@ -1214,6 +1251,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     },
     difficulty: "challenge",
     id: "question-villi-explanation",
+    standardCodes: ["JHS2.IS.HBS.1", "JHS2.IS.HBS.2"],
     marks: 3,
     offeringId: "offering-science-jhs2",
     options: [],
@@ -1231,6 +1269,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     answerKey: { value: ["protein", "vitamins"] },
     difficulty: "standard",
     id: "question-nutrients-multiple",
+    standardCodes: ["JHS2.IS.NUT.1"],
     marks: 2,
     offeringId: "offering-science-jhs2",
     options: [
@@ -1252,6 +1291,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     },
     difficulty: "challenge",
     id: "question-digestion-file",
+    standardCodes: ["JHS2.IS.HBS.1"],
     marks: 4,
     offeringId: "offering-science-jhs2",
     options: [],
@@ -1273,6 +1313,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     },
     difficulty: "challenge",
     id: "question-meal-composite",
+    standardCodes: ["JHS2.IS.NUT.1", "JHS2.IS.HBS.2"],
     marks: 4,
     offeringId: "offering-science-jhs2",
     options: [],
@@ -1291,6 +1332,7 @@ export const demoQuestionBank: DemoQuestion[] = [
        backslash in a TypeScript string is an escape sequence waiting to bite. */
     formula: "1/3 and 1/4",
     id: "question-common-denominator",
+    standardCodes: ["JHS2.MA.NUM.1"],
     marks: 1,
     offeringId: "offering-maths-jhs2",
     options: [],
@@ -1305,6 +1347,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     difficulty: "standard",
     formula: "1/3 + 1/4 = ?",
     id: "question-add-fractions",
+    standardCodes: ["JHS2.MA.NUM.1"],
     marks: 2,
     offeringId: "offering-maths-jhs2",
     options: [
@@ -1318,6 +1361,24 @@ export const demoQuestionBank: DemoQuestion[] = [
     topic: "Fractions",
     type: "single-choice",
   },
+  /* Ratio and proportion had a lesson teaching it and nothing testing it, so
+     the outcome could only ever read "covered in class, not tested yet". A
+     dataset test now holds every taught outcome to having a question. */
+  {
+    answerKey: { value: "18" },
+    difficulty: "standard",
+    id: "question-ratio-share",
+    standardCodes: ["JHS2.MA.NUM.2"],
+    marks: 2,
+    offeringId: "offering-maths-jhs2",
+    options: [],
+    prompt:
+      "Ama and Kojo share GHS 30 in the ratio 3 : 2. How many cedis does Ama get?",
+    rationale:
+      "Three and two make five shares, so one share is GHS 6 and Ama's three shares are GHS 18.",
+    topic: "Ratio and proportion",
+    type: "numeric",
+  },
   {
     answerKey: {
       rubric:
@@ -1325,6 +1386,7 @@ export const demoQuestionBank: DemoQuestion[] = [
     },
     difficulty: "challenge",
     id: "question-why-common",
+    standardCodes: ["JHS2.MA.NUM.1"],
     marks: 3,
     offeringId: "offering-maths-jhs2",
     options: [],
@@ -1333,6 +1395,99 @@ export const demoQuestionBank: DemoQuestion[] = [
     rationale: "Marked against the rubric; the size argument is the key idea.",
     topic: "Fractions",
     type: "essay",
+  },
+  /* English had two outcomes, lessons teaching both, and no questions at all —
+     so its progress screen could only ever say "covered in class, not tested
+     yet" whatever a learner did. One auto-marked question per outcome, so the
+     subject can reach "you can do this" the same way the others do, and one
+     written task, because a writing outcome is not honestly evidenced by
+     multiple choice alone. */
+  {
+    answerKey: { value: "yours-faithfully" },
+    difficulty: "standard",
+    id: "question-formal-sign-off",
+    standardCodes: ["JHS2.EN.WRI.1"],
+    marks: 1,
+    offeringId: "offering-english-jhs2",
+    options: [
+      { id: "yours-faithfully", label: "Yours faithfully," },
+      { id: "cheers", label: "Cheers," },
+      { id: "later", label: "See you later," },
+      { id: "bye", label: "Bye for now," },
+    ],
+    prompt:
+      "You are writing to the District Director of Education, whose name you do not know. How should the letter end?",
+    rationale:
+      "A formal letter to an unnamed reader opens 'Dear Sir or Madam' and closes 'Yours faithfully'.",
+    topic: "Writing for a purpose",
+    type: "single-choice",
+  },
+  {
+    answerKey: {
+      rubric:
+        "Uses a formal register throughout, opens and closes correctly, and makes one clear request with a reason.",
+    },
+    difficulty: "challenge",
+    id: "question-formal-letter",
+    standardCodes: ["JHS2.EN.WRI.1"],
+    marks: 6,
+    offeringId: "offering-english-jhs2",
+    options: [],
+    prompt:
+      "Write a letter to your headteacher asking for one improvement to the school library. Give a reason for it.",
+    rationale: "Marked against the rubric; register and structure carry it.",
+    topic: "Writing for a purpose",
+    type: "essay",
+  },
+  {
+    answerKey: { value: "main-idea" },
+    difficulty: "standard",
+    id: "question-main-idea",
+    standardCodes: ["JHS2.EN.REA.1"],
+    marks: 1,
+    offeringId: "offering-english-jhs2",
+    options: [
+      {
+        id: "main-idea",
+        label: "The sentence the rest of the paragraph explains or supports",
+      },
+      { id: "first-sentence", label: "Always the first sentence" },
+      { id: "longest", label: "The longest sentence" },
+      { id: "last-sentence", label: "Always the last sentence" },
+    ],
+    prompt: "Which sentence in a paragraph carries its main idea?",
+    rationale:
+      "The main idea is the claim the other sentences serve, wherever it sits in the paragraph.",
+    topic: "Comprehension",
+    type: "single-choice",
+  },
+  /* Social Studies taught governance and only tested West Africa. */
+  {
+    answerKey: {
+      value: {
+        courts: "judiciary",
+        parliament: "legislature",
+        president: "executive",
+      },
+    },
+    difficulty: "standard",
+    id: "question-arms-of-government",
+    standardCodes: ["JHS2.SO.GOV.1"],
+    marks: 3,
+    offeringId: "offering-social-jhs2",
+    options: [
+      { id: "left:parliament", label: "Parliament" },
+      { id: "left:president", label: "The President and ministers" },
+      { id: "left:courts", label: "The courts" },
+      { id: "right:legislature", label: "Makes the laws" },
+      { id: "right:executive", label: "Carries out the laws" },
+      { id: "right:judiciary", label: "Interprets the laws" },
+    ],
+    prompt: "Match each arm of government to what it does.",
+    rationale:
+      "Parliament legislates, the executive implements, and the judiciary interprets — each checking the other two.",
+    topic: "Governance",
+    type: "matching",
   },
 ];
 

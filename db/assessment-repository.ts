@@ -1395,6 +1395,35 @@ function seedQuestions(
           subject?.teacherPersonId ?? "person-grace",
         ),
     );
+
+    /* What the question is evidence for. Cited by code in the dataset — the
+       way lessons cite standards — and resolved against the subject's own
+       list here, so a code that does not belong to this subject is dropped
+       rather than seeded into another subject's mastery picture.
+
+       Without these rows the progress screen is honest but empty: every
+       outcome reads "covered in class, not tested yet" however many papers a
+       learner sits. */
+    for (const code of question.standardCodes) {
+      const standard = subject?.standards.find(
+        (candidate) => candidate.code === code,
+      );
+      if (!standard) continue;
+      statements.push(
+        database
+          .prepare(
+            `INSERT OR IGNORE INTO question_standard_links
+              (id, tenant_id, question_id, standard_id)
+            VALUES (?, ?, ?, ?)`,
+          )
+          .bind(
+            `${question.id}:${standard.id}`,
+            TENANT_ID,
+            question.id,
+            standard.id,
+          ),
+      );
+    }
   }
   return statements;
 }
