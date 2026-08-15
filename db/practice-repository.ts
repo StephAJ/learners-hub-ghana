@@ -1,4 +1,5 @@
 import { evaluateQuestionResponse } from "../domain/assessment/assessment";
+import { lineFromAnswerKey } from "../domain/assessment/bracketed";
 import type {
   AssessmentQuestionSnapshot,
   QuestionMedia,
@@ -46,6 +47,7 @@ export class PracticeError extends Error {
 export type PracticeQuestion = {
   formula?: string;
   id: string;
+  line?: { max: number; min: number };
   marks: number;
   media?: QuestionMedia;
   options: QuestionOption[];
@@ -88,6 +90,9 @@ const INSTANT: ReadonlySet<QuestionType> = new Set<QuestionType>([
   "matching",
   "grouping",
   "ordering",
+  "cloze",
+  "number-line",
+  "table",
 ]);
 
 const DEFAULT_SET_SIZE = 8;
@@ -245,6 +250,7 @@ async function loadApprovedBank(
       formula: row.formula ?? undefined,
       id: row.id,
       marks: row.marks,
+      line: lineFromAnswerKey(row.type, parseJson(row.answer_key, {})),
       media: parseJson<QuestionMedia | undefined>(row.media, undefined),
       options: parseJson<QuestionOption[]>(row.options, []),
       /* Only meaningful on a paper, where it is the question's place in the
@@ -264,6 +270,7 @@ function toLearnerQuestion(row: BankRow): PracticeQuestion {
   return {
     formula: row.snapshot.formula,
     id: row.snapshot.id,
+    line: row.snapshot.line,
     marks: row.snapshot.marks,
     media: row.snapshot.media,
     options: row.snapshot.options,

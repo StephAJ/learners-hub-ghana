@@ -8,7 +8,10 @@ import type {
   QuestionType,
 } from "../../domain/assessment/types";
 import { QuestionFigure } from "./question-media";
+import { ClozeResponse } from "./cloze-response";
 import { GroupResponse } from "./group-response";
+import { NumberLineResponse } from "./number-line-response";
+import { TableResponse } from "./table-response";
 import { MatchResponse } from "./match-response";
 import { ReorderResponse } from "./reorder-response";
 import "./question-input.css";
@@ -43,7 +46,13 @@ export type AnswerAttachment = {
 /** The shape both callers share: a question with no answer key attached. */
 export type AnswerableQuestion = {
   id: string;
+  /** The axis a number-line question is answered on. */
+  line?: { max: number; min: number };
   options: QuestionOption[];
+  /* Cloze and table read their own layout out of the prompt, brackets and
+     all — see domain/assessment/bracketed.ts. Optional because every other
+     type renders its controls from the options alone. */
+  prompt?: string;
   type: QuestionType;
 };
 
@@ -185,6 +194,53 @@ export function QuestionInput({
         disabled={disabled}
         onChange={onChange}
         options={question.options}
+        value={value}
+      />
+    );
+  }
+
+  if (question.type === "cloze") {
+    return (
+      <ClozeResponse
+        disabled={disabled}
+        onChange={onChange}
+        options={question.options}
+        passage={question.prompt ?? ""}
+        value={value}
+      />
+    );
+  }
+
+  if (question.type === "table") {
+    return (
+      <TableResponse
+        disabled={disabled}
+        onChange={onChange}
+        source={question.prompt ?? ""}
+        value={value}
+      />
+    );
+  }
+
+  if (question.type === "number-line") {
+    /* No line means the question was saved before the axis was stored, or was
+       written by hand — either way there is nothing to point at, and drawing
+       an invented 0-to-10 line would mark a learner against a scale nobody
+       chose. */
+    if (!question.line) {
+      return (
+        <p className="answer-unavailable" role="status">
+          This question is missing the line it should be answered on. Leave it
+          and tell your teacher &mdash; it will not count against you.
+        </p>
+      );
+    }
+    return (
+      <NumberLineResponse
+        disabled={disabled}
+        max={question.line.max}
+        min={question.line.min}
+        onChange={onChange}
         value={value}
       />
     );

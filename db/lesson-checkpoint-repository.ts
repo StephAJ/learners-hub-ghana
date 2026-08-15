@@ -1,4 +1,5 @@
 import { evaluateQuestionResponse } from "../domain/assessment/assessment";
+import { lineFromAnswerKey } from "../domain/assessment/bracketed";
 import type {
   AssessmentQuestionSnapshot,
   QuestionMedia,
@@ -259,6 +260,7 @@ async function loadBankQuestions(
         formula: row.formula ?? undefined,
         id: row.id,
         marks: Number(row.marks),
+        line: lineFromAnswerKey(row.type, parseJson(row.answer_key, {})),
         media: parseJson<QuestionMedia | undefined>(row.media, undefined),
         options: parseJson<QuestionOption[]>(row.options, []),
         position: index + 1,

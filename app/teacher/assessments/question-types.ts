@@ -37,6 +37,12 @@ export type AnswerShape =
   | "groups"
   /** Items whose sequence is the answer. */
   | "sequence"
+  /** A passage with words taken out of it, and a bank to put back. */
+  | "gaps"
+  /** A value placed on a marked line, marked within a tolerance. */
+  | "number-line"
+  /** A grid with some cells left blank. */
+  | "table"
   /** No machine-markable answer: a teacher reads it against a rubric. */
   | "rubric";
 
@@ -97,6 +103,21 @@ export const QUESTION_TYPES: Record<QuestionType, QuestionTypeDefinition> = {
     blurb: "Put the items in the right order.",
     label: "Ordering",
   },
+  cloze: {
+    answerShape: "gaps",
+    blurb: "A passage with words taken out.",
+    label: "Fill the gaps",
+  },
+  "number-line": {
+    answerShape: "number-line",
+    blurb: "Place a value on a line.",
+    label: "Number line",
+  },
+  table: {
+    answerShape: "table",
+    blurb: "A grid with cells to complete.",
+    label: "Table",
+  },
   essay: {
     answerShape: "rubric",
     blurb: "Extended writing you mark yourself.",
@@ -130,6 +151,9 @@ export const QUESTION_TYPE_ORDER: QuestionType[] = [
   "ordering",
   "matching",
   "grouping",
+  "cloze",
+  "table",
+  "number-line",
   "essay",
   "composite",
   "file-upload",

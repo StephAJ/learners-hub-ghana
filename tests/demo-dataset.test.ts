@@ -270,6 +270,10 @@ describe("demo dataset integrity", () => {
       "matching",
       "grouping",
       "ordering",
+      /* A gap-fill offers the word bank a learner picks from. A table and a
+         number line offer nothing — their layout is the prompt and their
+         axis is the answer key. */
+      "cloze",
     ]);
     for (const question of demoQuestionBank) {
       if (needsOptions.has(question.type)) {

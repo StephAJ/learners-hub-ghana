@@ -195,8 +195,21 @@ function answersMatch(
   actual: unknown,
   tolerance = 0,
 ) {
-  if (type === "numeric") {
-    const expectedNumber = Number(expected);
+  /* A number line is a numeric answer given by pointing rather than typing,
+     so it is marked the same way — within the tolerance the author set. The
+     tolerance matters more here than for a typed number: a learner placing 7
+     on a line marked in tens is judged on where they put it, not on hitting a
+     pixel. */
+  if (type === "numeric" || type === "number-line") {
+    /* A number line's key carries the line as well as the answer — the range
+       is part of the question, not a display setting — so the value has to be
+       read out of it rather than coerced whole, which would be NaN and mark
+       every answer wrong. */
+    const expectedNumber = Number(
+      type === "number-line" && expected && typeof expected === "object"
+        ? (expected as { value?: unknown }).value
+        : expected,
+    );
     const actualNumber = Number(actual);
     return (
       Number.isFinite(expectedNumber) &&
@@ -219,6 +232,14 @@ function answersMatch(
      sequence of them. */
   if (type === "matching" || type === "grouping") {
     return serialiseSortedEntries(expected) === serialiseSortedEntries(actual);
+  }
+  /* A completed table is a set of filled cells, and the learner types into
+     them — so unlike matching, whose values are ids, these are compared as
+     text: "Accra" and "accra " are the same answer and a child should not
+     lose a mark to a capital letter. */
+  if (type === "table") {
+    return serialiseSortedEntries(expected, normaliseText) ===
+      serialiseSortedEntries(actual, normaliseText);
   }
   /* Ordering is the opposite case: the sequence is the answer, so this stays
      an exact comparison. */
@@ -256,13 +277,16 @@ function serialiseSortedArray(value: unknown) {
 }
 
 /** A matching answer, key-sorted so insertion order cannot affect the result. */
-function serialiseSortedEntries(value: unknown) {
+function serialiseSortedEntries(
+  value: unknown,
+  normalise: (entry: unknown) => string = String,
+) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return JSON.stringify(null);
   }
   return JSON.stringify(
     Object.entries(value as Record<string, unknown>)
-      .map(([key, entry]) => [key, String(entry)] as const)
+      .map(([key, entry]) => [key, normalise(entry)] as const)
       /* Blank selections are "not answered yet", not an answer of "". Dropping
          them keeps a half-filled attempt from accidentally matching a key that
          happens to have the same filled pairs. */

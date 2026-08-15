@@ -1142,6 +1142,53 @@ export const demoQuestionBank: DemoQuestion[] = [
     type: "grouping",
   },
   {
+    answerKey: { value: ["mouth", "small-intestine"] },
+    difficulty: "standard",
+    id: "question-digestion-cloze",
+    marks: 2,
+    offeringId: "offering-science-jhs2",
+    options: [
+      { id: "small-intestine", label: "small intestine" },
+      { id: "mouth", label: "mouth" },
+      { id: "liver", label: "liver" },
+      { id: "gall-bladder", label: "gall bladder" },
+    ],
+    prompt:
+      "Digestion begins in the [mouth], and most nutrients are absorbed in the [small intestine].",
+    rationale:
+      "Saliva starts breaking down starch in the mouth; the villi of the small intestine do most of the absorbing.",
+    topic: "Human body systems",
+    type: "cloze",
+  },
+  {
+    answerKey: { tolerance: 0.5, value: { max: 10, min: 0, value: 7 } },
+    difficulty: "standard",
+    id: "question-number-line-seven",
+    marks: 1,
+    offeringId: "offering-maths-jhs2",
+    options: [],
+    prompt: "Place 7 on the number line.",
+    rationale: "Seven sits three units before ten and two after five.",
+    topic: "Number",
+    type: "number-line",
+  },
+  {
+    answerKey: { value: { "1:1": "Accra", "2:1": "Abuja" } },
+    difficulty: "standard",
+    id: "question-capitals-table",
+    marks: 2,
+    offeringId: "offering-social-jhs2",
+    options: [],
+    prompt: [
+      "Country | Capital | Currency",
+      "Ghana | [Accra] | Cedi",
+      "Nigeria | [Abuja] | Naira",
+    ].join("\n"),
+    rationale: "Accra and Abuja are the capitals; the currencies are given.",
+    topic: "West Africa",
+    type: "table",
+  },
+  {
     answerKey: {
       value: ["mouth", "oesophagus", "stomach", "small-intestine"],
     },

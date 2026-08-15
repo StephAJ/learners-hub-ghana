@@ -8,6 +8,7 @@ import {
   startAssessmentAttempt,
   submitAssessmentAttempt,
 } from "../domain/assessment/assessment";
+import { lineFromAnswerKey } from "../domain/assessment/bracketed";
 import type {
   Assessment,
   AssessmentAttemptStatus,
@@ -471,6 +472,9 @@ export async function createPersistentAssessmentDraft(
       media: row.media
         ? parseJson<QuestionMedia | undefined>(row.media, undefined)
         : undefined,
+      /* The public half of a number-line key, lifted onto the snapshot so it
+         survives the key being stripped for the learner. */
+      line: lineFromAnswerKey(row.type, parseJson(row.answer_key, {})),
       options: parseJson<QuestionOption[]>(row.options, []),
       position: draft.questions.length + 1,
       prompt: row.prompt,
@@ -893,6 +897,12 @@ function describeAnswerKey(
   if (question.type === "multiple-choice" && Array.isArray(value)) {
     return value.map(label).join(", ");
   }
+  if (question.type === "cloze" && Array.isArray(value)) {
+    return value.map(label).join(", ");
+  }
+  if (question.type === "number-line" && value && typeof value === "object") {
+    return String((value as { value?: unknown }).value ?? "");
+  }
   if (question.type === "ordering" && Array.isArray(value)) {
     return value.map(label).join(" → ");
   }
@@ -903,6 +913,13 @@ function describeAnswerKey(
   ) {
     return Object.entries(value as Record<string, unknown>)
       .map(([left, right]) => `${label(left)} → ${label(right)}`)
+      .join(", ");
+  }
+  /* A table's keys are cell coordinates and its values are typed words, so
+     neither half is an option to look up — it reads as the cells themselves. */
+  if (question.type === "table" && value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([cell, entry]) => `${cell} = ${String(entry)}`)
       .join(", ");
   }
   return String(value);
@@ -2096,6 +2113,9 @@ function validateQuestionInput(input: CreateBankQuestionInput) {
       "matching",
       "grouping",
       "ordering",
+      "cloze",
+      "number-line",
+      "table",
       "essay",
       "file-upload",
       "hotspot",
@@ -2144,6 +2164,44 @@ function validateQuestionInput(input: CreateBankQuestionInput) {
     if (pairs.length < 2) {
       throw new AssessmentPolicyError(
         "A matching question needs at least two complete pairs.",
+      );
+    }
+  }
+  if (input.type === "cloze") {
+    if (splitAuthoredList(input.correctAnswer).length === 0) {
+      throw new AssessmentPolicyError(
+        "A gap-fill question needs at least one word in square brackets.",
+      );
+    }
+  }
+  if (input.type === "table") {
+    const cells = splitAuthoredList(input.correctAnswer).filter((cell) =>
+      cell.includes(PAIR_SEPARATOR),
+    );
+    if (cells.length === 0) {
+      throw new AssessmentPolicyError(
+        "A table question needs at least one cell in square brackets for the learner to fill in.",
+      );
+    }
+  }
+  if (input.type === "number-line") {
+    const [value, min, max] = input.correctAnswer
+      .split(PAIR_SEPARATOR)
+      .map((part) => Number(part.trim()));
+    if (![value, min, max].every(Number.isFinite)) {
+      throw new AssessmentPolicyError(
+        "A number line needs a start, an end and the correct value.",
+      );
+    }
+    if (min >= max) {
+      throw new AssessmentPolicyError(
+        "A number line has to end after it starts.",
+      );
+    }
+    /* An answer nobody can point at is not a question. */
+    if (value < min || value > max) {
+      throw new AssessmentPolicyError(
+        "The correct value has to sit on the line.",
       );
     }
   }
@@ -2236,6 +2294,47 @@ function buildAnswerKey(
   }
   /* Matching: a map from left id to right id. Written the same way the runner
      builds a learner's response, so the two are directly comparable. */
+  /* A passage's answers, in gap order. Compared exactly, like ordering: the
+     third gap's word belongs in the third gap. */
+  if (input.type === "cloze") {
+    return {
+      value: splitAuthoredList(input.correctAnswer).map((word) =>
+        slugify(word),
+      ),
+    };
+  }
+
+  /* A table is a set of filled cells keyed "row:column", so it shares the map
+     shape matching and sorting use — but the values are the words a learner
+     types, not option ids, so they are stored as written rather than
+     slugified. Marking normalises case and spacing. */
+  if (input.type === "table") {
+    return {
+      value: Object.fromEntries(
+        splitAuthoredList(input.correctAnswer)
+          .map((cell) => cell.split(PAIR_SEPARATOR))
+          .filter((parts) => parts.length === 2)
+          .map(([key, answer]) => [key.trim(), answer.trim()]),
+      ),
+    };
+  }
+
+  /* Value, range and tolerance in one field, because the line a learner is
+     shown is part of the question rather than a display setting. */
+  if (input.type === "number-line") {
+    const [value, min, max, tolerance] = input.correctAnswer
+      .split(PAIR_SEPARATOR)
+      .map((part) => part.trim());
+    return {
+      tolerance: Number(tolerance) || 0,
+      value: {
+        max: Number(max) || 0,
+        min: Number(min) || 0,
+        value: Number(value) || 0,
+      },
+    };
+  }
+
   if (input.type === "matching" || input.type === "grouping") {
     const pairs = splitAuthoredList(input.correctAnswer)
       .map((pair) => pair.split(PAIR_SEPARATOR))

@@ -12,12 +12,18 @@ import {
   MousePointerClick,
   Paperclip,
   Plus,
+  Table,
   ToggleLeft,
   Trash2,
   Type,
   X,
 } from "lucide-react";
 import type { QuestionType } from "../../../domain/assessment/types";
+import {
+  bracketedAnswers,
+  parseTableRows,
+  tableBlanks,
+} from "../../../domain/assessment/bracketed";
 import {
   QUESTION_TYPES,
   QUESTION_TYPE_ORDER,
@@ -67,12 +73,23 @@ const TYPE_ICONS: Record<QuestionType, typeof CircleDot> = {
   numeric: Hash,
   matching: ArrowLeftRight,
   grouping: Layers,
+  cloze: Type,
+  "number-line": Hash,
+  table: Table,
   ordering: ArrowDownUp,
   essay: AlignLeft,
   "file-upload": Paperclip,
   hotspot: MousePointerClick,
   composite: Layers,
 };
+
+/* Written as lines and joined, because the newlines matter to the example and
+   a multi-line literal in JSX is easy to break by accident. */
+const TABLE_PLACEHOLDER = [
+  "Country | Capital | Currency",
+  "Ghana | [Accra] | Cedi",
+  "Nigeria | [Abuja] | Naira",
+].join("\n");
 
 /** An option row while it is being edited. */
 type OptionDraft = { correct: boolean; id: string; label: string };
@@ -164,6 +181,15 @@ export function QuestionComposer({
     { id: nextId(), left: "", right: "" },
   ]);
 
+  /* Cloze and table share one field: the authored text, with answers in
+     square brackets. See domain/assessment/bracketed.ts. */
+  const [bracketed, setBracketed] = useState(existing?.prompt ? "" : "");
+  const [lineMin, setLineMin] = useState("0");
+  const [lineMax, setLineMax] = useState("10");
+  const [lineAnswer, setLineAnswer] = useState("");
+  const [lineTolerance, setLineTolerance] = useState("0.5");
+  const [distractors, setDistractors] = useState("");
+
   const [standardIds, setStandardIds] = useState<string[]>(
     existing?.standardIds ?? [],
   );
@@ -225,8 +251,14 @@ export function QuestionComposer({
     () => ({
       ...compose({
       booleanAnswer,
+      bracketed,
       difficulty,
+      distractors,
       exactAnswer,
+      lineAnswer,
+      lineMax,
+      lineMin,
+      lineTolerance,
       formula,
       imageAlt,
       imageUrl,
@@ -245,8 +277,14 @@ export function QuestionComposer({
     }),
     [
       booleanAnswer,
+      bracketed,
       difficulty,
+      distractors,
       exactAnswer,
+      lineAnswer,
+      lineMax,
+      lineMin,
+      lineTolerance,
       formula,
       imageAlt,
       imageUrl,
@@ -458,13 +496,25 @@ export function QuestionComposer({
             <h3>Answer</h3>
             <AnswerEditor
               booleanAnswer={booleanAnswer}
+              bracketed={bracketed}
+              distractors={distractors}
               exactAnswer={exactAnswer}
+              lineAnswer={lineAnswer}
+              lineMax={lineMax}
+              lineMin={lineMin}
+              lineTolerance={lineTolerance}
               options={options}
               pairs={pairs}
               rubric={rubric}
               sequenceItems={sequenceItems}
               setBooleanAnswer={setBooleanAnswer}
+              setBracketed={setBracketed}
+              setDistractors={setDistractors}
               setExactAnswer={setExactAnswer}
+              setLineAnswer={setLineAnswer}
+              setLineMax={setLineMax}
+              setLineMin={setLineMin}
+              setLineTolerance={setLineTolerance}
               setOptions={setOptions}
               setPairs={setPairs}
               setRubric={setRubric}
@@ -558,13 +608,25 @@ export function QuestionComposer({
 
 function AnswerEditor({
   booleanAnswer,
+  bracketed,
+  distractors,
   exactAnswer,
+  lineAnswer,
+  lineMax,
+  lineMin,
+  lineTolerance,
   options,
   pairs,
   rubric,
   sequenceItems,
   setBooleanAnswer,
+  setBracketed,
+  setDistractors,
   setExactAnswer,
+  setLineAnswer,
+  setLineMax,
+  setLineMin,
+  setLineTolerance,
   setOptions,
   setPairs,
   setRubric,
@@ -573,13 +635,25 @@ function AnswerEditor({
   type,
 }: {
   booleanAnswer: string;
+  bracketed: string;
+  distractors: string;
   exactAnswer: string;
+  lineAnswer: string;
+  lineMax: string;
+  lineMin: string;
+  lineTolerance: string;
   options: OptionDraft[];
   pairs: PairDraft[];
   rubric: string;
   sequenceItems: OptionDraft[];
   setBooleanAnswer: (value: string) => void;
+  setBracketed: (value: string) => void;
+  setDistractors: (value: string) => void;
   setExactAnswer: (value: string) => void;
+  setLineAnswer: (value: string) => void;
+  setLineMax: (value: string) => void;
+  setLineMin: (value: string) => void;
+  setLineTolerance: (value: string) => void;
   setOptions: (update: (current: OptionDraft[]) => OptionDraft[]) => void;
   setPairs: (update: (current: PairDraft[]) => PairDraft[]) => void;
   setRubric: (value: string) => void;
@@ -749,6 +823,117 @@ function AnswerEditor({
     );
   }
 
+  if (shape === "gaps") {
+    const answers = bracketedAnswers(bracketed);
+    return (
+      <div className="answer-options">
+        <p className="answer-help">
+          Write the passage and put each missing word in square brackets. The
+          learner gets those words shuffled in a bank and puts them back.
+        </p>
+        <textarea
+          aria-label="Passage with gaps"
+          className="answer-passage"
+          onChange={(event) => setBracketed(event.target.value)}
+          placeholder="Digestion begins in the [mouth] and most food is absorbed in the [small intestine]."
+          rows={5}
+          value={bracketed}
+        />
+        <label className="composer-field">
+          <span>
+            Extra words <em>optional, comma separated &mdash; wrong answers to
+            choose between</em>
+          </span>
+          <input
+            onChange={(event) => setDistractors(event.target.value)}
+            placeholder="liver, gall bladder"
+            value={distractors}
+          />
+        </label>
+        <p className="answer-help">
+          {answers.length === 0
+            ? "No gaps yet. Put square brackets round a word to make one."
+            : `${answers.length} ${answers.length === 1 ? "gap" : "gaps"}: ${answers.join(", ")}`}
+        </p>
+      </div>
+    );
+  }
+
+  if (shape === "table") {
+    const rows = parseTableRows(bracketed);
+    const blanks = tableBlanks(rows);
+    return (
+      <div className="answer-options">
+        <p className="answer-help">
+          One row per line, cells separated by a vertical bar. The first row is
+          the heading. Put square brackets round the cells the learner fills in.
+        </p>
+        <textarea
+          aria-label="Table"
+          className="answer-passage"
+          onChange={(event) => setBracketed(event.target.value)}
+          placeholder={TABLE_PLACEHOLDER}
+          rows={6}
+          value={bracketed}
+        />
+        <p className="answer-help">
+          {rows.length < 2
+            ? "Needs a heading row and at least one row under it."
+            : `${rows.length - 1} ${rows.length === 2 ? "row" : "rows"}, ${blanks.length} to fill in.`}
+        </p>
+      </div>
+    );
+  }
+
+  if (shape === "number-line") {
+    return (
+      <div className="answer-options">
+        <p className="answer-help">
+          The learner places a marker on the line. They are marked on where
+          they put it, within the tolerance you allow.
+        </p>
+        <div className="answer-line-fields">
+          <label className="composer-field">
+            <span>Line starts at</span>
+            <input
+              onChange={(event) => setLineMin(event.target.value)}
+              type="number"
+              value={lineMin}
+            />
+          </label>
+          <label className="composer-field">
+            <span>Line ends at</span>
+            <input
+              onChange={(event) => setLineMax(event.target.value)}
+              type="number"
+              value={lineMax}
+            />
+          </label>
+          <label className="composer-field">
+            <span>Correct value</span>
+            <input
+              onChange={(event) => setLineAnswer(event.target.value)}
+              placeholder="7.5"
+              type="number"
+              value={lineAnswer}
+            />
+          </label>
+          <label className="composer-field">
+            <span>
+              Allow within <em>plus or minus</em>
+            </span>
+            <input
+              onChange={(event) => setLineTolerance(event.target.value)}
+              min="0"
+              type="number"
+              value={lineTolerance}
+            />
+          </label>
+        </div>
+      </div>
+    );
+  }
+
   if (shape === "pairs" || shape === "groups") {
     const sorting = shape === "groups";
     return (
@@ -871,8 +1056,18 @@ function AnswerEditor({
 
 type ComposeInput = {
   booleanAnswer: string;
+  /* Only meaningful to three of the shapes, so optional rather than a field
+     every caller has to supply an empty string for. */
+  /** The authored text for cloze and table, answers in square brackets. */
+  bracketed?: string;
   difficulty: ComposedQuestion["difficulty"];
+  /** Extra wrong words for a cloze bank, comma separated. */
+  distractors?: string;
   exactAnswer: string;
+  lineAnswer?: string;
+  lineMax?: string;
+  lineMin?: string;
+  lineTolerance?: string;
   formula: string;
   imageAlt: string;
   imageUrl: string;
@@ -905,6 +1100,53 @@ export function compose(input: ComposeInput): ComposedQuestion {
     topic: input.topic.trim(),
     type: input.type,
   };
+
+  /* Cloze and table both put the authored text in the prompt, brackets and
+     all, and let the repository read the answers out of it. Keeping one
+     source means the passage and its answers cannot drift apart, which is
+     exactly what a separate "answers" field would have allowed. */
+  if (input.shape === "gaps") {
+    const source = input.bracketed ?? "";
+    const answers = bracketedAnswers(source);
+    const extra = (input.distractors ?? "")
+      .split(",")
+      .map((word) => word.trim())
+      .filter(Boolean);
+    return {
+      ...base,
+      correctAnswer: answers.join(", "),
+      /* The bank a learner picks from: the real answers plus whatever wrong
+         words the author added, shuffled so their order is not a clue. */
+      options: shuffleStably([...answers, ...extra]),
+      prompt: source.trim(),
+    };
+  }
+
+  if (input.shape === "table") {
+    return {
+      ...base,
+      correctAnswer: tableBlanks(parseTableRows(input.bracketed ?? ""))
+        .map((blank) => `${blank.key}::${blank.answer}`)
+        .join(", "),
+      options: [],
+      prompt: (input.bracketed ?? "").trim(),
+    };
+  }
+
+  if (input.shape === "number-line") {
+    return {
+      ...base,
+      /* Range and tolerance travel with the answer, since the line a learner
+         sees is part of the question rather than a display preference. */
+      correctAnswer: [
+        (input.lineAnswer ?? "").trim(),
+        (input.lineMin ?? "0").trim(),
+        (input.lineMax ?? "10").trim(),
+        (input.lineTolerance ?? "0").trim(),
+      ].join("::"),
+      options: [],
+    };
+  }
 
   if (input.shape === "boolean") {
     return {

@@ -7,6 +7,9 @@ export type QuestionType =
   | "matching"
   | "grouping"
   | "ordering"
+  | "cloze"
+  | "number-line"
+  | "table"
   | "essay"
   | "file-upload"
   | "hotspot"
@@ -68,6 +71,14 @@ export type AssessmentQuestionSnapshot = {
    */
   formula?: string;
   id: string;
+  /**
+   * The axis a number-line question is answered on.
+   *
+   * Public information — it is the line the learner is shown — so it lives
+   * here rather than in the answer key, which is stripped before anything
+   * reaches them. Without it the runner would have nothing to draw.
+   */
+  line?: { max: number; min: number };
   marks: number;
   /** A diagram, photograph or chart the question is about. */
   media?: QuestionMedia;
