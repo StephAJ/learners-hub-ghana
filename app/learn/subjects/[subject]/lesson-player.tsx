@@ -41,6 +41,11 @@ import {
 } from "../../../components/icons";
 import { LessonPoster } from "../../../components/lesson-poster";
 import {
+  OutlineScrim,
+  OutlineToggle,
+  useOutlineDrawer,
+} from "../../../components/outline-drawer";
+import {
   QuestionInput,
   hasAnswer,
 } from "../../../components/question-input";
@@ -220,9 +225,11 @@ export function LessonPlayer({
     (lesson) => lesson.progressPercent === 100,
   ).length;
 
+  const drawer = useOutlineDrawer();
+
   return (
     <LessonPreviewContext.Provider value={preview}>
-    <div className="lesson-shell">
+    <div className="lesson-shell" {...drawer.shellProps}>
       {preview ? (
         <p className="lesson-preview-ribbon">
           Preview — this is the lesson exactly as a learner sees it. Nothing you
@@ -231,6 +238,7 @@ export function LessonPlayer({
       ) : null}
       <header className="lesson-toprail">
         <div className="lesson-toprail-heading">
+          <OutlineToggle drawer={drawer} label="Course content" />
           <Link className="course-back" href="/learn/subjects">
             <ArrowLeftIcon size={14} />
             All subjects
@@ -269,6 +277,7 @@ export function LessonPlayer({
       </header>
 
     <div className="course-player">
+      <OutlineScrim drawer={drawer} />
       <aside className="course-outline" aria-label="Course content">
         <header className="course-outline-head">
           <p>Course content</p>
@@ -300,6 +309,8 @@ export function LessonPlayer({
                     setSelectedLessonId(lesson.id);
                     setActiveBlockIndex(0);
                     setProgress(lesson.progressPercent);
+                    /* Choosing one is the whole reason the drawer was open. */
+                    drawer.close();
                   }}
                   type="button"
                 >

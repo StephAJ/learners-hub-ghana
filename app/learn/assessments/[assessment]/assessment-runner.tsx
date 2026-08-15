@@ -25,6 +25,11 @@ import {
   QuestionFormula,
 } from "../../../components/question-media";
 import { QuestionInput } from "../../../components/question-input";
+import {
+  OutlineScrim,
+  OutlineToggle,
+  useOutlineDrawer,
+} from "../../../components/outline-drawer";
 
 /* ==========================================================================
    No preview attempt
@@ -143,6 +148,10 @@ export function AssessmentRunner({
     (sum, question) => sum + question.marks,
     0,
   );
+
+  /* Before any of the early returns below — the paper has several states and
+     a hook cannot be called from only some of them. */
+  const drawer = useOutlineDrawer();
 
   async function startAttempt() {
     const response = await fetch("/api/learn/assessments", {
@@ -485,9 +494,10 @@ export function AssessmentRunner({
           learner scanning for "the one about the small intestine" can read it
           rather than remember which number it was.
           ==================================================================== */}
-      <div className="lesson-shell">
+      <div className="lesson-shell" {...drawer.shellProps}>
         <header className="lesson-toprail">
           <div className="lesson-toprail-heading">
+            <OutlineToggle drawer={drawer} label="Questions" />
             <Link className="course-back" href="/learn/assessments">
               <ArrowLeftIcon size={14} />
               All assessments
@@ -523,7 +533,7 @@ export function AssessmentRunner({
                 remainingSeconds < 120 ? " is-urgent" : ""
               }`}
             >
-              <ClockIcon size={15} />
+              <ClockIcon size={13} />
               <span className="runner-timer-value">
                 {formatDuration(remainingSeconds)}
               </span>
@@ -550,6 +560,7 @@ export function AssessmentRunner({
         </header>
 
         <div className="course-player">
+          <OutlineScrim drawer={drawer} />
           <aside className="course-outline" aria-label="Questions">
             <header className="course-outline-head">
               <p>This paper</p>
@@ -582,7 +593,11 @@ export function AssessmentRunner({
                     <button
                       aria-current={isOpen ? "step" : undefined}
                       className="course-outline-lesson quiz-outline-question"
-                      onClick={() => setActiveIndex(index)}
+                      onClick={() => {
+                        setActiveIndex(index);
+                        /* Choosing one is the whole reason it was open. */
+                        drawer.close();
+                      }}
                       type="button"
                     >
                       {/* The same disc the lesson outline uses, so a learner

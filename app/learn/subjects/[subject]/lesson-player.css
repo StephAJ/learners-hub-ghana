@@ -641,22 +641,90 @@
   background: var(--brand-strong);
 }
 
+/* -- The outline off-canvas ----------------------------------------------- */
+
+/* Above the breakpoint the outline is simply a column and none of this
+   applies: no toggle, no scrim, nothing to dismiss. */
+.outline-toggle,
+.outline-scrim {
+  display: none;
+}
+
 @media (max-width: 1080px) {
-  /* The outline moves above the stage rather than shrinking into a column too
-     narrow to read lesson titles in. */
   .course-player {
     grid-template-columns: 1fr;
   }
 
+  /* It used to sit above the stage at a 20rem cap, which put a wall of other
+     lessons between a learner and the one they had just chosen — and between
+     every question on a paper. It slides in over the stage instead. */
   .course-outline {
-    border-bottom: 1px solid var(--workspace-line);
-    border-right: 0;
-    max-height: 20rem;
-    position: static;
+    border-right: 1px solid var(--workspace-line);
+    bottom: 0;
+    box-shadow: var(--shadow-lg);
+    left: 0;
+    max-height: none;
+    position: fixed;
+    top: 0;
+    transform: translateX(-100%);
+    /* Visibility rather than display so the panel can animate, and so its
+       controls leave the tab order while it is closed. */
+    transition:
+      transform 180ms ease,
+      visibility 180ms;
+    visibility: hidden;
+    width: min(22rem, 86vw);
+    z-index: 60;
+  }
+
+  [data-outline="open"] .course-outline {
+    transform: none;
+    visibility: visible;
+  }
+
+  .outline-scrim {
+    background: rgb(16 32 27 / 45%);
+    display: block;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    position: fixed;
+    transition: opacity 180ms ease;
+    z-index: 55;
+  }
+
+  [data-outline="open"] .outline-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .outline-toggle {
+    align-items: center;
+    background: transparent;
+    border: 1px solid var(--workspace-line);
+    border-radius: var(--radius-sm);
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+  }
+
+  .outline-toggle:hover {
+    background: var(--brand-soft);
   }
 
   .course-stage {
     padding: var(--space-5) var(--space-5) var(--space-8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-outline,
+  .outline-scrim {
+    transition: none;
   }
 }
 

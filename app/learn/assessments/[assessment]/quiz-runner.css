@@ -265,32 +265,41 @@
 
 /* -- Timer ---------------------------------------------------------------- */
 
+/* A quiet chip, not a scoreboard.
+
+   The countdown used to be set at 22px in a wide pill — the largest thing in
+   the rail, bigger than the paper's own title, pulsing at a learner once a
+   second while they tried to think. It reads at a glance at 14px, and the
+   clock glyph carries the meaning that the word "left" was doing. */
 .runner-timer {
-  align-items: baseline;
+  align-items: center;
   background: var(--brand-soft);
   border: 1px solid var(--brand-line);
   border-radius: var(--radius-pill);
   color: var(--quiz-green);
   display: inline-flex;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-}
-
-.runner-timer svg {
-  align-self: center;
+  gap: var(--space-1);
+  padding: 4px var(--space-3);
 }
 
 .runner-timer-value {
-  font-size: var(--fs-22);
+  font-size: var(--fs-14);
   font-variant-numeric: tabular-nums;
   font-weight: var(--fw-semibold);
-  /* Fixed advance so the countdown does not shuffle the bar every second. */
+  /* Fixed advance so the countdown does not shuffle the rail every second. */
   letter-spacing: 0.01em;
   line-height: 1;
 }
 
+/* Kept for a screen reader, since "18:42" alone does not say what it counts. */
 .runner-timer-label {
-  font-size: var(--fs-13);
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .runner-timer.is-urgent {
@@ -319,18 +328,10 @@
   position: relative;
 }
 
-/* The same top accent stripe the lesson player uses on its content cards, so
-   a question paper and a lesson block read as the same product rather than
-   two different tools stapled together. */
-.question-paper::before {
-  background: var(--quiz-green);
-  content: "";
-  height: 4px;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-}
+/* No top accent stripe. It was borrowed from the lesson player's content
+   cards, but a lesson stacks several of them and the stripe told you where
+   each began; the stage holds one question at a time, so it marked nothing
+   and just drew a hard line across the top of the only thing on screen. */
 
 .question-paper > header {
   display: flex;
@@ -387,7 +388,10 @@
    else a learner reads a sentence, and a question is a sentence. */
 .question-prompt h1 {
   font-family: var(--font-body);
-  font-size: var(--fs-22);
+  /* One step down from the page heading it used to be. A question is a
+     sentence to read, not a title to scan, and at 22px a two-line prompt
+     dominated the paper it sits at the top of. */
+  font-size: var(--fs-18);
   font-weight: var(--fw-medium);
   letter-spacing: var(--tracking-body);
   line-height: var(--lh-snug);
