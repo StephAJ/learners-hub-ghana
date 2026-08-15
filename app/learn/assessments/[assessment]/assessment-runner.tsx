@@ -83,6 +83,8 @@ export function AssessmentRunner({
         assessment.passMarkPercent,
   );
   const celebratedRef = useRef(false);
+  /* So the tick that reaches zero hands in once, not once a second. */
+  const timeUpRef = useRef(false);
 
   useEffect(() => {
     if (!hasPassed || celebratedRef.current) return;
@@ -121,20 +123,43 @@ export function AssessmentRunner({
     };
   }, [assessmentId]);
 
+  /* The clock ran, reached zero, and then nothing happened — which is what
+     "the timer isn't working" looks like from the learner's chair. It showed
+     00:00 over a paper that still accepted typing, while every save was
+     refused by the repository ("The assessment time limit has expired") and
+     the attempt sat at in-progress indefinitely. An attempt found already
+     past its deadline on open behaved the same way: a live paper with a dead
+     clock.
+
+     Reaching zero hands the paper in now, once, and says so. */
   useEffect(() => {
     const deadline = assessment.attempt?.deadlineAt;
     if (!deadline || assessment.attempt?.status !== "in-progress") return;
+
+    const expiresAt = new Date(deadline).getTime();
+    /* An unparseable deadline must not read as "no time left" — that would
+       hand in a paper the learner has only just started. Leave the clock at
+       the paper's own limit and let them work. */
+    if (Number.isNaN(expiresAt)) return;
+
     const updateClock = () => {
-      setRemainingSeconds(
-        Math.max(
-          0,
-          Math.floor((new Date(deadline).getTime() - Date.now()) / 1000),
-        ),
-      );
+      const left = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setRemainingSeconds(left);
+      if (left === 0 && !timeUpRef.current) {
+        timeUpRef.current = true;
+        setNotice(
+          "Time is up. Your paper has been handed in with the answers saved so far.",
+        );
+        void handIn();
+      }
     };
+
     updateClock();
     const timer = setInterval(updateClock, 1000);
     return () => clearInterval(timer);
+    /* handIn is re-created each render and is only ever called from the tick;
+       including it would restart the interval every second. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessment.attempt?.deadlineAt, assessment.attempt?.status]);
 
   const activeQuestion = assessment.questions[activeIndex];
@@ -296,6 +321,18 @@ export function AssessmentRunner({
       );
       return;
     }
+    await handIn();
+  }
+
+  /* The submit itself, without the save pass in front of it.
+
+     Time-up cannot re-save: the repository refuses any write once the
+     deadline is behind us ("The assessment time limit has expired"), so
+     running submitAttempt() when the clock hits zero would fail on its own
+     first step and abort. What the server already holds is what gets marked,
+     which is exactly what an expired attempt should hand in. */
+  async function handIn() {
+    if (!assessment.attempt) return;
     const response = await fetch("/api/learn/assessments", {
       body: JSON.stringify({
         action: "submit",

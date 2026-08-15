@@ -8,6 +8,7 @@ import type {
   QuestionType,
 } from "../../domain/assessment/types";
 import { QuestionFigure } from "./question-media";
+import { ReorderResponse } from "./reorder-response";
 import "./question-input.css";
 
 /* ==========================================================================
@@ -206,34 +207,13 @@ export function QuestionInput({
   }
 
   if (question.type === "ordering") {
-    const order = Array.isArray(value)
-      ? value.map(String)
-      : question.options.map(() => "");
     return (
-      <div className="ordering-list">
-        {question.options.map((_, index) => (
-          <label key={index}>
-            <span>{index + 1}</span>
-            <select
-              aria-label={`Position ${index + 1}`}
-              disabled={disabled}
-              onChange={(event) => {
-                const next = [...order];
-                next[index] = event.target.value;
-                onChange(next);
-              }}
-              value={order[index] ?? ""}
-            >
-              <option value="">Choose an item</option>
-              {question.options.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
-      </div>
+      <ReorderResponse
+        disabled={disabled}
+        onChange={onChange}
+        options={question.options}
+        value={value}
+      />
     );
   }
 
