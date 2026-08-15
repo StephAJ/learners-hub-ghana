@@ -963,14 +963,17 @@
 }
 
 /* The stage holds one question at a time, so it is a reading column rather
-   than the full width of a wide screen — the same measure the lesson stage
-   uses for its reading blocks. */
-.quiz-stage .question-paper {
-  max-width: 52rem;
-  width: 100%;
-}
+   than the full width of a wide screen — a question with four short options
+   stretched across a 1120px stage strands each label at the far left of its
+   own row.
 
+   Centred rather than left-aligned. The stage is a stretch flex column, so a
+   capped child otherwise hugs the left edge and leaves the remainder blank on
+   one side; on a 1440 screen that is nearly 300px of dead space beside the
+   paper, which reads as a page that failed to load rather than as a measure. */
+.quiz-stage .question-paper,
 .quiz-stage .question-actions {
+  margin-inline: auto;
   max-width: 52rem;
   width: 100%;
 }
