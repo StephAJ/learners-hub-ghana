@@ -503,17 +503,12 @@ export function AssessmentRunner({
               All assessments
             </Link>
             <span className="lesson-toprail-divider" aria-hidden="true" />
-            {/* The paper's name in the rail, not the question's text. The
-                lesson rail carries a lesson title, which is a few words; a
-                question prompt is a sentence, and putting one here made the
-                rail 193px tall on a phone — a quarter of the screen — showing
-                the learner the same sentence twice, since the paper below
-                already leads with it. */}
             <div className="lesson-toprail-title">
               <p className="lesson-eyebrow">
-                Question {activeIndex + 1} of {assessment.questions.length}
+                {assessment.title} · Question {activeIndex + 1} of{" "}
+                {assessment.questions.length}
               </p>
-              <h2>{assessment.title}</h2>
+              <h2>{activeQuestion.prompt}</h2>
             </div>
           </div>
 
