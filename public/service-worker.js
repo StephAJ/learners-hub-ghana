@@ -20,12 +20,58 @@
    A write while offline fails, visibly, and is retried by the person.
    ========================================================================== */
 
-const VERSION = "v1";
+/* Bumped from v1: activate deletes every cache not ending in the current
+   version, so raising this is what clears what an older worker stored. */
+const VERSION = "v2";
 const SHELL_CACHE = `learners-hub-shell-${VERSION}`;
 const PAGE_CACHE = `learners-hub-pages-${VERSION}`;
 
+/* ==========================================================================
+   Never on a development host
+
+   cacheFirst below takes /_next/static/ on the reasoning that a hashed build
+   asset never changes under one URL. True of a production build. In
+   development Turbopack serves chunks at stable paths and rewrites them on
+   every edit, so a v1 worker cached the first version of every chunk and
+   served it for the life of the browser profile: a page throwing an error
+   fixed several rebuilds ago, against a server serving correct code.
+
+   The registration component now declines to register outside production,
+   which stops it happening again but cannot help a browser that already has
+   one — that code ships in a chunk the installed worker serves from cache, so
+   it never arrives. This file can, because a browser fetches the worker
+   script itself on navigation rather than through the worker's own fetch
+   handler. So the worker removes itself here, which is the only path that
+   reaches an already-affected browser. */
+const DEVELOPMENT_HOSTS = ["127.0.0.1", "localhost"];
+const onDevelopmentHost = DEVELOPMENT_HOSTS.includes(self.location.hostname);
+
+if (onDevelopmentHost) {
+  self.addEventListener("install", () => self.skipWaiting());
+  self.addEventListener("activate", (event) => {
+    event.waitUntil(
+      (async () => {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+        await self.registration.unregister();
+        /* Reload what is open. The page is still running the code the old
+           worker gave it, and having unregistered there is nothing left to
+           re-trigger this, so it cannot loop. */
+        const windows = await self.clients.matchAll({ type: "window" });
+        for (const client of windows) client.navigate(client.url);
+      })(),
+    );
+  });
+}
+
 /* The crest and the offline page, so the fallback is never itself a fetch. */
 const SHELL = ["/offline", "/learners-hub-logo.png", "/favicon.svg"];
+
+/* Everything below is the real worker, and none of it is wired up on a
+   development host — the block above has already removed this registration
+   there, and a second install handler racing it would only cache more of what
+   it is trying to clear. */
+if (!onDevelopmentHost) {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -82,6 +128,8 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(networkFirst(request));
   }
 });
+
+} /* end: production only */
 
 /**
  * Hashed build assets never change under one URL, so the cached copy is
