@@ -185,6 +185,13 @@
   --hue-lime-soft: #dfeecd;
   --hue-lime-ink: #40631b;
 
+  /* The subject's own colour, for anything sitting inside a [data-hue].
+     Defaults to the brand, so a surface that uses these outside a hued
+     container still looks deliberate rather than unstyled. */
+  --subject-soft: var(--brand-soft);
+  --subject-ink: var(--brand);
+  --subject-line: var(--brand-line);
+
   /* Aliases. Component sheets written before the brand ramp existed keep
      working, and re-skin with everything else. */
   --primary: var(--brand);
@@ -516,4 +523,52 @@ th.numeric {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ==========================================================================
+   Subject colour
+
+   One declaration per hue, set on whatever element the subject scopes — a
+   card, a lesson shell, a paper. Everything inside reads --subject-* and does
+   not need to know which hue it got, so a component is written once and takes
+   the colour of whatever subject it is showing.
+
+   Derived from the subject's name in domain/school/subject-hue.ts, so this is
+   the whole of the styling side.
+   ========================================================================== */
+
+[data-hue="teal"] {
+  --subject-soft: var(--hue-teal-soft);
+  --subject-ink: var(--hue-teal-ink);
+  --subject-line: color-mix(in srgb, var(--hue-teal-ink) 28%, #ffffff);
+}
+
+[data-hue="blue"] {
+  --subject-soft: var(--hue-blue-soft);
+  --subject-ink: var(--hue-blue-ink);
+  --subject-line: color-mix(in srgb, var(--hue-blue-ink) 28%, #ffffff);
+}
+
+[data-hue="violet"] {
+  --subject-soft: var(--hue-violet-soft);
+  --subject-ink: var(--hue-violet-ink);
+  --subject-line: color-mix(in srgb, var(--hue-violet-ink) 28%, #ffffff);
+}
+
+[data-hue="amber"] {
+  --subject-soft: var(--hue-amber-soft);
+  --subject-ink: var(--hue-amber-ink);
+  --subject-line: color-mix(in srgb, var(--hue-amber-ink) 28%, #ffffff);
+}
+
+[data-hue="rose"] {
+  --subject-soft: var(--hue-rose-soft);
+  --subject-ink: var(--hue-rose-ink);
+  --subject-line: color-mix(in srgb, var(--hue-rose-ink) 28%, #ffffff);
+}
+
+[data-hue="lime"] {
+  --subject-soft: var(--hue-lime-soft);
+  --subject-ink: var(--hue-lime-ink);
+  --subject-line: color-mix(in srgb, var(--hue-lime-ink) 28%, #ffffff);
 }

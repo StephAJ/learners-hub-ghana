@@ -54,6 +54,7 @@ import {
   QuestionFormula,
 } from "../../../components/question-media";
 import { beginFocusMode, endFocusMode } from "../../../components/sidebar-state";
+import { subjectHue } from "../../../../domain/school/subject-hue";
 
 /* The three panels under the stage, in one place: a tab's label, its glyph
    and its hue are the same fact, and keeping them together stops a fourth
@@ -247,7 +248,7 @@ export function LessonPlayer({
      learner nothing about why their subject was empty. */
   if (!selectedLesson || !activeBlock) {
     return (
-      <div className="lesson-shell">
+      <div className="lesson-shell" data-hue={subjectHue(subject.subjectName)}>
         <header className="lesson-toprail">
           <div className="lesson-toprail-heading">
             <Link className="course-back" href="/learn/subjects">
@@ -284,7 +285,11 @@ export function LessonPlayer({
 
   return (
     <LessonPreviewContext.Provider value={preview}>
-    <div className="lesson-shell" {...drawer.shellProps}>
+    <div
+      className="lesson-shell"
+      data-hue={subjectHue(subject.subjectName)}
+      {...drawer.shellProps}
+    >
       {preview ? (
         <p className="lesson-preview-ribbon">
           Preview — this is the lesson exactly as a learner sees it. Nothing you

@@ -250,7 +250,12 @@ export function QuestionComposer({
     ],
   );
 
-  const problem = validate(composed, shape);
+  /* An unavailable type is a refusal, not a warning. It printed a note saying
+     the type could not work and then saved it anyway, so a teacher could
+     write a hotspot question, publish it in a paper, and a learner would meet
+     a question nothing can answer. Whatever a type cannot do, it cannot do
+     after the note has been read. */
+  const problem = unavailable ?? validate(composed, shape);
 
   async function submit() {
     if (problem) {

@@ -8,6 +8,7 @@ import type {
   QuestionType,
 } from "../../domain/assessment/types";
 import { QuestionFigure } from "./question-media";
+import { MatchResponse } from "./match-response";
 import { ReorderResponse } from "./reorder-response";
 import "./question-input.css";
 
@@ -156,53 +157,13 @@ export function QuestionInput({
   }
 
   if (question.type === "matching") {
-    const matches =
-      typeof value === "object" && value
-        ? (value as Record<string, string>)
-        : {};
-    const left = question.options.filter((option) =>
-      option.id.startsWith("left:"),
-    );
-    const right = question.options.filter((option) =>
-      option.id.startsWith("right:"),
-    );
     return (
-      <div className="matching-list">
-        {left.map((item) => {
-          const key = item.id.replace("left:", "");
-          return (
-            <label key={item.id}>
-              <strong>{item.label}</strong>
-              <span>matches with</span>
-              <select
-                aria-label={`What ${item.label} matches with`}
-                disabled={disabled}
-                onChange={(event) =>
-                  onChange({ ...matches, [key]: event.target.value })
-                }
-                value={matches[key] ?? ""}
-              >
-                {/* Not "Choose an action". These placeholders were written
-                    against the one demo question in front of the developer at
-                    the time — a matching question about digestive organs and
-                    their actions — so every matching question in every subject
-                    asked the learner to choose an action, and every ordering
-                    question asked them to select an organ. The select cannot
-                    know what its options are, so it says what it is for. */}
-                <option value="">Choose a match</option>
-                {right.map((option) => (
-                  <option
-                    key={option.id}
-                    value={option.id.replace("right:", "")}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          );
-        })}
-      </div>
+      <MatchResponse
+        disabled={disabled}
+        onChange={onChange}
+        options={question.options}
+        value={value}
+      />
     );
   }
 
@@ -244,21 +205,22 @@ export function QuestionInput({
     );
   }
 
+  /* Hotspot was six numbered buttons in a grid, with the numbers set to
+     transparent, storing "zone-3". It never looked at the question's image —
+     there is no image, and no way for an author to mark a region on one. So a
+     learner met six blank rectangles and had to guess between them, and
+     whatever they picked was compared against a zone nobody had ever placed.
+
+     The composer refuses to author new ones now. The type is still here
+     because papers can hold questions written before that, and those have to
+     render as something. They render as what they are. */
   if (question.type === "hotspot") {
     return (
-      <div className="hotspot-response">
-        {[1, 2, 3, 4, 5, 6].map((zone) => (
-          <button
-            className={value === `zone-${zone}` ? "is-selected" : ""}
-            disabled={disabled}
-            key={zone}
-            onClick={() => onChange(`zone-${zone}`)}
-            type="button"
-          >
-            {zone}
-          </button>
-        ))}
-      </div>
+      <p className="answer-unavailable" role="status">
+        This question needs a picture with marked areas, which the school&rsquo;s
+        media library cannot store yet. Leave it and tell your teacher &mdash;
+        it will not count against you.
+      </p>
     );
   }
 

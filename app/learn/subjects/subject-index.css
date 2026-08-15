@@ -204,3 +204,33 @@
   line-height: var(--lh-body);
   margin: 0;
 }
+
+/* ==========================================================================
+   The subject's own colour
+
+   A learner's subject list was six identical white cards in one green. The
+   hue comes from the subject's name (domain/school/subject-hue.ts), so it is
+   the same colour wherever that subject appears and stays put between visits.
+
+   Applied where it identifies rather than decorates: a spine down the edge of
+   the card, and the progress bar. The card stays white — six saturated tiles
+   would be a worse list, not a better one.
+   ========================================================================== */
+
+.subject-card {
+  border-left: 3px solid var(--subject-line);
+}
+
+.subject-card:hover {
+  border-left-color: var(--subject-ink);
+}
+
+.subject-card-track i {
+  background: var(--subject-ink);
+}
+
+/* The play/tick beside the next lesson, so the colour reaches the part of the
+   card a learner actually looks at. */
+.subject-card-next svg {
+  color: var(--subject-ink);
+}

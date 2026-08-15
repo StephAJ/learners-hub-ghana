@@ -57,27 +57,6 @@
   font-size: var(--fs-16);
 }
 
-.matching-list {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.matching-list label {
-  align-items: center;
-  background: #f7f8f6;
-  border-radius: var(--radius-md);
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: 1fr auto 1fr;
-  padding: var(--space-3);
-}
-
-.matching-list label > span {
-  color: var(--answer-muted);
-  font-size: var(--fs-14);
-}
-
-.matching-list select,
 .short-response input,
 .written-response textarea {
   background: #ffffff;
@@ -89,7 +68,6 @@
   width: 100%;
 }
 
-.matching-list select:disabled,
 .short-response input:disabled,
 .written-response textarea:disabled {
   /* Set once a checkpoint has been marked: the feedback below refers to
@@ -210,26 +188,16 @@
   margin: 0;
 }
 
-.hotspot-response {
-  background: linear-gradient(145deg, #e8efe9, #f7f1dc);
-  border-radius: var(--radius-lg);
-  display: grid;
-  gap: var(--space-2);
-  grid-template-columns: repeat(3, 1fr);
-  min-height: 270px;
-  padding: var(--space-6);
-}
-
-.hotspot-response button {
-  background: rgba(255, 255, 255, 0.4);
-  border: 1px dashed rgba(20, 75, 57, 0.3);
+/* Was the six blank rectangles a hotspot question rendered. There is nothing
+   to lay out now — the question says why it cannot be answered. */
+.answer-unavailable {
+  background: var(--hue-amber-soft);
   border-radius: var(--radius-md);
-  color: transparent;
-}
-
-.hotspot-response button.is-selected {
-  background: rgba(11, 122, 90, 0.35);
-  border: 2px solid var(--brand);
+  color: var(--hue-amber-ink);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+  padding: var(--space-4);
 }
 
 /* -- Pictures ------------------------------------------------------------- */
@@ -507,5 +475,145 @@
 
   .reorder-grip {
     padding: var(--space-2);
+  }
+}
+
+/* ==========================================================================
+   Matching, as two columns you tap between
+
+   Replaces a dropdown per left-hand item. A pair is shown by a number and a
+   shared colour on both halves rather than by a line drawn between them:
+   lines need absolute positioning and re-measuring on every reflow, and they
+   cross into a tangle past about four pairs. A badge survives the columns
+   stacking on a phone, which is where most of this is answered.
+
+   The six hues are the glyph palette from globals.css, cycled by pair number
+   so two adjacent pairs are never the same colour.
+   ========================================================================== */
+
+.match-response {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.match-hint {
+  color: var(--answer-muted);
+  font-size: var(--fs-13);
+  margin: 0;
+  /* Reserved, so the line changing from "tap something" to "now tap what it
+     goes with" does not shift the columns under the learner's finger. */
+  min-height: 1.25rem;
+}
+
+.match-columns {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr 1fr;
+}
+
+.match-column {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  align-content: start;
+}
+
+.match-tile {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d8dfdb;
+  border-radius: var(--radius-md);
+  color: var(--answer-ink);
+  cursor: pointer;
+  display: flex;
+  font-size: var(--fs-16);
+  gap: var(--space-2);
+  line-height: var(--lh-snug);
+  min-height: 3rem;
+  padding: var(--space-3);
+  text-align: left;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+  width: 100%;
+}
+
+.match-tile:hover:not(:disabled) {
+  border-color: var(--brand-line);
+}
+
+.match-tile:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Picked up, waiting for its other half. */
+.match-tile.is-armed {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  transform: translateX(3px);
+}
+
+/* Everything it could be joined to, while one is in hand. */
+.match-tile.is-target {
+  border-color: var(--brand-line);
+  border-style: dashed;
+}
+
+.match-tile.is-joined {
+  background: var(--subject-soft);
+  border-color: var(--subject-line);
+}
+
+.match-badge {
+  align-items: center;
+  background: var(--subject-ink);
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+/* The pair's colour. Set on the tile so the badge and the ground agree, and
+   cycled by pair number rather than by subject — here the hue's job is to
+   tell one pair from the next. */
+.match-tile.hue-0 { --subject-soft: var(--hue-teal-soft);   --subject-ink: var(--hue-teal-ink);   --subject-line: var(--hue-teal-ink); }
+.match-tile.hue-1 { --subject-soft: var(--hue-blue-soft);   --subject-ink: var(--hue-blue-ink);   --subject-line: var(--hue-blue-ink); }
+.match-tile.hue-2 { --subject-soft: var(--hue-violet-soft); --subject-ink: var(--hue-violet-ink); --subject-line: var(--hue-violet-ink); }
+.match-tile.hue-3 { --subject-soft: var(--hue-amber-soft);  --subject-ink: var(--hue-amber-ink);  --subject-line: var(--hue-amber-ink); }
+.match-tile.hue-4 { --subject-soft: var(--hue-rose-soft);   --subject-ink: var(--hue-rose-ink);   --subject-line: var(--hue-rose-ink); }
+.match-tile.hue-5 { --subject-soft: var(--hue-lime-soft);   --subject-ink: var(--hue-lime-ink);   --subject-line: var(--hue-lime-ink); }
+
+.match-status {
+  color: var(--answer-muted);
+  font-size: var(--fs-13);
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  /* Stacked, with the right-hand column under the left rather than beside it
+     in a 40px-wide sliver. The badges are what keep a pair readable once the
+     two halves are no longer side by side. */
+  .match-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-tile {
+    transition: none;
+  }
+
+  .match-tile.is-armed {
+    transform: none;
   }
 }

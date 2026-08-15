@@ -4,6 +4,7 @@ import { SubjectCoverArt } from "../../components/subject-cover-art";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { listLearnerSubjects } from "../../../db/learning-repository";
 import { requireWorkspaceUser } from "../../../server/workspace-auth";
+import { subjectHue } from "../../../domain/school/subject-hue";
 import "./subject-index.css";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,7 @@ export default async function LearnerSubjectsPage() {
           <li key={subject.offeringId}>
             <Link
               className="subject-card"
+              data-hue={subjectHue(subject.subjectName)}
               data-progress={subject.progressPercent}
               href={`/learn/subjects/${subject.offeringId}`}
             >

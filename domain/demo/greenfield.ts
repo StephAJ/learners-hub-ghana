@@ -1180,18 +1180,12 @@ export const demoQuestionBank: DemoQuestion[] = [
     topic: "Human body systems",
     type: "file-upload",
   },
-  {
-    answerKey: { value: "zone-3" },
-    difficulty: "standard",
-    id: "question-stomach-hotspot",
-    marks: 1,
-    offeringId: "offering-science-jhs2",
-    options: [],
-    prompt: "Select the area where the stomach is located.",
-    rationale: "Upper left of the abdomen, below the diaphragm.",
-    topic: "Human body systems",
-    type: "hotspot",
-  },
+  /* No hotspot question here. The one that used to sit in this list had no
+     image and no regions — it asked a learner to "select the area where the
+     stomach is located" and marked them against zone-3, a zone nobody had
+     ever placed. A demo school should not ship a question that cannot be
+     answered; the type comes back when an author can mark points on a
+     picture. */
   {
     answerKey: {
       rubric:

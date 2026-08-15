@@ -1584,3 +1584,33 @@
     justify-content: center;
   }
 }
+
+/* ==========================================================================
+   The subject's colour, inside the player
+
+   Set on .lesson-shell as data-hue, derived from the subject's name. Only the
+   marks that say "this is your progress in this subject" take it — the track,
+   the completed disc, the eyebrow. The chrome stays neutral, because a whole
+   screen tinted rose is a worse lesson than a white one.
+
+   The three panel tabs under the stage keep their own data-hue: those hues
+   say "overview / objectives / curriculum", which is a different fact from
+   which subject this is, and they override --subject-* inside themselves.
+   ========================================================================== */
+
+.lesson-shell[data-hue] .course-outline-track i {
+  background: var(--subject-ink);
+}
+
+.lesson-shell[data-hue] .course-outline-status.is-done {
+  background: var(--subject-ink);
+  border-color: var(--subject-ink);
+}
+
+.lesson-shell[data-hue] .lesson-eyebrow {
+  color: var(--subject-ink);
+}
+
+.lesson-shell[data-hue] .course-outline-list li.is-open .course-outline-lesson {
+  background: var(--subject-soft);
+}
