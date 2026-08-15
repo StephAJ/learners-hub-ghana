@@ -259,6 +259,7 @@ function LoadedAssessments({
     const response = await fetch("/api/teacher/assessments", {
       body: JSON.stringify({
         action: "update-question",
+        offeringId: workspace.offeringId,
         questionId: editing.id,
         ...input,
       }),
@@ -476,6 +477,7 @@ function LoadedAssessments({
             <QuestionBankPanel
               createQuestion={saveQuestion}
               editing={editing}
+              standards={workspace.standards}
               onOpenQuestion={openQuestion}
               questions={visibleQuestions}
               setShowForm={(value) => {
@@ -511,6 +513,7 @@ function LoadedAssessments({
 function QuestionBankPanel({
   createQuestion,
   editing,
+  standards,
   onOpenQuestion,
   questions,
   setShowForm,
@@ -521,6 +524,7 @@ function QuestionBankPanel({
 }: {
   createQuestion: (input: ComposedQuestion) => Promise<void>;
   editing?: EditableQuestion;
+  standards: Array<{ code: string; description: string; id: string }>;
   onOpenQuestion: (questionId: string) => Promise<void>;
   questions: QuestionBankSummary[];
   setShowForm: (value: boolean) => void;
@@ -553,6 +557,7 @@ function QuestionBankPanel({
           existing={editing}
           onCancel={() => setShowForm(false)}
           onSubmit={createQuestion}
+          standards={standards}
           topicSuggestion={topicSuggestion}
         />
       ) : null}

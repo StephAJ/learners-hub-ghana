@@ -46,6 +46,8 @@ import "./question-composer.css";
 
 export type ComposedQuestion = {
   correctAnswer: string;
+  /** Curriculum outcomes this question is evidence for. */
+  standardIds?: string[];
   difficulty: "foundation" | "standard" | "challenge";
   formula?: string;
   marks: number;
@@ -107,11 +109,14 @@ export function QuestionComposer({
   existing,
   onCancel,
   onSubmit,
+  standards = [],
   topicSuggestion,
 }: {
   existing?: EditableQuestion;
   onCancel: () => void;
   onSubmit: (input: ComposedQuestion) => Promise<void>;
+  /** The subject's curriculum outcomes, for the mapping below. */
+  standards?: Array<{ code: string; description: string; id: string }>;
   topicSuggestion: string;
 }) {
   const [type, setType] = useState<QuestionType>(
@@ -158,6 +163,10 @@ export function QuestionComposer({
     { id: nextId(), left: "", right: "" },
     { id: nextId(), left: "", right: "" },
   ]);
+
+  const [standardIds, setStandardIds] = useState<string[]>(
+    existing?.standardIds ?? [],
+  );
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -213,7 +222,8 @@ export function QuestionComposer({
   }
 
   const composed = useMemo(
-    () => compose({
+    () => ({
+      ...compose({
       booleanAnswer,
       difficulty,
       exactAnswer,
@@ -230,6 +240,8 @@ export function QuestionComposer({
       shape,
       topic,
       type,
+      }),
+      standardIds,
     }),
     [
       booleanAnswer,
@@ -246,6 +258,7 @@ export function QuestionComposer({
       rubric,
       sequenceItems,
       shape,
+      standardIds,
       topic,
       type,
     ],
@@ -347,6 +360,52 @@ export function QuestionComposer({
             <p className="composer-warning" role="status">
               {unavailable}
             </p>
+          ) : null}
+
+          {/* Which outcomes this question is evidence for.
+
+              Optional on purpose: a teacher writing a quick question at the
+              end of a long day should not be stopped by a mapping screen, and
+              an unmapped question still marks perfectly well. It just cannot
+              contribute to what a learner is told they can do — which is why
+              the note says so rather than leaving the omission silent. */}
+          {standards.length > 0 ? (
+            <fieldset className="composer-standards">
+              <legend>What this question tests</legend>
+              <p className="answer-help">
+                Tick the outcomes a right answer here is evidence for. This is
+                what fills in a learner&rsquo;s progress by outcome; leave it
+                blank and the question still works, it just will not count
+                towards one.
+              </p>
+              <div className="composer-standard-list">
+                {standards.map((standard) => {
+                  const on = standardIds.includes(standard.id);
+                  return (
+                    <label
+                      className={`composer-standard${on ? " is-on" : ""}`}
+                      key={standard.id}
+                    >
+                      <input
+                        checked={on}
+                        onChange={() =>
+                          setStandardIds((current) =>
+                            current.includes(standard.id)
+                              ? current.filter((id) => id !== standard.id)
+                              : [...current, standard.id],
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      <span>
+                        <strong>{standard.code}</strong>
+                        <small>{standard.description}</small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
           ) : null}
 
           <details className="composer-extras">

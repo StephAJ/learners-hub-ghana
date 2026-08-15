@@ -245,7 +245,13 @@
   gap: var(--space-2);
 }
 
-.subject-practice {
+.subject-actions {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 1fr 1fr;
+}
+
+.subject-actions a {
   align-items: center;
   border: 1px solid var(--workspace-line);
   border-radius: var(--radius-md);
@@ -262,13 +268,13 @@
     border-color 140ms ease;
 }
 
-.subject-practice:hover {
+.subject-actions a:hover {
   background: var(--subject-soft);
   border-color: var(--subject-line);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .subject-practice {
+  .subject-actions a {
     transition: none;
   }
 }

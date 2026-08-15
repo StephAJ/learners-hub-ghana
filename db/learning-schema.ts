@@ -619,6 +619,16 @@ CREATE TABLE IF NOT EXISTS "lesson_standard_links" (
   FOREIGN KEY ("standard_id") REFERENCES "curriculum_standards" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "question_standard_links" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "question_id" text NOT NULL,
+  "standard_id" text NOT NULL,
+  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("standard_id") REFERENCES "curriculum_standards" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "message_threads" (
   "id" text PRIMARY KEY,
   "tenant_id" text NOT NULL,

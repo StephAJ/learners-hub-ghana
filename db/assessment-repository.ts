@@ -120,6 +120,10 @@ export type TeacherAssessmentWorkspace = {
      door rather than shown their own question bank. */
   offerings: TeachingOffering[];
   reviewQueue: ReviewAttempt[];
+  /* The subject's curriculum outcomes, so the composer can ask which ones a
+     question is evidence for. Without this the mastery picture stays empty
+     however many questions a teacher writes. */
+  standards: Array<{ code: string; description: string; id: string }>;
   subjectName: string;
   typeCoverage: number;
 };
@@ -237,10 +241,11 @@ export async function listTeacherAssessmentWorkspace(
   );
   const offerings = await loadTeachingOfferings(database, access);
 
-  const [bank, assessments, reviewQueue] = await Promise.all([
+  const [bank, assessments, reviewQueue, standards] = await Promise.all([
     loadQuestionBank(database, access.tenantId, offering.id),
     loadAssessmentSummaries(database, access.tenantId, offering.id),
     loadReviewQueue(database, access.tenantId, offering.id),
+    loadOfferingStandards(database, access.tenantId, offering.id),
   ]);
 
   return {
@@ -251,9 +256,28 @@ export async function listTeacherAssessmentWorkspace(
     offeringId: offering.id,
     offerings,
     reviewQueue,
+    standards,
     subjectName: offering.subjectName,
     typeCoverage: new Set(bank.map((question) => question.type)).size,
   };
+}
+
+/** The subject's curriculum outcomes, for the composer's standards picker. */
+async function loadOfferingStandards(
+  database: SchoolDatabase,
+  tenantId: string,
+  offeringId: string,
+): Promise<Array<{ code: string; description: string; id: string }>> {
+  const result = await database
+    .prepare(
+      `SELECT id, code, description
+      FROM curriculum_standards
+      WHERE tenant_id = ? AND offering_id = ? AND status <> 'retired'
+      ORDER BY position, code`,
+    )
+    .bind(tenantId, offeringId)
+    .all<{ code: string; description: string; id: string }>();
+  return result.results ?? [];
 }
 
 /* The offering a request is about, or a refusal saying which of the two
@@ -2763,7 +2787,7 @@ export async function updateBankQuestion(
 export async function getBankQuestion(
   access: AccessContext,
   questionId: string,
-): Promise<CreateBankQuestionInput & { id: string }> {
+): Promise<CreateBankQuestionInput & { id: string; standardIds: string[] }> {
   await ensureAssessmentFoundation();
   const database = await getSchoolDatabase();
 
@@ -2818,9 +2842,33 @@ export async function getBankQuestion(
     options: options.map((option) => option.label),
     prompt: row.prompt,
     rationale: row.rationale,
+    /* So reopening a question shows the outcomes it is already mapped to,
+       rather than an empty checklist a teacher would have to fill in again —
+       and would silently clear by saving. */
+    standardIds: await loadQuestionStandardIds(
+      database,
+      access.tenantId,
+      row.id,
+    ),
     topic: row.topic,
     type: row.type,
   };
+}
+
+async function loadQuestionStandardIds(
+  database: SchoolDatabase,
+  tenantId: string,
+  questionId: string,
+): Promise<string[]> {
+  const result = await database
+    .prepare(
+      `SELECT standard_id
+      FROM question_standard_links
+      WHERE tenant_id = ? AND question_id = ?`,
+    )
+    .bind(tenantId, questionId)
+    .all<{ standard_id: string }>();
+  return (result.results ?? []).map((row) => row.standard_id);
 }
 
 /** The stored answer as the composer's single text field. */

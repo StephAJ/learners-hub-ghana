@@ -454,4 +454,32 @@ const additiveMigrations = `
 
   CREATE INDEX IF NOT EXISTS assessment_response_attachment_idx
     ON assessment_response_attachments (tenant_id, attempt_id, question_id);
+
+  /* ------------------------------------------------------------------------
+     Which standard a question is evidence for.
+
+     Lessons have mapped to standards since the schema was written; questions
+     never have. So the only thing the curriculum could report was coverage —
+     which lessons touch a standard — and the only thing a learner could be
+     told was how much of the material had gone past them.
+
+     "You can do three of the five things this unit asks" needs the other
+     half: a question, and a learner's mark on it, tied to the standard it
+     tests. This is that half. Mirrors lesson_standard_links, keyed on the
+     bank item rather than a version, because a standard is a property of the
+     question a teacher wrote and does not change when they fix its wording.
+     ---------------------------------------------------------------------- */
+  CREATE TABLE IF NOT EXISTS question_standard_links (
+    id text PRIMARY KEY,
+    tenant_id text NOT NULL REFERENCES tenants(id),
+    question_id text NOT NULL,
+    standard_id text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS question_standard_link_idx
+    ON question_standard_links (question_id, standard_id);
+
+  CREATE INDEX IF NOT EXISTS question_standard_link_standard_idx
+    ON question_standard_links (tenant_id, standard_id);
 `;

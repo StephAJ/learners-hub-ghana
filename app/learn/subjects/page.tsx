@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { CheckIcon, PlayCircleIcon, SparkIcon } from "../../components/icons";
+import {
+  ChartIcon,
+  CheckIcon,
+  PlayCircleIcon,
+  SparkIcon,
+} from "../../components/icons";
 import { SubjectCoverArt } from "../../components/subject-cover-art";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { listLearnerSubjects } from "../../../db/learning-repository";
@@ -90,13 +95,16 @@ export default async function LearnerSubjectsPage() {
 
             {/* A sibling rather than nested: the card is itself a link, and a
                 link inside a link is not a thing a browser can resolve. */}
-            <Link
-              className="subject-practice"
-              href={`/learn/practice/${subject.offeringId}`}
-            >
-              <SparkIcon size={14} />
-              Practise this subject
-            </Link>
+            <div className="subject-actions">
+              <Link href={`/learn/practice/${subject.offeringId}`}>
+                <SparkIcon size={14} />
+                Practise
+              </Link>
+              <Link href={`/learn/progress/${subject.offeringId}`}>
+                <ChartIcon size={14} />
+                My progress
+              </Link>
+            </div>
           </li>
         ))}
       </ul>

@@ -1,0 +1,166 @@
+/* ==========================================================================
+   Mastery by outcome
+
+   A list, not a dashboard. Each row is one thing the subject is supposed to
+   teach, and the reader's question at every row is the same — can I do this
+   yet — so the state chip is the only thing carrying colour and everything
+   else stays quiet enough for it to read at a glance.
+
+   Four states, four colours drawn from the existing hue set: secure is the
+   only one that reads as finished, and "taught" is deliberately neutral so it
+   cannot be mistaken for progress.
+   ========================================================================== */
+
+.mastery {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 52rem;
+}
+
+.mastery-summary {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--subject-line);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-6);
+}
+
+.mastery-headline {
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--lh-heading);
+  margin: 0;
+}
+
+.mastery-headline b {
+  color: var(--subject-ink);
+  font-weight: var(--fw-semibold);
+}
+
+.mastery-note {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.mastery-list {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mastery-row {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+}
+
+.mastery-row-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.mastery-code {
+  color: var(--muted);
+  font-family: var(--font-numeric);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+}
+
+.mastery-state {
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-1) var(--space-3);
+  white-space: nowrap;
+}
+
+.mastery-state.is-secure {
+  background: var(--hue-lime-soft);
+  color: var(--hue-lime-ink);
+}
+
+.mastery-state.is-learning {
+  background: var(--hue-amber-soft);
+  color: var(--hue-amber-ink);
+}
+
+/* Neutral on purpose. "Covered in class" is not progress towards being able
+   to do it, and a green chip here would say it was. */
+.mastery-state.is-taught {
+  background: var(--canvas);
+  color: var(--muted);
+}
+
+.mastery-state.is-not-started {
+  background: var(--canvas);
+  color: var(--muted);
+}
+
+.mastery-description {
+  font-size: var(--fs-16);
+  line-height: var(--lh-snug);
+  margin: 0;
+}
+
+.mastery-evidence {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-13);
+  gap: var(--space-2) var(--space-5);
+}
+
+.mastery-foot {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.mastery-foot a {
+  color: var(--subject-ink);
+  font-weight: var(--fw-semibold);
+}
+
+.mastery-empty {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  max-width: 34rem;
+}
+
+.mastery-empty h2 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-medium);
+  margin: 0;
+}
+
+.mastery-empty p {
+  color: var(--muted);
+  font-size: var(--fs-16);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .mastery-evidence {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+}

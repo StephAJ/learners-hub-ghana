@@ -1,3 +1,4 @@
+import { setQuestionStandards } from "../../../../db/mastery-repository";
 import {
   createBankQuestion,
   getBankQuestion,
@@ -47,10 +48,23 @@ export async function POST(request: Request) {
   try {
     const schoolUser = await requireSchoolRequestUser();
     const payload = (await request.json()) as
-      | ({ action: "create-question"; offeringId?: string } & CreateBankQuestionInput)
+      | ({
+          action: "create-question";
+          offeringId?: string;
+          /* The curriculum outcomes this question is evidence for. Optional,
+             because a teacher writing a quick question should not be blocked
+             on mapping it — an unmapped question still marks, it just cannot
+             contribute to the mastery picture. */
+          standardIds?: string[];
+        } & CreateBankQuestionInput)
       /* Revising a question makes a new version rather than rewriting the old
          one — a published paper stays bound to the version it was set with. */
-      | ({ action: "update-question"; questionId: string } & CreateBankQuestionInput)
+      | ({
+          action: "update-question";
+          offeringId?: string;
+          questionId: string;
+          standardIds?: string[];
+        } & CreateBankQuestionInput)
       | ({ action: "create-assessment"; offeringId?: string } & CreateAssessmentInput)
       | { action: "publish"; assessmentId: string }
       | {
@@ -63,13 +77,19 @@ export async function POST(request: Request) {
       | { action: "release"; attemptId: string };
 
     if (payload.action === "update-question") {
-      return Response.json({
-        question: await updateBankQuestion(
-          schoolUser.access,
-          payload.questionId,
-          payload,
-        ),
-      });
+      const question = await updateBankQuestion(
+        schoolUser.access,
+        payload.questionId,
+        payload,
+      );
+      if (payload.offeringId) {
+        await setQuestionStandards(schoolUser.access, {
+          offeringId: payload.offeringId,
+          questionId: payload.questionId,
+          standardIds: asStringList(payload.standardIds),
+        });
+      }
+      return Response.json({ question });
     }
     if (payload.action === "create-question") {
       const question = await createBankQuestion(
@@ -77,6 +97,17 @@ export async function POST(request: Request) {
         payload,
         payload.offeringId,
       );
+      /* Which outcomes the question is evidence for. Written after the
+         question exists, since the link needs its id — and separately from
+         the version, because a standard is a property of the question a
+         teacher wrote, not of the wording they happened to save. */
+      if (payload.offeringId) {
+        await setQuestionStandards(schoolUser.access, {
+          offeringId: payload.offeringId,
+          questionId: question.id,
+          standardIds: asStringList(payload.standardIds),
+        });
+      }
       return Response.json({ question }, { status: 201 });
     }
     if (payload.action === "create-assessment") {
@@ -118,4 +149,10 @@ export async function POST(request: Request) {
   } catch (error) {
     return schoolApiErrorResponse(error);
   }
+}
+
+/** Query and body values arrive as unknown; standards are a list of ids. */
+function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string");
 }
