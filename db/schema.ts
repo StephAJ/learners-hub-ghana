@@ -779,6 +779,7 @@ export const questionBankItems = sqliteTable(
         "short-text",
         "numeric",
         "matching",
+        "grouping",
         "ordering",
         "essay",
         "file-upload",

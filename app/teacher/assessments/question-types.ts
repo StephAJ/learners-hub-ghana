@@ -27,6 +27,14 @@ export type AnswerShape =
   | "exact"
   /** Left-hand prompts paired to right-hand answers. */
   | "pairs"
+  /**
+   * Items sorted into named groups.
+   *
+   * Authored as pairs like "pairs" is — the difference is that a group takes
+   * many items, so the same right-hand name is written on several rows and
+   * the runner shows each group once.
+   */
+  | "groups"
   /** Items whose sequence is the answer. */
   | "sequence"
   /** No machine-markable answer: a teacher reads it against a rubric. */
@@ -79,6 +87,11 @@ export const QUESTION_TYPES: Record<QuestionType, QuestionTypeDefinition> = {
     blurb: "Pair each item with its partner.",
     label: "Matching",
   },
+  grouping: {
+    answerShape: "groups",
+    blurb: "Items sorted into named groups.",
+    label: "Sorting",
+  },
   ordering: {
     answerShape: "sequence",
     blurb: "Put the items in the right order.",
@@ -116,6 +129,7 @@ export const QUESTION_TYPE_ORDER: QuestionType[] = [
   "numeric",
   "ordering",
   "matching",
+  "grouping",
   "essay",
   "composite",
   "file-upload",

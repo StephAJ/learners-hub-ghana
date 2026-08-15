@@ -1110,6 +1110,39 @@ export const demoQuestionBank: DemoQuestion[] = [
   },
   {
     answerKey: {
+      value: {
+        groundnuts: "fat",
+        kenkey: "carbohydrate",
+        "palm-oil": "fat",
+        "red-red-beans": "protein",
+        tilapia: "protein",
+        yam: "carbohydrate",
+      },
+    },
+    difficulty: "standard",
+    id: "question-nutrient-sort",
+    marks: 3,
+    offeringId: "offering-science-jhs2",
+    options: [
+      { id: "left:kenkey", label: "Kenkey" },
+      { id: "left:tilapia", label: "Grilled tilapia" },
+      { id: "left:groundnuts", label: "Groundnuts" },
+      { id: "left:yam", label: "Yam" },
+      { id: "left:palm-oil", label: "Palm oil" },
+      { id: "left:red-red-beans", label: "Beans in red-red" },
+      { id: "right:carbohydrate", label: "Carbohydrate" },
+      { id: "right:protein", label: "Protein" },
+      { id: "right:fat", label: "Fat" },
+    ],
+    prompt:
+      "Sort each food into the nutrient it mostly provides.",
+    rationale:
+      "Staples such as kenkey and yam are mostly carbohydrate; fish and beans are protein; groundnuts and palm oil are fat.",
+    topic: "Food and nutrition",
+    type: "grouping",
+  },
+  {
+    answerKey: {
       value: ["mouth", "oesophagus", "stomach", "small-intestine"],
     },
     difficulty: "standard",
@@ -1274,6 +1307,7 @@ export const demoAssessments: DemoAssessment[] = [
       "question-villi-name",
       "question-intestine-length",
       "question-organ-action-match",
+      "question-nutrient-sort",
       "question-digestion-order",
       "question-villi-explanation",
     ],

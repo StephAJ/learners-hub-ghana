@@ -617,3 +617,198 @@
     transform: none;
   }
 }
+
+/* ==========================================================================
+   Sorting into groups
+
+   A tray of items over a row of bins. The tray empties as the work is done,
+   which is the progress indicator — a counter would say the same thing less
+   directly.
+
+   Each bin takes one of the six hues by position, so a learner tracks where
+   something went by colour as well as by name. Unlike matching, the hue here
+   is not carrying meaning across two columns; it is only telling one bin from
+   the next, so position is the right thing to key it on.
+   ========================================================================== */
+
+.group-response {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.group-hint {
+  color: var(--answer-muted);
+  font-size: var(--fs-13);
+  margin: 0;
+  min-height: 1.25rem;
+}
+
+.group-tray {
+  align-content: flex-start;
+  background: #f7f8f6;
+  border: 1px dashed #d8dfdb;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-height: 4rem;
+  padding: var(--space-3);
+}
+
+.group-tray-empty {
+  color: var(--answer-muted);
+  font-size: var(--fs-13);
+  margin: 0;
+}
+
+.group-chip {
+  background: #ffffff;
+  border: 1px solid #d8dfdb;
+  border-radius: var(--radius-pill);
+  color: var(--answer-ink);
+  cursor: pointer;
+  font-size: var(--fs-14);
+  /* A thumb target, not a text link. */
+  min-height: 40px;
+  padding: var(--space-2) var(--space-4);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.group-chip:hover:not(:disabled) {
+  border-color: var(--brand-line);
+}
+
+.group-chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* In hand, waiting for a bin. */
+.group-chip.is-held {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  transform: translateY(-2px);
+}
+
+.group-chip.is-placed {
+  background: var(--subject-soft);
+  border-color: var(--subject-line);
+  font-size: var(--fs-13);
+  min-height: 34px;
+  padding: var(--space-1) var(--space-3);
+}
+
+.group-bins {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+.group-bin {
+  background: #ffffff;
+  border: 1px solid #d8dfdb;
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-2);
+  min-height: 8rem;
+  padding: var(--space-3);
+  transition:
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+/* Every bin is a live target while something is in hand. */
+.group-bin.is-ready {
+  background: var(--subject-soft);
+  border-color: var(--subject-line);
+  border-style: dashed;
+}
+
+.group-bin-head {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--answer-ink);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.group-bin-head:disabled {
+  cursor: default;
+}
+
+.group-bin-name {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.group-bin-count {
+  align-items: center;
+  background: var(--subject-ink);
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  height: 20px;
+  justify-content: center;
+  min-width: 20px;
+}
+
+.group-bin-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.group-bin.hue-0 { --subject-soft: var(--hue-teal-soft);   --subject-ink: var(--hue-teal-ink);   --subject-line: var(--hue-teal-ink); }
+.group-bin.hue-1 { --subject-soft: var(--hue-blue-soft);   --subject-ink: var(--hue-blue-ink);   --subject-line: var(--hue-blue-ink); }
+.group-bin.hue-2 { --subject-soft: var(--hue-violet-soft); --subject-ink: var(--hue-violet-ink); --subject-line: var(--hue-violet-ink); }
+.group-bin.hue-3 { --subject-soft: var(--hue-amber-soft);  --subject-ink: var(--hue-amber-ink);  --subject-line: var(--hue-amber-ink); }
+.group-bin.hue-4 { --subject-soft: var(--hue-rose-soft);   --subject-ink: var(--hue-rose-ink);   --subject-line: var(--hue-rose-ink); }
+.group-bin.hue-5 { --subject-soft: var(--hue-lime-soft);   --subject-ink: var(--hue-lime-ink);   --subject-line: var(--hue-lime-ink); }
+
+.group-status {
+  color: var(--answer-muted);
+  font-size: var(--fs-13);
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group-chip,
+  .group-bin {
+    transition: none;
+  }
+
+  .group-chip.is-held {
+    transform: none;
+  }
+}
+
+@media (max-width: 680px) {
+  /* A placed chip is how an item comes back out of a group, so on a phone it
+     needs a thumb rather than a fingertip. It stays smaller than a tray chip —
+     it sits inside a bin and several share a row — but not below 40. */
+  .group-chip.is-placed {
+    min-height: 40px;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  /* Two bins across rather than one: three stacked full-width bins push the
+     tray off the top of the screen on a short phone. */
+  .group-bins {
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+}

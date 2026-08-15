@@ -214,7 +214,10 @@ function answersMatch(
      object is built up in whichever order they worked the dropdowns, so
      comparing it raw marked a completely correct answer wrong whenever that
      order differed from the author's — which it usually did. */
-  if (type === "matching") {
+  /* Sorting stores the same shape for the same reason — a map of item to the
+     group it was put in — and is likewise a set of pairs rather than a
+     sequence of them. */
+  if (type === "matching" || type === "grouping") {
     return serialiseSortedEntries(expected) === serialiseSortedEntries(actual);
   }
   /* Ordering is the opposite case: the sequence is the answer, so this stays

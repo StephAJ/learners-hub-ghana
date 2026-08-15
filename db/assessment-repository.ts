@@ -872,7 +872,11 @@ function describeAnswerKey(
   if (question.type === "ordering" && Array.isArray(value)) {
     return value.map(label).join(" → ");
   }
-  if (question.type === "matching" && value && typeof value === "object") {
+  if (
+    (question.type === "matching" || question.type === "grouping") &&
+    value &&
+    typeof value === "object"
+  ) {
     return Object.entries(value as Record<string, unknown>)
       .map(([left, right]) => `${label(left)} → ${label(right)}`)
       .join(", ");
@@ -2066,6 +2070,7 @@ function validateQuestionInput(input: CreateBankQuestionInput) {
       "short-text",
       "numeric",
       "matching",
+      "grouping",
       "ordering",
       "essay",
       "file-upload",
@@ -2115,6 +2120,24 @@ function validateQuestionInput(input: CreateBankQuestionInput) {
     if (pairs.length < 2) {
       throw new AssessmentPolicyError(
         "A matching question needs at least two complete pairs.",
+      );
+    }
+  }
+  if (input.type === "grouping") {
+    const rows = splitAuthoredList(input.correctAnswer).filter((row) =>
+      row.includes(PAIR_SEPARATOR),
+    );
+    if (rows.length < 2) {
+      throw new AssessmentPolicyError(
+        "A sorting question needs at least two items and the group each belongs in.",
+      );
+    }
+    const groups = new Set(
+      rows.map((row) => row.split(PAIR_SEPARATOR)[1]?.trim().toLowerCase()),
+    );
+    if (groups.size < 2) {
+      throw new AssessmentPolicyError(
+        "A sorting question needs at least two different groups.",
       );
     }
   }
@@ -2189,7 +2212,7 @@ function buildAnswerKey(
   }
   /* Matching: a map from left id to right id. Written the same way the runner
      builds a learner's response, so the two are directly comparable. */
-  if (input.type === "matching") {
+  if (input.type === "matching" || input.type === "grouping") {
     const pairs = splitAuthoredList(input.correctAnswer)
       .map((pair) => pair.split(PAIR_SEPARATOR))
       .filter((parts) => parts.length === 2);

@@ -5,6 +5,7 @@ export type QuestionType =
   | "short-text"
   | "numeric"
   | "matching"
+  | "grouping"
   | "ordering"
   | "essay"
   | "file-upload"

@@ -268,6 +268,7 @@ describe("demo dataset integrity", () => {
       "single-choice",
       "multiple-choice",
       "matching",
+      "grouping",
       "ordering",
     ]);
     for (const question of demoQuestionBank) {
@@ -276,6 +277,31 @@ describe("demo dataset integrity", () => {
       } else {
         expect(question.options, question.id).toEqual([]);
       }
+    }
+  });
+
+  /* A sorting question that offers one group cannot be got wrong, and one
+     that offers a group nothing belongs in is a trick rather than a question.
+     Both are easy to write by accident, so the demo set is held to neither. */
+  it("gives every sorting question at least two groups, each of them used", () => {
+    for (const question of demoQuestionBank) {
+      if (question.type !== "grouping") continue;
+      const groups = question.options
+        .filter((option) => option.id.startsWith("right:"))
+        .map((option) => option.id.replace("right:", ""));
+      expect(groups.length, question.id).toBeGreaterThan(1);
+
+      const used = new Set(Object.values(question.answerKey.value ?? {}));
+      expect(new Set(groups), question.id).toEqual(used);
+
+      /* And every item the learner is given has somewhere to go. */
+      const items = question.options
+        .filter((option) => option.id.startsWith("left:"))
+        .map((option) => option.id.replace("left:", ""));
+      expect(
+        Object.keys(question.answerKey.value ?? {}).sort(),
+        question.id,
+      ).toEqual([...items].sort());
     }
   });
 

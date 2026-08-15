@@ -64,6 +64,7 @@ const TYPE_ICONS: Record<QuestionType, typeof CircleDot> = {
   "short-text": Type,
   numeric: Hash,
   matching: ArrowLeftRight,
+  grouping: Layers,
   ordering: ArrowDownUp,
   essay: AlignLeft,
   "file-upload": Paperclip,
@@ -689,17 +690,19 @@ function AnswerEditor({
     );
   }
 
-  if (shape === "pairs") {
+  if (shape === "pairs" || shape === "groups") {
+    const sorting = shape === "groups";
     return (
       <div className="answer-options">
         <p className="answer-help">
-          Each row is one correct pair. Learners choose from all the
-          right-hand answers, shuffled.
+          {sorting
+            ? "One row per item, with the group it belongs in. Repeat a group name on as many rows as you like — the learner sees each group once."
+            : "Each row is one correct pair. Learners choose from all the right-hand answers, shuffled."}
         </p>
         {pairs.map((pair, index) => (
           <div className="answer-pair" key={pair.id}>
             <input
-              aria-label={`Pair ${index + 1}, item`}
+              aria-label={`Row ${index + 1}, item`}
               onChange={(event) =>
                 setPairs((current) =>
                   current.map((entry) =>
@@ -716,7 +719,9 @@ function AnswerEditor({
               <ArrowLeftRight size={15} />
             </span>
             <input
-              aria-label={`Pair ${index + 1}, match`}
+              aria-label={
+                sorting ? `Row ${index + 1}, group` : `Row ${index + 1}, match`
+              }
               onChange={(event) =>
                 setPairs((current) =>
                   current.map((entry) =>
@@ -726,11 +731,11 @@ function AnswerEditor({
                   ),
                 )
               }
-              placeholder="Matches with"
+              placeholder={sorting ? "Belongs in" : "Matches with"}
               value={pair.right}
             />
             <button
-              aria-label={`Remove pair ${index + 1}`}
+              aria-label={`Remove row ${index + 1}`}
               className="answer-remove"
               disabled={pairs.length <= 2}
               onClick={() =>
@@ -754,7 +759,8 @@ function AnswerEditor({
           }
           type="button"
         >
-          <Plus aria-hidden="true" size={15} /> Add pair
+          <Plus aria-hidden="true" size={15} />{" "}
+          {sorting ? "Add item" : "Add pair"}
         </button>
       </div>
     );
@@ -893,6 +899,34 @@ export function compose(input: ComposeInput): ComposedQuestion {
     };
   }
 
+  /* Sorting is authored as pairs and stored as pairs — the one difference is
+     the right-hand column. A group holds several items, so its name is
+     written on several rows, and showing it once per row would give the
+     learner four identical "Carbohydrate" buckets to choose between. Each
+     distinct group appears once, in the order the author first wrote it. */
+  if (input.shape === "groups") {
+    const filled = input.pairs.filter(
+      (pair) => pair.left.trim() && pair.right.trim(),
+    );
+    const groups: string[] = [];
+    for (const pair of filled) {
+      const name = pair.right.trim();
+      if (!groups.some((entry) => entry.toLowerCase() === name.toLowerCase())) {
+        groups.push(name);
+      }
+    }
+    return {
+      ...base,
+      correctAnswer: filled
+        .map((pair) => `${pair.left.trim()}::${pair.right.trim()}`)
+        .join(", "),
+      options: [
+        ...shuffleStably(filled.map((pair) => `left::${pair.left.trim()}`)),
+        ...groups.map((name) => `right::${name}`),
+      ],
+    };
+  }
+
   if (input.shape === "rubric") {
     return { ...base, correctAnswer: input.rubric.trim(), options: [] };
   }
@@ -923,6 +957,18 @@ export function validate(
       .split(",")
       .filter((pair) => pair.includes("::"));
     if (complete.length < 2) return "Complete at least two pairs.";
+  }
+  if (shape === "groups") {
+    const rows = question.correctAnswer
+      .split(",")
+      .filter((row) => row.includes("::"));
+    if (rows.length < 2) return "Give at least two items and their groups.";
+    const groups = new Set(
+      rows.map((row) => row.split("::")[1]?.trim().toLowerCase()),
+    );
+    /* One group is not a sorting question — every item goes in the only box,
+       and the learner cannot get it wrong. */
+    if (groups.size < 2) return "Sorting needs at least two different groups.";
   }
   if (shape === "rubric" && !question.correctAnswer) {
     return "Write the rubric this will be marked against.";

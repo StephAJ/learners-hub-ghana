@@ -881,6 +881,7 @@ function questionSymbol(type: QuestionType) {
   if (type === "single-choice" || type === "multiple-choice") return "●";
   if (type === "true-false") return "T";
   if (type === "matching") return "↔";
+  if (type === "grouping") return "⊞";
   if (type === "ordering") return "≡";
   if (type === "essay") return "¶";
   if (type === "numeric") return "#";

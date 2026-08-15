@@ -8,6 +8,7 @@ import type {
   QuestionType,
 } from "../../domain/assessment/types";
 import { QuestionFigure } from "./question-media";
+import { GroupResponse } from "./group-response";
 import { MatchResponse } from "./match-response";
 import { ReorderResponse } from "./reorder-response";
 import "./question-input.css";
@@ -159,6 +160,17 @@ export function QuestionInput({
   if (question.type === "matching") {
     return (
       <MatchResponse
+        disabled={disabled}
+        onChange={onChange}
+        options={question.options}
+        value={value}
+      />
+    );
+  }
+
+  if (question.type === "grouping") {
+    return (
+      <GroupResponse
         disabled={disabled}
         onChange={onChange}
         options={question.options}
