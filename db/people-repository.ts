@@ -146,6 +146,10 @@ async function loadAccessScopes(
          FROM guardian_relationships AS link
          WHERE link.tenant_id = $1
            AND link.guardian_person_id = $2
+           /* A revoked link grants nothing. This is the query that fills
+              linkedLearnerIds, which canAccessLearner() then trusts, so
+              leaving it out here would make revocation cosmetic. */
+           AND link.status = 'active'
        ), '{}'::text[]) AS learner_ids,
        COALESCE((
          SELECT array_agg(DISTINCT class_group.id)
@@ -291,7 +295,7 @@ export async function inviteDirectoryPerson(
   const membershipId = crypto.randomUUID();
   const scopeType = input.scopeType ?? "tenant";
   const scopeId = input.scopeId?.trim() || null;
-  const email = input.email.trim().toLowerCase();
+  const email = input.email?.trim().toLowerCase() ?? "";
   const client = await getPostgresPool().connect();
 
   try {
@@ -315,7 +319,10 @@ export async function inviteDirectoryPerson(
         input.kind,
         input.firstName.trim(),
         input.lastName.trim(),
-        email,
+        /* NULL rather than "" for a learner with no address: the unique index
+           on (tenant_id, email) treats empty strings as equal and would refuse
+           the second such learner, while it tolerates repeated NULLs. */
+        email || null,
         input.phone?.trim() || null,
         studentNumber,
       ],
@@ -354,7 +361,7 @@ export async function inviteDirectoryPerson(
   }
 
   return {
-    email,
+    email: email || null,
     id: personId,
     kind: input.kind,
     name: `${input.firstName.trim()} ${input.lastName.trim()}`,
@@ -412,11 +419,29 @@ function requirePermission(
   }
 }
 
+/* Only the people who sign in. A Ghanaian basic school has learners with no
+   email address at all, and requiring one of them meant a class could not be
+   added — see the note in domain/identity/bulk-import.ts. */
+const SIGNS_IN: ReadonlySet<SchoolRole> = new Set<SchoolRole>([
+  "academic-admin",
+  "admissions-officer",
+  "class-teacher",
+  "guardian",
+  "school-admin",
+  "teacher",
+]);
+
 function validateInvitation(input: InvitePersonInput) {
   if (!input.firstName.trim() || !input.lastName.trim()) {
     throw new Error("First and last name are required.");
   }
-  if (!input.email.includes("@")) {
+  const email = input.email?.trim() ?? "";
+  if (!email && SIGNS_IN.has(input.role)) {
+    throw new Error(
+      "This role signs in, so it needs an email address.",
+    );
+  }
+  if (email && !email.includes("@")) {
     throw new Error("A valid email address is required.");
   }
 }
@@ -443,29 +468,57 @@ function scopeTypeLabel(scopeType: string) {
    numbering can hold that instead once there is a screen to enter it.
    ========================================================================== */
 
-const STUDENT_NUMBER_PATTERN = "^LH-[0-9]{6}$";
+export const DEFAULT_STUDENT_NUMBER_PREFIX = "LH";
+
+/**
+ * Tidies what a school typed into a prefix a number can be built from.
+ *
+ * Letters and digits only, upper-cased, and short — it sits in front of a
+ * six-digit tail on a document, and a prefix with a hyphen or a space in it
+ * would break the pattern the sequence is read back out of.
+ */
+export function normaliseStudentNumberPrefix(value: string): string {
+  const cleaned = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 6);
+  return cleaned || DEFAULT_STUDENT_NUMBER_PREFIX;
+}
 
 export async function allocateStudentNumber(
   client: { query: PoolLikeQuery },
   tenantId: string,
 ): Promise<string> {
-  /* The maximum is taken only over numbers this generator produced, so a
-     school that has entered its own format for some learners does not push
-     the sequence somewhere strange — or crash it on a non-numeric tail. */
+  /* The school's own prefix. "LH" is this product's initials and was hard
+     coded here; a student number goes on the school's documents, and their
+     office already has a convention for it. */
+  const school = await client.query(
+    `SELECT student_number_prefix FROM tenants WHERE id = $1`,
+    [tenantId],
+  );
+  const prefix = normaliseStudentNumberPrefix(
+    String(
+      school.rows[0]?.student_number_prefix ?? DEFAULT_STUDENT_NUMBER_PREFIX,
+    ),
+  );
+
+  /* The maximum is taken only over numbers this generator produced under the
+     school's current prefix, so a school that has entered its own format for
+     some learners — or has changed its prefix — does not push the sequence
+     somewhere strange, or crash it on a non-numeric tail. */
   const result = await client.query(
     `SELECT COALESCE(MAX(substring(student_number from '([0-9]{4})$')::int), 0)
               AS highest
      FROM people
      WHERE tenant_id = $1 AND kind = 'learner'
        AND student_number ~ $2`,
-    [tenantId, STUDENT_NUMBER_PATTERN],
+    [tenantId, `^${prefix}-[0-9]{6}$`],
   );
   const next = Number(result.rows[0]?.highest ?? 0) + 1;
   const year = String(new Date().getFullYear()).slice(-2);
-  return `LH-${year}${String(next).padStart(4, "0")}`;
+  return `${prefix}-${year}${String(next).padStart(4, "0")}`;
 }
 
 type PoolLikeQuery = (
   text: string,
   values?: unknown[],
-) => Promise<{ rows: Array<{ highest: string | number }> }>;
+) => Promise<{
+  rows: Array<{ highest?: string | number; student_number_prefix?: string }>;
+}>;

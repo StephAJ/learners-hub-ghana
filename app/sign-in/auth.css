@@ -425,3 +425,31 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* The way back into an account. Under the submit rather than beside the
+   password label: somebody who is about to use it has already tried to sign
+   in, so it belongs after the attempt rather than before it. */
+.auth-forgot {
+  font-size: var(--fs-14);
+  margin: 0;
+  text-align: center;
+}
+
+.auth-forgot a {
+  color: var(--muted);
+}
+
+.auth-forgot a:hover {
+  color: var(--ink);
+}
+
+/* The counterpart to .auth-alert: something went right. Same shape so the
+   two never jump the form around when one replaces the other. */
+.auth-done {
+  background: var(--hue-lime-soft);
+  border-radius: var(--radius-md);
+  color: var(--hue-lime-ink);
+  font-size: var(--fs-14);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}

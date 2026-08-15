@@ -1,3 +1,4 @@
+import type { Pool } from "pg";
 import type { AuthenticatedUser } from "../app/auth";
 import {
   emptyApplicationDraft,
@@ -6,6 +7,10 @@ import {
   type ApplicationDraft,
 } from "../domain/admissions/application-form";
 import { AuthorizationError, canPerform } from "../domain/identity/authorization";
+import {
+  admissionsConsentStatement,
+  CONSENT_VERSION,
+} from "../domain/admissions/consent";
 import type { AccessContext } from "../domain/identity/types";
 import {
   requireOpenIntakeId,
@@ -15,7 +20,12 @@ import { allocateStudentNumber } from "./people-repository";
 import { ensurePlatformReady } from "../server/platform-ready";
 import { getPostgresPool } from "./postgres";
 
-const GREENFIELD_TENANT_ID = "tenant-greenfield";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
+
+/* The one school this deployment serves. Was the literal
+   "tenant-greenfield" — the demo school's own id — written out here and
+   in five other files. */
+const GREENFIELD_TENANT_ID = SCHOOL_TENANT_ID;
 
 /* ==========================================================================
    Which intake an application belongs to
@@ -38,6 +48,9 @@ export type ApplicantApplication = ApplicationDraft & {
   applicantEmail: string;
   /** Set when the guardian ticked the declaration on the review step. */
   declarationAcceptedAt?: string;
+  /** The exact sentence they agreed to, and the version it came from. */
+  declarationStatement?: string;
+  declarationVersion?: string;
   id: string;
   lastReminderAt?: string;
   status:
@@ -125,6 +138,8 @@ const applicationColumns = `
     status,
     submitted_at::text,
     declaration_accepted_at::text,
+    declaration_statement,
+    declaration_version,
     last_reminder_at::text,
     updated_at::text`;
 
@@ -220,6 +235,14 @@ export async function saveApplicantApplication(
   const now = new Date().toISOString();
   const submittedAt = submit ? now : null;
   const declarationAcceptedAt = submit ? now : null;
+  /* Composed here rather than accepted from the request. What an applicant
+     agreed to is a record the school has to be able to stand behind, and a
+     client-supplied sentence is not one. The same function builds the text the
+     form displays, so the two cannot say different things. */
+  const declarationStatement = submit
+    ? admissionsConsentStatement(await schoolName(database))
+    : "";
+  const declarationVersion = submit ? CONSENT_VERSION : "";
 
   const values = [
     applicationId,
@@ -230,6 +253,8 @@ export async function saveApplicantApplication(
     status,
     submittedAt,
     declarationAcceptedAt,
+    declarationStatement,
+    declarationVersion,
   ];
 
   const insertColumns = [
@@ -241,6 +266,8 @@ export async function saveApplicantApplication(
     "status",
     "submitted_at",
     "declaration_accepted_at",
+    "declaration_statement",
+    "declaration_version",
   ].join(", ");
   const placeholders = values.map((_, index) => `$${index + 1}`).join(", ");
   const updateAssignments = [
@@ -249,6 +276,10 @@ export async function saveApplicantApplication(
     /* COALESCE so re-saving never clears the original timestamps. */
     "submitted_at = COALESCE(EXCLUDED.submitted_at, admission_application_records.submitted_at)",
     "declaration_accepted_at = COALESCE(EXCLUDED.declaration_accepted_at, admission_application_records.declaration_accepted_at)",
+    /* Same COALESCE, for the same reason: an agreement already given is never
+       rewritten by a later save. */
+    "declaration_statement = COALESCE(NULLIF(EXCLUDED.declaration_statement, ''), admission_application_records.declaration_statement)",
+    "declaration_version = COALESCE(NULLIF(EXCLUDED.declaration_version, ''), admission_application_records.declaration_version)",
     /* Editing a draft makes it active again, so the reminder may fire once
        more if it goes quiet a second time. */
     "last_reminder_at = NULL",
@@ -428,6 +459,8 @@ function mapApplication(row: ApplicationRow): ApplicantApplication {
     ...draft,
     applicantEmail: row.applicant_email,
     declarationAcceptedAt: row.declaration_accepted_at ?? undefined,
+    declarationStatement: row.declaration_statement || undefined,
+    declarationVersion: row.declaration_version || undefined,
     id: row.id,
     lastReminderAt: row.last_reminder_at ?? undefined,
     status: row.status,
@@ -469,12 +502,12 @@ function isAllowedStatusChange(
    no subjects, no register entry, no report card, and their guardian had
    nothing to open.
 
-   domain/admissions/admissions.ts has convertAcceptedApplication(), which
-   encodes the same rule and is covered by tests, but it is written against a
-   different application type and returns a class placement for a table this
-   schema does not have — placement here is a class-scoped tenant membership,
-   which is what every scoping query actually reads. The rule it protects is
-   kept: only an accepted application becomes a learner.
+   A parallel domain module used to model this — convertAcceptedApplication()
+   and createClassPlacement() — against an application type nothing built and
+   a placements table this schema does not have. It was covered by tests and
+   called by nothing, which made it look like the authority on a rule it was
+   not enforcing. It has been deleted; placement here is a class-scoped tenant
+   membership, which is what every scoping query actually reads.
 
    One transaction. A learner with no guardian link, or a guardian link to a
    learner with no class, is a worse state than an application still waiting.
@@ -664,4 +697,13 @@ export async function enrolApplicant(
   } finally {
     client.release();
   }
+}
+
+/** What this school calls itself, for the declaration an applicant agrees to. */
+async function schoolName(database: Pool): Promise<string> {
+  const result = await database.query<{ name: string }>(
+    `SELECT name FROM tenants WHERE id = $1 LIMIT 1`,
+    [GREENFIELD_TENANT_ID],
+  );
+  return result.rows[0]?.name ?? "";
 }

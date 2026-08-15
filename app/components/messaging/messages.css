@@ -527,3 +527,12 @@
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+/* The child a guardian thread is about. A teacher holding four conversations
+   with four parents otherwise sees four names and no way to tell which child
+   each one is for. */
+.inbox-list-copy em {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  font-style: normal;
+}

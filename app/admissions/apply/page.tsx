@@ -52,6 +52,7 @@ export default async function ApplyForAdmissionPage() {
       <ApplicationForm
         applicantEmail={user.email}
         initialApplication={application}
+        schoolName={school.name}
       />
     </PublicShell>
   );

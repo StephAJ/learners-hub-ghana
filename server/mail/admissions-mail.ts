@@ -14,6 +14,7 @@ import {
   type SchoolContext,
 } from "./templates";
 import { admissionsInbox, sendMail } from "./transport";
+import { getPostgresPool } from "../../db/postgres";
 
 /* ==========================================================================
    Admissions mail
@@ -44,12 +45,30 @@ async function schoolContext(): Promise<SchoolContext> {
  *
  * Derived from the id rather than stored, so it needs no column and cannot
  * drift from the record it names. Uppercased because it gets read aloud.
+ *
+ * The prefix was the literal "GA-" — Greenfield Academy's initials, on every
+ * reference number every school issued. It follows the school's own student
+ * number prefix now, which is the thing families already see on a card.
  */
-export function applicationReference(id: string): string {
-  return `GA-${id.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+export function applicationReference(id: string, prefix = "APP"): string {
+  const cleaned = prefix.replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "APP";
+  return `${cleaned}-${id.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 }
 
-function summarise(application: ApplicantApplication): ApplicationSummary {
+/** The school's own prefix, so a reference matches the numbers it issues. */
+export async function referencePrefix(): Promise<string> {
+  const result = await getPostgresPool().query<{
+    student_number_prefix: string | null;
+  }>(`SELECT student_number_prefix FROM tenants WHERE id = $1 LIMIT 1`, [
+    SCHOOL_TENANT_ID,
+  ]);
+  return result.rows[0]?.student_number_prefix?.trim() || "APP";
+}
+
+function summarise(
+  application: ApplicantApplication,
+  prefix: string,
+): ApplicationSummary {
   const name = [application.applicantFirstName, application.applicantLastName]
     .filter(Boolean)
     .join(" ")
@@ -61,7 +80,7 @@ function summarise(application: ApplicantApplication): ApplicationSummary {
     guardianEmail: application.guardianEmail,
     guardianName: application.guardianName,
     guardianPhone: application.guardianPhone,
-    reference: applicationReference(application.id),
+    reference: applicationReference(application.id, prefix),
     submittedAt: formatDateTime(application.submittedAt),
   };
 }
@@ -77,7 +96,7 @@ export async function sendSubmissionMail(
   application: ApplicantApplication,
 ): Promise<void> {
   const school = await schoolContext();
-  const summary = summarise(application);
+  const summary = summarise(application, await referencePrefix());
   const inbox = admissionsInbox();
 
   const messages = [applicationReceivedEmail(summary, school)];

@@ -1,6 +1,8 @@
 import {
+  attachAssessmentResponseFile,
   DIGESTION_ASSESSMENT_ID,
   getLearnerAssessment,
+  removeAssessmentResponseFile,
   savePersistentResponse,
   startPersistentAttempt,
   submitPersistentAttempt,
@@ -31,8 +33,34 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const schoolUser = await requireSchoolRequestUser();
+
+    /* A file answer is a multipart post to this same endpoint, so the paper
+       comes back in one response either way and the learner's view never has
+       to reconcile two sources. */
+    if (
+      (request.headers.get("content-type") ?? "").includes(
+        "multipart/form-data",
+      )
+    ) {
+      const form = await request.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) {
+        return Response.json(
+          { error: "Choose a file to attach." },
+          { status: 400 },
+        );
+      }
+      const assessment = await attachAssessmentResponseFile(schoolUser.access, {
+        attemptId: String(form.get("attemptId") ?? ""),
+        file,
+        questionId: String(form.get("questionId") ?? ""),
+      });
+      return Response.json({ assessment }, { status: 201 });
+    }
+
     const payload = (await request.json()) as
       | { action: "start"; assessmentId?: string }
+      | { action: "remove-attachment"; attachmentId: string; attemptId: string }
       | {
           action: "save";
           attemptId: string;
@@ -58,6 +86,16 @@ export async function POST(request: Request) {
         Boolean(payload.flagged),
       );
       return Response.json(saved);
+    }
+    if (payload.action === "remove-attachment") {
+      const assessment = await removeAssessmentResponseFile(
+        schoolUser.access,
+        {
+          attachmentId: payload.attachmentId,
+          attemptId: payload.attemptId,
+        },
+      );
+      return Response.json({ assessment });
     }
     if (payload.action === "submit") {
       const assessment = await submitPersistentAttempt(

@@ -527,16 +527,32 @@
   text-align: right;
 }
 
+/* ==========================================================================
+   Grading policy
+
+   Two panels of equal visual weight sat side by side, each in its own bordered
+   box, with a third bordered box of columns below — three frames competing,
+   and the two things that matter buried inside them: what the weights add up
+   to, and what a teacher can change.
+
+   Now the weights are the panel and the scale is a quiet reference beside it,
+   because one of them is editable and the other is not. Nothing is boxed
+   inside a box: the tab is already a surface.
+   ========================================================================== */
 .policy-layout {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  gap: 16px;
+  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
 }
 
 .policy-layout article {
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border: 0;
+  padding: 0;
+}
+
+.policy-layout h3 {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--space-3);
 }
 
 .policy-layout h3 {
@@ -546,12 +562,17 @@
   margin: 0 0 var(--space-4);
 }
 
+/* A weighting and its controls. The row is a grid rather than a flex with
+   space-between so the percentage sits in a column of its own — with
+   space-between, a long category name pushed the figures out of line and the
+   two weights no longer read as a column to be added up. */
 .category-policy > div {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) 3.5rem auto;
+  padding: var(--space-4) 0;
 }
 
 .category-policy > div > span {
@@ -571,30 +592,78 @@
   font-size: var(--fs-18);
   font-variant-numeric: tabular-nums;
   font-weight: var(--fw-semibold);
+  text-align: right;
 }
 
+/* The total, on the same three-column grid as the rows above it, so the
+   figure lines up under the figures it is the sum of. */
 .category-policy footer {
-  padding-top: 16px;
-  display: flex;
-  justify-content: space-between;
+  align-items: center;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) 3.5rem auto;
+  padding-top: var(--space-4);
 }
 
+.category-policy footer strong {
+  font-size: var(--fs-18);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* A policy that does not add up cannot produce a report, so the total says so
+   rather than leaving it to be discovered at the end of term. */
+.category-policy footer.is-blocking strong,
+.category-policy .is-blocking {
+  color: var(--hue-rose-ink);
+}
+
+.category-policy .ghost-button {
+  justify-self: start;
+  margin-top: var(--space-4);
+}
+
+/* The scale is read, not edited — so it is a list of bands rather than a grid
+   of tiles competing with the editable panel beside it. */
 .scale-policy > div {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
 .scale-policy > div > span {
-  padding: 12px;
-  border-radius: var(--radius-md);
-  background: var(--canvas);
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
   display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1.5rem 5.5rem minmax(0, 1fr);
+  padding: var(--space-3) 0;
+}
+
+.scale-policy > div > span:last-child {
+  border-bottom: 0;
+}
+
+.scale-policy strong {
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
 }
 
 .scale-policy b {
   color: var(--brand);
-  font-size: var(--fs-18);
+  font-size: var(--fs-16);
+}
+
+.scale-policy p {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  line-height: var(--lh-snug);
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 60rem) {
+  .policy-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 .scale-policy strong {
@@ -647,3 +716,121 @@
   }
 }
 
+
+/* ==========================================================================
+   Editing the policy
+
+   Categories and columns are records now, not seed rows, so this panel has
+   controls in it. The forms sit inline where the row was rather than in a
+   dialog: a weight is a number somebody is comparing against the other
+   weights on screen, and a modal would hide exactly what they are checking
+   against.
+   ========================================================================== */
+
+.category-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.policy-form {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 2fr 1fr 1fr;
+  padding: var(--space-4);
+}
+
+.policy-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--fs-12);
+}
+
+.policy-form label span {
+  color: var(--muted);
+  font-weight: var(--fw-semibold);
+}
+
+.policy-form input,
+.policy-form select {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-14);
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+}
+
+.policy-form-actions {
+  display: flex;
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+}
+
+.column-policy {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+}
+
+.column-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.column-group h4 {
+  font-size: var(--fs-14);
+  margin: 0;
+}
+
+.column-group h4 small {
+  color: var(--muted);
+  font-weight: var(--fw-regular);
+}
+
+.column-row {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+}
+
+.column-row span {
+  display: flex;
+  flex-direction: column;
+}
+
+.column-row small {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+@media (max-width: 44rem) {
+  .policy-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The reason the total is a problem, said beside the total rather than as a
+   separate line below the panel. */
+.category-policy footer span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.category-policy footer small {
+  color: var(--hue-rose-ink);
+  font-size: var(--fs-12);
+  line-height: var(--lh-snug);
+}

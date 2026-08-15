@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { BrandMark } from "../components/brand-mark";
 import type { SchoolProfile } from "../../domain/school/public-profile";
@@ -11,16 +12,30 @@ import "./auth.css";
  *
  * Presentation only, so it renders without a session lookup — the route above
  * it does the redirect for an already-signed-in visitor.
+ *
+ * `children` is how the password-reset screens reuse the frame. They are the
+ * same card with a different form in it, and a second copy of the aside, the
+ * crest and the back link would be three more things to keep in step.
  */
 export function SignInCard({
+  children,
   initialMode,
+  passwordReset,
   returnTo,
   school,
 }: {
-  initialMode: "register" | "sign-in";
-  returnTo: string;
+  children?: ReactNode;
+  initialMode?: "register" | "sign-in";
+  passwordReset?: boolean;
+  returnTo?: string;
   school: SchoolProfile;
 }) {
+  /* A school that has not written any testimonials has none to quote. This
+     read `school.testimonials[1].quote` outright, which is fine for the demo
+     profile and throws for a school with fewer than two — including every
+     school starting from the default profile. */
+  const quote = school.testimonials[1] ?? school.testimonials[0];
+
   return (
     <div className="auth-page">
       <div className="auth-card">
@@ -41,13 +56,19 @@ export function SignInCard({
           <div className="auth-aside-scrim" />
           <div className="auth-aside-copy">
             <p className="auth-aside-kicker">{school.name}</p>
-            <blockquote>
-              &ldquo;{school.testimonials[1].quote}&rdquo;
-              <footer>
-                <strong>{school.testimonials[1].name}</strong>
-                <span>{school.testimonials[1].role}</span>
-              </footer>
-            </blockquote>
+            {quote ? (
+              <blockquote>
+                &ldquo;{quote.quote}&rdquo;
+                <footer>
+                  <strong>{quote.name}</strong>
+                  <span>{quote.role}</span>
+                </footer>
+              </blockquote>
+            ) : (
+              <blockquote>
+                {school.strapline || "One record per learner, from the first day."}
+              </blockquote>
+            )}
           </div>
         </aside>
 
@@ -66,7 +87,13 @@ export function SignInCard({
             </Link>
           </div>
 
-          <AuthenticationForm initialMode={initialMode} returnTo={returnTo} />
+          {children ?? (
+            <AuthenticationForm
+              initialMode={initialMode ?? "sign-in"}
+              passwordReset={passwordReset}
+              returnTo={returnTo ?? "/app"}
+            />
+          )}
         </main>
       </div>
     </div>

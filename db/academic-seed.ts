@@ -2,7 +2,10 @@ import type { Pool } from "pg";
 import { DEMO_CLASS_GROUP_ID, demoSubjects } from "../domain/demo/greenfield";
 import { greenfieldProfile } from "../domain/school/public-profile";
 
-const GREENFIELD_TENANT_ID = "tenant-greenfield";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
+
+/** The tenant the demo school occupies: this deployment's own. */
+const GREENFIELD_TENANT_ID = SCHOOL_TENANT_ID;
 const GREENFIELD_YEAR_ID = "year-2026-27";
 
 /* ==========================================================================

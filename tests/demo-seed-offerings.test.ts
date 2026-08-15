@@ -91,6 +91,10 @@ async function runEverySeed() {
 describe("seeding the demo school over a school's own timetable", () => {
   beforeEach(() => {
     vi.resetModules();
+    /* The four foundations write nothing at all unless this is set — see the
+       gate test below. Everything in this block is about what they write once
+       they are allowed to. */
+    process.env.DEMO_SCHOOL = "true";
   });
 
   it("writes nothing against an offering the school owns under its own id", async () => {
@@ -155,5 +159,50 @@ describe("seeding the demo school over a school's own timetable", () => {
       firstAssignment,
       "the offerings have to be resolved before anything is keyed to them",
     ).toBeGreaterThan(asked);
+  });
+});
+
+/* ==========================================================================
+   The gate
+
+   Every one of these seeds used to run for every deployment. Only the demo
+   *logins* were behind a switch, so a real school signed in to a directory
+   holding a cast it had never met and a markbook holding somebody else's
+   marks.
+
+   Asserting on the statements rather than on a return value is the point: the
+   failure this guards against is a seed that returns early from the outermost
+   function and still writes from an inner one.
+   ========================================================================== */
+describe("a deployment that is not the demo", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.DEMO_SCHOOL;
+    delete process.env.DEMO_ACCOUNTS;
+  });
+
+  it("writes no demo rows at all", async () => {
+    current = stubPool(offeringsExcept());
+
+    await runEverySeed();
+
+    const written = current.statements.filter((statement) =>
+      /INSERT|UPDATE/i.test(statement.text),
+    );
+    expect(
+      written.map((statement) => statement.text.trim().split("\n")[0]),
+      "a school that did not ask for the demo gets none of it",
+    ).toEqual([]);
+  });
+
+  it("still carries the demo when DEMO_ACCOUNTS alone is set", async () => {
+    /* Those accounts attach to the demo's person rows across a foreign key, so
+       a staging box that only sets DEMO_ACCOUNTS must keep working unchanged. */
+    process.env.DEMO_ACCOUNTS = "true";
+    current = stubPool(offeringsExcept());
+
+    await runEverySeed();
+
+    expect(boundValues(current.statements)).toContain(SCIENCE);
   });
 });

@@ -60,6 +60,7 @@ export function ApplicantAccount({
   displayName,
   email,
   intake,
+  referencePrefix,
   school,
   signOut,
 }: {
@@ -67,6 +68,9 @@ export function ApplicantAccount({
   displayName: string;
   email: string;
   intake: PublicIntakeState;
+  /* The school's own prefix, so the reference shown here is the one quoted in
+     the confirmation email. It used to be the literal "GA-" in both. */
+  referencePrefix?: string;
   school: SchoolProfile;
   signOut: ReactNode;
 }) {
@@ -100,7 +104,7 @@ export function ApplicantAccount({
         <div>
           <small>
             {application
-              ? `Reference ${applicationReference(application.id)}`
+              ? `Reference ${applicationReference(application.id, referencePrefix)}`
               : "Not started"}
           </small>
           <strong>{describeStatus(status)}</strong>

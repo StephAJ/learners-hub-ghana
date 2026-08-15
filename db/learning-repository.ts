@@ -38,7 +38,13 @@ import {
   type TeachingOffering,
 } from "./teaching-offerings";
 
-const TENANT_ID = "tenant-greenfield";
+import { demoSchoolEnabled } from "../server/demo-school";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
+
+/* The one school this deployment serves. Was the literal
+   "tenant-greenfield" — the demo school's own id — written out here and
+   in five other files. */
+const TENANT_ID = SCHOOL_TENANT_ID;
 export const SCIENCE_OFFERING_ID = "offering-science-jhs2";
 
 export type LessonSummary = {
@@ -1312,8 +1318,18 @@ export async function ensureLearningFoundation() {
      PostgreSQL enforces those at insert time, so the school and its staff have
      to exist first — under D1 this happened to work through ordering luck, and
      would have failed on a fresh database the moment a learning route was the
-     first one hit. Every other foundation chains through this one. */
+     first one hit. Every other foundation chains through this one.
+
+     Kept above the demo gate, because this call is also what runs the
+     migrations. Every learning screen awaits this function; if switching the
+     demo off skipped it, it would skip the schema with it. */
   await ensurePeopleSeed();
+
+  /* A real school's subjects are its own. This seed used to run for every
+     deployment, so a teacher opening their subjects found four they had never
+     taught and a term of lessons they had not written. */
+  if (!demoSchoolEnabled()) return;
+
   const database = await getSchoolDatabase();
 
   /* The subject and its offering first, and in their own transaction, because

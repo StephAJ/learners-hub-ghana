@@ -10,6 +10,7 @@ import {
   Loader2,
   Send,
 } from "lucide-react";
+import { admissionsConsentStatement } from "../../../domain/admissions/consent";
 import {
   APPLICATION_STEPS,
   applicationCompletion,
@@ -63,9 +64,13 @@ const RELATIONSHIP_OPTIONS = [
 export function ApplicationForm({
   applicantEmail,
   initialApplication,
+  schoolName,
 }: {
   applicantEmail: string;
   initialApplication: ApplicantApplication | null;
+  /* Named rather than assumed. The declaration used to read "Greenfield
+     Academy" whichever school was taking the application. */
+  schoolName: string;
 }) {
   const [draft, setDraft] = useState<ApplicationDraft>(() =>
     initialApplication
@@ -241,6 +246,7 @@ export function ApplicationForm({
             email={applicantEmail}
             issues={allIssues}
             onDeclare={setDeclared}
+            schoolName={schoolName}
             onEdit={(target) =>
               goTo(APPLICATION_STEPS.findIndex((item) => item.id === target))
             }
@@ -657,6 +663,7 @@ function ReviewStep({
   issues,
   onDeclare,
   onEdit,
+  schoolName,
   submitError,
 }: {
   declared: boolean;
@@ -665,6 +672,7 @@ function ReviewStep({
   issues: ApplicationIssue[];
   onDeclare: (value: boolean) => void;
   onEdit: (step: ApplicationStepId) => void;
+  schoolName: string;
   submitError: string;
 }) {
   const sections: Array<{
@@ -778,11 +786,13 @@ function ReviewStep({
           onChange={(event) => onDeclare(event.target.checked)}
           type="checkbox"
         />
+        {/* The sentence itself comes from the domain, versioned, so what is
+            shown here and what is stored against the application are the same
+            words. It used to name Greenfield Academy in the markup. */}
         <span>
           <strong>I confirm this is accurate</strong>
-          The information above is true to the best of my knowledge, and I agree
-          that Greenfield Academy may use it to assess this application and
-          contact me about it. We will email a copy to <strong>{email}</strong>.
+          {admissionsConsentStatement(schoolName)} We will email a copy to{" "}
+          <strong>{email}</strong>.
         </span>
       </label>
 

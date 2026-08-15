@@ -684,6 +684,29 @@ export function AdmissionsView() {
               </div>
             )}
 
+            {/* The evidence of consent, which used to be a timestamp against
+                a sentence nobody had kept. Shown to the officer reviewing the
+                application because a record no one can read is not a record. */}
+            {selected.declarationAcceptedAt ? (
+              <div className="detail-section">
+                <div className="detail-section-title">
+                  <h3>Declaration</h3>
+                  <span>
+                    Agreed {formatDate(selected.declarationAcceptedAt)}
+                  </span>
+                </div>
+                <blockquote className="declaration-record">
+                  {selected.declarationStatement ||
+                    "The wording agreed to was not recorded for this application."}
+                </blockquote>
+                {selected.declarationVersion ? (
+                  <small className="form-hint">
+                    Version {selected.declarationVersion}
+                  </small>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="detail-actions">
               {selected.status === "accepted" ? (
                 <div className="enrol-panel">

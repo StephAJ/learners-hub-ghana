@@ -7,7 +7,11 @@ import type {
   TeacherAssessmentWorkspace,
 } from "../../../db/assessment-repository";
 import type { QuestionType } from "../../../domain/assessment/types";
-import { QuestionComposer, type ComposedQuestion } from "./question-composer";
+import {
+  QuestionComposer,
+  type ComposedQuestion,
+  type EditableQuestion,
+} from "./question-composer";
 import { QuizBuilder, type QuizDraft } from "./quiz-builder";
 import { QUESTION_TYPES } from "./question-types";
 import { useOfferingParam } from "../../components/offering-param";
@@ -160,6 +164,9 @@ function LoadedAssessments({
   workspace: TeacherAssessmentWorkspace;
 }) {
   const [tab, setTab] = useState<WorkspaceTab>("bank");
+  /* The question open in the composer, loaded in full — the workspace list
+     carries a summary, which is not enough to edit from. */
+  const [editing, setEditing] = useState<EditableQuestion | undefined>();
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [typeFilter, setTypeFilter] = useState<QuestionType | "all">("all");
 
@@ -226,6 +233,58 @@ function LoadedAssessments({
       ),
     }));
     setNotice("Quiz published. Learners can now start it.");
+  }
+
+  async function openQuestion(questionId: string) {
+    const response = await fetch(
+      `/api/teacher/assessments?questionId=${encodeURIComponent(questionId)}`,
+    );
+    const payload = (await response.json()) as {
+      error?: string;
+      question?: EditableQuestion;
+    };
+    if (!response.ok || !payload.question) {
+      setNotice(payload.error ?? "That question could not be opened.");
+      return;
+    }
+    setEditing(payload.question);
+    setShowQuestionForm(true);
+  }
+
+  async function saveQuestion(input: ComposedQuestion) {
+    if (!editing) {
+      await createQuestion(input);
+      return;
+    }
+    const response = await fetch("/api/teacher/assessments", {
+      body: JSON.stringify({
+        action: "update-question",
+        questionId: editing.id,
+        ...input,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      question?: QuestionBankSummary;
+    };
+    if (!response.ok || !payload.question) {
+      setNotice(payload.error ?? "That question could not be saved.");
+      return;
+    }
+    const saved = payload.question;
+    setWorkspace((current) => ({
+      ...current,
+      bank: current.bank.map((item) =>
+        item.id === saved.id ? saved : item,
+      ),
+    }));
+    setEditing(undefined);
+    setShowQuestionForm(false);
+    setNotice(
+      `Saved as version ${saved.version}. Papers already published keep the version they were set with.`,
+    );
   }
 
   async function createQuiz(input: QuizDraft) {
@@ -415,9 +474,14 @@ function LoadedAssessments({
 
           {tab === "bank" ? (
             <QuestionBankPanel
-              createQuestion={createQuestion}
+              createQuestion={saveQuestion}
+              editing={editing}
+              onOpenQuestion={openQuestion}
               questions={visibleQuestions}
-              setShowForm={setShowQuestionForm}
+              setShowForm={(value) => {
+                if (!value) setEditing(undefined);
+                setShowQuestionForm(value);
+              }}
               setTypeFilter={setTypeFilter}
               showForm={showQuestionForm}
               topicSuggestion={topicSuggestion}
@@ -446,6 +510,8 @@ function LoadedAssessments({
 
 function QuestionBankPanel({
   createQuestion,
+  editing,
+  onOpenQuestion,
   questions,
   setShowForm,
   setTypeFilter,
@@ -454,6 +520,8 @@ function QuestionBankPanel({
   typeFilter,
 }: {
   createQuestion: (input: ComposedQuestion) => Promise<void>;
+  editing?: EditableQuestion;
+  onOpenQuestion: (questionId: string) => Promise<void>;
   questions: QuestionBankSummary[];
   setShowForm: (value: boolean) => void;
   setTypeFilter: (value: QuestionType | "all") => void;
@@ -479,6 +547,10 @@ function QuestionBankPanel({
 
       {showForm ? (
         <QuestionComposer
+          /* Keyed on the question so reopening a different one remounts the
+             composer rather than leaving the previous one's answers in it. */
+          key={editing?.id ?? "new"}
+          existing={editing}
           onCancel={() => setShowForm(false)}
           onSubmit={createQuestion}
           topicSuggestion={topicSuggestion}
@@ -514,7 +586,16 @@ function QuestionBankPanel({
       ) : null}
       <div className="question-bank-list">
         {questions.map((item) => (
-          <article className="question-bank-card" key={item.id}>
+          /* A question was a card that did nothing. Editing one is the most
+             ordinary thing a teacher wants from a bank, so the card is the
+             control — a button rather than a row with an edit link tucked in
+             the corner. */
+          <button
+            className="question-bank-card"
+            key={item.id}
+            onClick={() => void onOpenQuestion(item.id)}
+            type="button"
+          >
             <span className={`question-type-icon ${item.type}`}>
               {questionSymbol(item.type)}
             </span>
@@ -539,7 +620,7 @@ function QuestionBankPanel({
               <span>{item.marks === 1 ? "mark" : "marks"}</span>
               <small>{item.status}</small>
             </div>
-          </article>
+          </button>
         ))}
       </div>
     </section>
@@ -693,7 +774,35 @@ function ReviewPanel({
                 <div className="learner-response">
                   <span>Constructed response</span>
                   <h4>{attempt.response.prompt}</h4>
-                  <blockquote>{attempt.response.responseText}</blockquote>
+                  {attempt.response.responseText.trim() ? (
+                    <blockquote>{attempt.response.responseText}</blockquote>
+                  ) : null}
+
+                  {/* Handed-in files open in a new tab so the marker keeps
+                      this form and the marks already typed into it. */}
+                  {attempt.response.attachments.length > 0 ? (
+                    <ul className="response-files">
+                      {attempt.response.attachments.map((file) => (
+                        <li key={file.id}>
+                          <a
+                            href={`/api/learn/assessments/attachment?attachmentId=${encodeURIComponent(file.id)}`}
+                            rel="noreferrer noopener"
+                            target="_blank"
+                          >
+                            {file.filename}
+                          </a>
+                          <span>{formatFileSize(file.sizeBytes)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  {!attempt.response.responseText.trim() &&
+                  attempt.response.attachments.length === 0 ? (
+                    <blockquote>
+                      Handed in with no written answer and no attached file.
+                    </blockquote>
+                  ) : null}
                 </div>
                 <div className="marking-controls">
                   <label>
@@ -792,4 +901,11 @@ function formatTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+/** Kilobytes up to a megabyte, then megabytes — what a phone would say. */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

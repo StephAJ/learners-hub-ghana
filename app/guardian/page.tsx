@@ -22,17 +22,28 @@ import { schoolDateLabel } from "../school-time";
    through guardian_relationships; nothing here decides who may be seen.
    ========================================================================== */
 
-export default async function GuardianHomePage() {
+export default async function GuardianHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ child?: string }>;
+}) {
   const user = await requireWorkspaceUser("guardian", "/guardian");
+  /* Which child, in the URL rather than in state: School day and Reports both
+     have a switcher and this page had none, so a parent of two landed on
+     whichever child sorted first with no sign the other existed. A link is
+     also the only form of switcher a server component can have. */
+  const { child: requestedChildId } = await searchParams;
 
   /* A guardian with no linked child, or a school whose records are briefly
      unreachable, gets an honest empty screen rather than someone else's. */
   const [schoolDay, reports] = await Promise.all([
-    getGuardianSchoolDay(user.access).catch(() => null),
-    getGuardianReportWorkspace(user.access).catch(() => null),
+    getGuardianSchoolDay(user.access, requestedChildId).catch(() => null),
+    getGuardianReportWorkspace(user.access, requestedChildId).catch(() => null),
   ]);
 
   const child = schoolDay?.learner ?? reports?.child;
+  const linkedChildren =
+    schoolDay?.linkedChildren ?? reports?.linkedChildren ?? [];
   const latestReport = reports?.reports[0];
   const dueThisWeek = schoolDay?.assignments.filter(
     (assignment) =>
@@ -73,6 +84,20 @@ export default async function GuardianHomePage() {
               </p>
             </div>
           </div>
+          {linkedChildren.length > 1 ? (
+            <nav aria-label="Choose a child" className="guardian-child-switch">
+              {linkedChildren.map((option) => (
+                <Link
+                  aria-current={option.id === child.id ? "true" : undefined}
+                  className={option.id === child.id ? "is-active" : undefined}
+                  href={`/guardian?child=${encodeURIComponent(option.id)}`}
+                  key={option.id}
+                >
+                  {option.name}
+                </Link>
+              ))}
+            </nav>
+          ) : null}
         </section>
       ) : (
         <section className="guardian-child-card">

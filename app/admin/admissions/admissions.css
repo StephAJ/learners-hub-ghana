@@ -885,3 +885,15 @@
   font-size: var(--fs-12);
   line-height: var(--lh-snug);
 }
+
+/* The exact sentence an applicant agreed to. Set as a quotation because that
+   is what it is — the school's record of somebody else's words, not the
+   school's own copy. */
+.declaration-record {
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+  padding: var(--space-1) 0 var(--space-1) var(--space-3);
+}

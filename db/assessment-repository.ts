@@ -13,6 +13,7 @@ import type {
   AssessmentAttemptStatus,
   AssessmentPurpose,
   AssessmentQuestionSnapshot,
+  FeedbackPolicy,
   MarkedQuestionResponse,
   QuestionAnswerKey,
   QuestionMedia,
@@ -30,7 +31,10 @@ import {
   ensureLearningFoundation,
   seededDemoOfferingIds,
 } from "./learning-repository";
-import { getSchoolDatabase } from "./index";
+import { validateUpload } from "../domain/content/content-policy";
+import { scanUpload } from "../server/content-scan";
+import type { MediaKind } from "../domain/content/types";
+import { getMediaStore, getSchoolDatabase } from "./index";
 import {
   demoAssessmentBySlug,
   demoAssessmentQuestions,
@@ -41,7 +45,17 @@ import {
 } from "../domain/demo/greenfield";
 import type { SchoolDatabase, SchoolStatement } from "./school-database";
 
-const TENANT_ID = "tenant-greenfield";
+import {
+  linkAssessmentToMarkbook,
+  recordReleasedResultInMarkbook,
+} from "./assessment-markbook";
+import { demoSchoolEnabled } from "../server/demo-school";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
+
+/* The one school this deployment serves. Was the literal
+   "tenant-greenfield" — the demo school's own id — written out here and
+   in five other files. */
+const TENANT_ID = SCHOOL_TENANT_ID;
 export const DIGESTION_ASSESSMENT_ID = "assessment-digestion-check";
 
 import {
@@ -79,6 +93,10 @@ export type ReviewAttempt = {
   learnerName: string;
   maximumMarks: number;
   response?: {
+    /* A file-upload question is marked from what the learner handed in, and
+       its written answer is empty by design. Without these the marker saw an
+       empty quotation and had nothing to award marks against. */
+    attachments: ResponseAttachment[];
     maximumMarks: number;
     prompt: string;
     questionVersionId: string;
@@ -108,6 +126,47 @@ export type TeacherAssessmentWorkspace = {
 
 export type LearnerQuestion = Omit<AssessmentQuestionSnapshot, "answerKey">;
 
+/** A file handed in as the answer to one question. */
+export type ResponseAttachment = {
+  contentType: string;
+  filename: string;
+  id: string;
+  questionId: string;
+  sizeBytes: number;
+  uploadedAt: string;
+};
+
+/* Six, the same ceiling handed-in assignment work uses. A learner
+   photographing a page at a time reaches it honestly; a hundred files against
+   one question is a mistake or a stuck button. */
+const MAX_RESPONSE_ATTACHMENTS = 6;
+
+/* ==========================================================================
+   What a learner is told about their own paper
+
+   The result used to be three numbers: score, maximum, and whether it had been
+   released. A teacher would write feedback against each written answer —
+   assessment_responses.feedback, stored on marking — and the learner never saw
+   a word of it. Nor which questions they got right, nor what the right answer
+   was. The most useful thing in the whole assessment subsystem was written to
+   the database and thrown away.
+
+   Visibility is the feedback policy's to decide, not this type's: see
+   reviewVisible(). A question is only ever accompanied by its correct answer
+   once the policy allows it, because the answer key is the one thing that
+   cannot be un-shown.
+   ========================================================================== */
+export type LearnerQuestionReview = {
+  awardedMarks: number;
+  /** The teacher's own words, where they wrote any. */
+  feedback: string;
+  /** Present only once the policy allows the key to be shown. */
+  correctAnswer?: string;
+  markingStatus: MarkedQuestionResponse["markingStatus"];
+  maximumMarks: number;
+  questionId: string;
+};
+
 export type LearnerAssessment = {
   attempt: {
     deadlineAt: string;
@@ -125,11 +184,15 @@ export type LearnerAssessment = {
   passMarkPercent: number;
   purpose: AssessmentPurpose;
   questions: LearnerQuestion[];
+  /** Files handed in against file-upload questions in this attempt. */
+  responseAttachments: ResponseAttachment[];
   result: {
     maximumMarks: number;
     released: boolean;
     score: number;
   } | null;
+  /* Empty until the paper's feedback policy allows a review. */
+  review: LearnerQuestionReview[];
   timeLimitMinutes: number;
   title: string;
   version: number;
@@ -151,6 +214,7 @@ export type CreateBankQuestionInput = {
 };
 
 export type CreateAssessmentInput = {
+  feedbackPolicy?: FeedbackPolicy;
   instructions: string;
   passMarkPercent: number;
   purpose: AssessmentPurpose;
@@ -357,6 +421,10 @@ export async function createPersistentAssessmentDraft(
   );
   let draft = createAssessmentDraft({
     authorPersonId: access.actorPersonId,
+    /* Practice papers show their marking as soon as the learner submits;
+       anything that counts waits for the teacher. The default is the strict
+       one — an unset policy must never leak an answer key. */
+    feedbackPolicy: input.feedbackPolicy ?? "after-release",
     id: crypto.randomUUID(),
     instructions: input.instructions.trim(),
     offeringId: offering.id,
@@ -404,7 +472,7 @@ export async function createPersistentAssessmentDraft(
       .prepare(
         `INSERT INTO assessment_versions
           (id, tenant_id, assessment_id, version, title, purpose, instructions, time_limit_minutes, pass_mark_percent, attempts_allowed, shuffle_questions, feedback_policy, status, created_by_person_id)
-        VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, 1, 0, 'after-release', 'draft', ?)`,
+        VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, 1, 0, ?, 'draft', ?)`,
       )
       .bind(
         versionId,
@@ -415,6 +483,7 @@ export async function createPersistentAssessmentDraft(
         draft.instructions,
         draft.timeLimitMinutes,
         draft.passMarkPercent,
+        draft.feedbackPolicy,
         draft.authorPersonId,
       ),
     ...draft.questions.map((question) =>
@@ -467,11 +536,12 @@ export async function publishPersistentAssessment(
     access.tenantId,
     assessmentId,
   );
-  if (draft.questions.some((question) => question.type === "file-upload")) {
-    throw new AssessmentPolicyError(
-      "File-response quizzes require secure school file storage before publication.",
-    );
-  }
+  /* A file-response paper used to be refused here — "File-response quizzes
+     require secure school file storage before publication" — so a teacher
+     could write the question and never use it. That storage is the same one
+     lesson media and handed-in assignment work already use; what was missing
+     was the join between an answer and an asset, which
+     assessment_response_attachments now carries. */
   const published = publishAssessment(access, draft, new Date().toISOString());
   const versionId = `${assessmentId}:v${published.version}`;
 
@@ -480,7 +550,7 @@ export async function publishPersistentAssessment(
       .prepare(
         `INSERT INTO assessment_versions
           (id, tenant_id, assessment_id, version, title, purpose, instructions, time_limit_minutes, pass_mark_percent, attempts_allowed, shuffle_questions, feedback_policy, status, published_at, created_by_person_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 'after-release', 'published', ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, 'published', ?, ?)`,
       )
       .bind(
         versionId,
@@ -492,6 +562,7 @@ export async function publishPersistentAssessment(
         published.instructions,
         published.timeLimitMinutes,
         published.passMarkPercent,
+        published.feedbackPolicy,
         published.publishedAt,
         published.authorPersonId,
       ),
@@ -528,6 +599,16 @@ export async function publishPersistentAssessment(
       { version: published.version },
     ),
   ]);
+
+  /* After the batch, and outside it. A paper that publishes and then fails to
+     reach the markbook is a paper the teacher can still set; a markbook column
+     that exists for a paper nobody can sit is neither. */
+  await linkAssessmentToMarkbook(access, {
+    assessmentId: published.id,
+    offeringId: draft.offeringId,
+    title: published.title,
+    totalMarks: totalMarks(published.questions),
+  });
 
   return {
     attemptCount: 0,
@@ -664,12 +745,141 @@ export async function getLearnerAssessment(
     assessmentId,
     assessment.version,
   );
-  const responses = attempt
-    ? await loadAttemptResponseValues(database, access.tenantId, attempt.id)
-    : {};
+  const [responses, attachments] = attempt
+    ? await Promise.all([
+        loadAttemptResponseValues(database, access.tenantId, attempt.id),
+        loadResponseAttachments(database, access.tenantId, attempt.id),
+      ])
+    : [{}, []];
 
-  return toLearnerAssessment(assessment, attempt, responses);
+  /* The marks and the teacher's words, when the paper's policy allows them.
+     Loaded rather than assembled from the snapshot so a question a teacher
+     re-marked shows the mark they gave, not the one the machine did. */
+  const review =
+    attempt && reviewVisible(assessment.feedbackPolicy, attempt.status)
+      ? await loadAttemptReview(
+          database,
+          access.tenantId,
+          attempt.id,
+          assessment,
+        )
+      : [];
+
+  return toLearnerAssessment(
+    assessment,
+    attempt,
+    responses,
+    attachments,
+    review,
+  );
 }
+
+/**
+ * Whether this learner may see their marks yet.
+ *
+ * The whole point of the policy column, which had never been read. An
+ * in-progress attempt is never reviewable whatever the policy says: a paper
+ * that shows the answer to question three while question four is still open is
+ * not an assessment.
+ */
+function reviewVisible(
+  policy: FeedbackPolicy,
+  status: AssessmentAttemptStatus,
+): boolean {
+  if (status === "in-progress" || status === "invalidated") return false;
+  if (policy === "after-release") return status === "released";
+  /* immediate and after-attempt both mean "once it is handed in" here; the
+     difference between them is inside the runner, which may show a mark as
+     each answer is given. */
+  return true;
+}
+
+async function loadAttemptReview(
+  database: SchoolDatabase,
+  tenantId: string,
+  attemptId: string,
+  assessment: Assessment,
+): Promise<LearnerQuestionReview[]> {
+  const result = await database
+    .prepare(
+      `SELECT
+        qv.question_id,
+        r.auto_marks,
+        r.manual_marks,
+        r.marking_status,
+        r.feedback,
+        qv.marks AS maximum_marks
+      FROM assessment_responses r
+      INNER JOIN question_versions qv ON qv.id = r.question_version_id
+      WHERE r.tenant_id = ? AND r.attempt_id = ?`,
+    )
+    .bind(tenantId, attemptId)
+    .all<{
+      auto_marks: number | null;
+      feedback: string | null;
+      manual_marks: number | null;
+      marking_status: MarkedQuestionResponse["markingStatus"];
+      maximum_marks: number;
+      question_id: string;
+    }>();
+
+  const byId = new Map(
+    assessment.questions.map((question) => [question.id, question]),
+  );
+
+  return result.results.map((row) => ({
+    awardedMarks:
+      Number(row.manual_marks ?? 0) > 0
+        ? Number(row.manual_marks)
+        : Number(row.auto_marks ?? 0),
+    correctAnswer: describeAnswerKey(byId.get(row.question_id)),
+    feedback: row.feedback ?? "",
+    markingStatus: row.marking_status,
+    maximumMarks: Number(row.maximum_marks),
+    questionId: row.question_id,
+  }));
+}
+
+/**
+ * The answer key as something a learner can read.
+ *
+ * The key is one shape — `{ value }` — holding whatever the question type
+ * needs: an option id, a list of them, a number, a set of pairs, a sequence.
+ * A learner is owed the answer rather than the JSON, so each shape gets a
+ * sentence, and the option ids are resolved to the words the learner saw.
+ *
+ * Returns "" for a question with no machine-checkable answer. An essay's
+ * "correct answer" is the teacher's feedback, which is carried separately.
+ */
+function describeAnswerKey(
+  question: AssessmentQuestionSnapshot | undefined,
+): string {
+  if (!question) return "";
+  const { value } = question.answerKey;
+  if (value === null || value === undefined || value === "") return "";
+
+  const label = (optionId: unknown) =>
+    question.options.find((option) => option.id === optionId)?.label ??
+    String(optionId);
+
+  if (question.type === "true-false") {
+    return value === true || value === "true" ? "True" : "False";
+  }
+  if (question.type === "single-choice") return label(value);
+  if (question.type === "multiple-choice" && Array.isArray(value)) {
+    return value.map(label).join(", ");
+  }
+  if (question.type === "ordering" && Array.isArray(value)) {
+    return value.map(label).join(" → ");
+  }
+  if (question.type === "matching" && value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([left, right]) => `${label(left)} → ${label(right)}`)
+      .join(", ");
+  }
+  return String(value);
+}
+
 
 export async function startPersistentAttempt(
   access: AccessContext,
@@ -690,12 +900,11 @@ export async function startPersistentAttempt(
     assessment.version,
   );
   if (existing) {
-    const responses = await loadAttemptResponseValues(
-      database,
-      access.tenantId,
-      existing.id,
-    );
-    return toLearnerAssessment(assessment, existing, responses);
+    const [responses, attachments] = await Promise.all([
+      loadAttemptResponseValues(database, access.tenantId, existing.id),
+      loadResponseAttachments(database, access.tenantId, existing.id),
+    ]);
+    return toLearnerAssessment(assessment, existing, responses, attachments);
   }
 
   const attempt = startAssessmentAttempt(
@@ -874,6 +1083,7 @@ export async function submitPersistentAttempt(
       submitted_at: attempt.submittedAt ?? null,
     },
     values,
+    await loadResponseAttachments(database, access.tenantId, attemptId),
   );
 }
 
@@ -992,14 +1202,18 @@ export async function releasePersistentResult(
   const database = await getSchoolDatabase();
   const attempt = await database
     .prepare(
-      `SELECT aa.status, a.offering_id
+      `SELECT aa.status, aa.assessment_id, a.offering_id
       FROM assessment_attempts aa
       INNER JOIN assessments a ON a.id = aa.assessment_id
       WHERE aa.id = ? AND aa.tenant_id = ?
       LIMIT 1`,
     )
     .bind(attemptId, access.tenantId)
-    .first<{ offering_id: string; status: AssessmentAttemptStatus }>();
+    .first<{
+      assessment_id: string;
+      offering_id: string;
+      status: AssessmentAttemptStatus;
+    }>();
   if (!attempt) throw new AssessmentPolicyError("Attempt was not found.");
   if (!canTeachOffering(access, attempt.offering_id)) {
     throw new AuthorizationError(
@@ -1029,11 +1243,24 @@ export async function releasePersistentResult(
       {},
     ),
   ]);
+
+  /* Releasing is the moment the result stands, so it is the moment it reaches
+     the markbook. Nothing did this: the teacher marked the paper and then
+     typed the same figures in by hand. */
+  await recordReleasedResultInMarkbook(access, {
+    assessmentId: attempt.assessment_id,
+    attemptId,
+  });
+
   return loadReviewQueue(database, access.tenantId, attempt.offering_id);
 }
 
 export async function ensureAssessmentFoundation() {
+  /* Also what runs the migrations, so it stays above the gate. */
   await ensureLearningFoundation();
+  /* A school's question bank and its papers are its own. */
+  if (!demoSchoolEnabled()) return;
+
   const database = await getSchoolDatabase();
   /* Only the offerings the learning seed actually created. A question bank item
      carries offering_id across a foreign key, so a paper written for an
@@ -1318,7 +1545,13 @@ async function loadAssessmentSummaries(
         v.title,
         v.purpose,
         v.time_limit_minutes,
-        s.name AS subject_name,
+        /* No subject name here. It was selected as "s.name AS subject_name"
+           with nothing joined as s, which PostgreSQL refuses outright — so
+           every call to this failed with "missing FROM-clause entry for table
+           s" and the whole teacher Assessments screen with it. Nothing read
+           the column: the row type never declared it and the mapping below
+           never returned it. The workspace gets its subject name from the
+           offering it already resolved. */
         (
           SELECT COUNT(*)
           FROM assessment_questions aq
@@ -1383,6 +1616,7 @@ async function loadReviewQueue(
         r.question_version_id,
         r.response,
         qv.prompt,
+        qv.question_id,
         qv.marks AS response_maximum_marks
       FROM assessment_attempts at
       INNER JOIN assessments a ON a.id = at.assessment_id
@@ -1406,6 +1640,7 @@ async function loadReviewQueue(
       learner_name: string;
       maximum_marks: number;
       prompt: string | null;
+      question_id: string | null;
       question_version_id: string | null;
       response: string | null;
       response_maximum_marks: number | null;
@@ -1414,6 +1649,12 @@ async function loadReviewQueue(
       submitted_at: string;
       title: string;
     }>();
+  const attachments = await loadReviewAttachments(
+    database,
+    tenantId,
+    result.results.map((row) => row.attempt_id),
+  );
+
   return result.results.map((row) => ({
     attemptId: row.attempt_id,
     learnerName: row.learner_name,
@@ -1421,6 +1662,9 @@ async function loadReviewQueue(
     response:
       row.question_version_id && row.prompt && row.response_maximum_marks
         ? {
+            attachments: (
+              attachments.get(row.attempt_id) ?? []
+            ).filter((file) => file.questionId === row.question_id),
             maximumMarks: Number(row.response_maximum_marks),
             prompt: row.prompt,
             questionVersionId: row.question_version_id,
@@ -1436,6 +1680,53 @@ async function loadReviewQueue(
     submittedAt: row.submitted_at,
     title: row.title,
   }));
+}
+
+/** Every attempt's handed-in files in one query, rather than one per row. */
+async function loadReviewAttachments(
+  database: SchoolDatabase,
+  tenantId: string,
+  attemptIds: string[],
+): Promise<Map<string, ResponseAttachment[]>> {
+  const byAttempt = new Map<string, ResponseAttachment[]>();
+  const unique = [...new Set(attemptIds)];
+  if (unique.length === 0) return byAttempt;
+
+  const placeholders = unique.map(() => "?").join(", ");
+  const result = await database
+    .prepare(
+      `SELECT a.id, a.attempt_id, a.question_id, a.uploaded_at,
+        m.original_filename, m.content_type, m.size_bytes
+      FROM assessment_response_attachments a
+      INNER JOIN media_assets m ON m.id = a.media_asset_id
+      WHERE a.tenant_id = ? AND m.status = 'ready'
+        AND a.attempt_id IN (${placeholders})
+      ORDER BY a.uploaded_at`,
+    )
+    .bind(tenantId, ...unique)
+    .all<{
+      attempt_id: string;
+      content_type: string;
+      id: string;
+      original_filename: string;
+      question_id: string;
+      size_bytes: number;
+      uploaded_at: string;
+    }>();
+
+  for (const row of result.results) {
+    const list = byAttempt.get(row.attempt_id) ?? [];
+    list.push({
+      contentType: row.content_type,
+      filename: row.original_filename,
+      id: row.id,
+      questionId: row.question_id,
+      sizeBytes: Number(row.size_bytes),
+      uploadedAt: row.uploaded_at,
+    });
+    byAttempt.set(row.attempt_id, list);
+  }
+  return byAttempt;
 }
 
 async function loadAssessment(
@@ -1458,6 +1749,7 @@ async function loadAssessment(
         v.instructions,
         v.time_limit_minutes,
         v.pass_mark_percent,
+        v.feedback_policy,
         v.published_at
       FROM assessments a
       INNER JOIN assessment_versions v
@@ -1469,6 +1761,7 @@ async function loadAssessment(
     .first<{
       author_person_id: string;
       current_version: number;
+      feedback_policy: FeedbackPolicy;
       id: string;
       instructions: string;
       offering_id: string;
@@ -1494,6 +1787,7 @@ async function loadAssessment(
 
   return {
     authorPersonId: row.author_person_id,
+    feedbackPolicy: row.feedback_policy ?? "after-release",
     id: row.id,
     instructions: row.instructions,
     offeringId: row.offering_id,
@@ -1602,6 +1896,8 @@ function toLearnerAssessment(
   assessment: Assessment,
   attempt: AttemptRow | null,
   responses: Record<string, QuestionResponse>,
+  responseAttachments: ResponseAttachment[] = [],
+  review: LearnerQuestionReview[] = [],
 ): LearnerAssessment {
   const released = attempt?.status === "released";
   return {
@@ -1625,6 +1921,8 @@ function toLearnerAssessment(
        is added next. The omission of answerKey is the point, so it is the only
        thing stated. */
     questions: assessment.questions.map(toLearnerQuestion),
+    responseAttachments,
+    review,
     result:
       attempt && attempt.status !== "in-progress"
         ? {
@@ -2026,3 +2324,500 @@ type AttemptRow = {
   tenant_id: string;
 };
 
+
+/* ==========================================================================
+   Files handed in as an answer
+
+   Mirrors attachLearnerSubmissionFile() in db/operations-repository.ts, which
+   has done the same job for assignment work since before this existed. The
+   rules match because the risks match: a learner may attach only to their own
+   attempt, only while it is still open, and only a document or a photograph
+   of one. The kind is inferred here rather than taken from the client, which
+   has no business choosing how its own upload is validated.
+   ========================================================================== */
+
+export async function attachAssessmentResponseFile(
+  access: AccessContext,
+  input: { attemptId: string; file: File; questionId: string },
+): Promise<LearnerAssessment> {
+  requireActiveMembership(access);
+  await ensureAssessmentFoundation();
+  const database = await getSchoolDatabase();
+  const attempt = await requireOwnOpenAttempt(database, access, input.attemptId);
+
+  const question = attempt.questions.find(
+    (item) => item.id === input.questionId,
+  );
+  if (!question || question.type !== "file-upload") {
+    throw new AssessmentPolicyError(
+      "That question does not take a file answer.",
+    );
+  }
+
+  const existing = await database
+    .prepare(
+      `SELECT COUNT(*) AS total FROM assessment_response_attachments
+      WHERE tenant_id = ? AND attempt_id = ? AND question_id = ?`,
+    )
+    .bind(access.tenantId, input.attemptId, input.questionId)
+    .first<{ total: number | string }>();
+  if (Number(existing?.total ?? 0) >= MAX_RESPONSE_ATTACHMENTS) {
+    throw new AssessmentPolicyError(
+      `An answer can carry at most ${MAX_RESPONSE_ATTACHMENTS} files.`,
+    );
+  }
+
+  const contentType = input.file.type || "application/octet-stream";
+  const kind: MediaKind = contentType.startsWith("image/")
+    ? "image"
+    : "document";
+  const validated = validateUpload({
+    contentType,
+    filename: input.file.name,
+    kind,
+    sizeBytes: input.file.size,
+  });
+  /* Read once, checked, then written from the same bytes. The extension and
+     the content type both come from the browser, so both come from whoever is
+     uploading — this is the first thing in the pipeline that looks at what is
+     actually in the file. */
+  const bytes = new Uint8Array(await input.file.arrayBuffer());
+  await scanUpload({ bytes, extension: validated.extension, kind });
+
+  const assetId = crypto.randomUUID();
+  const objectKey = [
+    access.tenantId,
+    attempt.offeringId,
+    `${assetId}.${validated.extension}`,
+  ].join("/");
+  const bucket = await getMediaStore();
+  /* The bytes already read for the scan, rather than a second pass over
+     the same 25 MB. */
+  await bucket.put(objectKey, bytes, {
+    customMetadata: {
+      assetId,
+      offeringId: attempt.offeringId,
+      tenantId: access.tenantId,
+    },
+    httpMetadata: { contentType },
+  });
+
+  /* The object goes down first and is removed again if the rows fail: a media
+     row pointing at bytes that are not there is the worse half-state, because
+     nothing later can tell it apart from a file the learner really sent. */
+  try {
+    await database.batch([
+      database
+        .prepare(
+          `INSERT INTO media_assets
+            (id, tenant_id, offering_id, uploaded_by_person_id, kind,
+             original_filename, content_type, size_bytes, object_key, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready')`,
+        )
+        .bind(
+          assetId,
+          access.tenantId,
+          attempt.offeringId,
+          access.actorPersonId,
+          kind,
+          validated.filename,
+          contentType,
+          input.file.size,
+          objectKey,
+        ),
+      database
+        .prepare(
+          `INSERT INTO assessment_response_attachments
+            (id, tenant_id, attempt_id, question_id, media_asset_id)
+          VALUES (?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          access.tenantId,
+          input.attemptId,
+          input.questionId,
+          assetId,
+        ),
+    ]);
+  } catch (error) {
+    await bucket.delete(objectKey);
+    throw error;
+  }
+
+  return getLearnerAssessment(access, attempt.assessmentId);
+}
+
+export async function removeAssessmentResponseFile(
+  access: AccessContext,
+  input: { attachmentId: string; attemptId: string },
+): Promise<LearnerAssessment> {
+  requireActiveMembership(access);
+  await ensureAssessmentFoundation();
+  const database = await getSchoolDatabase();
+  const attempt = await requireOwnOpenAttempt(database, access, input.attemptId);
+
+  const row = await database
+    .prepare(
+      `SELECT a.id, a.media_asset_id, m.object_key
+      FROM assessment_response_attachments a
+      INNER JOIN media_assets m ON m.id = a.media_asset_id
+      WHERE a.tenant_id = ? AND a.id = ? AND a.attempt_id = ?
+      LIMIT 1`,
+    )
+    .bind(access.tenantId, input.attachmentId, input.attemptId)
+    .first<{ id: string; media_asset_id: string; object_key: string }>();
+  if (!row) {
+    throw new AssessmentPolicyError("That file is not part of this answer.");
+  }
+
+  await database.batch([
+    database
+      .prepare(
+        `DELETE FROM assessment_response_attachments
+        WHERE tenant_id = ? AND id = ?`,
+      )
+      .bind(access.tenantId, input.attachmentId),
+    database
+      .prepare(
+        `UPDATE media_assets SET status = 'deleted'
+        WHERE tenant_id = ? AND id = ?`,
+      )
+      .bind(access.tenantId, row.media_asset_id),
+  ]);
+  const bucket = await getMediaStore();
+  await bucket.delete(row.object_key).catch(() => undefined);
+
+  return getLearnerAssessment(access, attempt.assessmentId);
+}
+
+/**
+ * The attempt, if it belongs to this learner and is still open.
+ *
+ * Once an attempt is handed in its contents are what the teacher is marking,
+ * so a page added afterwards is a change no marker could see happen.
+ */
+async function requireOwnOpenAttempt(
+  database: SchoolDatabase,
+  access: AccessContext,
+  attemptId: string,
+): Promise<{
+  assessmentId: string;
+  id: string;
+  offeringId: string;
+  questions: AssessmentQuestionSnapshot[];
+}> {
+  const row = await database
+    .prepare(
+      `SELECT at.id, at.assessment_id, at.status, a.offering_id
+      FROM assessment_attempts at
+      INNER JOIN assessments a ON a.id = at.assessment_id
+      WHERE at.tenant_id = ? AND at.id = ? AND at.learner_person_id = ?
+      LIMIT 1`,
+    )
+    .bind(access.tenantId, attemptId, access.actorPersonId)
+    .first<{
+      assessment_id: string;
+      id: string;
+      offering_id: string;
+      status: AssessmentAttemptStatus;
+    }>();
+  if (!row) {
+    throw new AssessmentPolicyError("That attempt was not found.");
+  }
+  if (row.status !== "in-progress") {
+    throw new AssessmentPolicyError("This attempt has already been handed in.");
+  }
+  const assessment = await loadAssessment(
+    database,
+    access.tenantId,
+    row.assessment_id,
+  );
+  return {
+    assessmentId: row.assessment_id,
+    id: row.id,
+    offeringId: row.offering_id,
+    questions: assessment.questions,
+  };
+}
+
+/**
+ * Serves one file handed in as an answer.
+ *
+ * Not served through /api/content/media: that route authorises by subject
+ * offering, which every learner in the class shares, so one learner's answer
+ * would be readable by any classmate holding an asset id. The owner is
+ * resolved first, and anyone else must teach the offering it was set for.
+ */
+export async function getResponseAttachmentResponse(
+  access: AccessContext,
+  attachmentId: string,
+): Promise<Response> {
+  await ensureAssessmentFoundation();
+  const database = await getSchoolDatabase();
+  const row = await database
+    .prepare(
+      `SELECT m.object_key, m.content_type, m.original_filename, m.size_bytes,
+        at.learner_person_id, a.offering_id
+      FROM assessment_response_attachments t
+      INNER JOIN assessment_attempts at ON at.id = t.attempt_id
+      INNER JOIN assessments a ON a.id = at.assessment_id
+      INNER JOIN media_assets m ON m.id = t.media_asset_id
+      WHERE t.id = ? AND t.tenant_id = ?
+      LIMIT 1`,
+    )
+    .bind(attachmentId, access.tenantId)
+    .first<{
+      content_type: string;
+      learner_person_id: string;
+      object_key: string;
+      offering_id: string;
+      original_filename: string;
+      size_bytes: number;
+    }>();
+  if (!row) return new Response("Attachment not found.", { status: 404 });
+
+  const isOwner = access.actorPersonId === row.learner_person_id;
+  if (!isOwner && !canTeachOffering(access, row.offering_id)) {
+    throw new AuthorizationError("You are not authorised to read this answer.");
+  }
+
+  const bucket = await getMediaStore();
+  const object = await bucket.get(row.object_key);
+  if (!object) return new Response("Attachment not found.", { status: 404 });
+
+  return new Response(object.body, {
+    headers: {
+      "cache-control": "private, no-store",
+      "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
+        row.original_filename,
+      )}`,
+      "content-length": String(row.size_bytes),
+      "content-type": row.content_type,
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
+async function loadResponseAttachments(
+  database: SchoolDatabase,
+  tenantId: string,
+  attemptId: string,
+): Promise<ResponseAttachment[]> {
+  const result = await database
+    .prepare(
+      `SELECT a.id, a.question_id, a.uploaded_at,
+        m.original_filename, m.content_type, m.size_bytes
+      FROM assessment_response_attachments a
+      INNER JOIN media_assets m ON m.id = a.media_asset_id
+      WHERE a.tenant_id = ? AND a.attempt_id = ? AND m.status != 'deleted'
+      ORDER BY a.uploaded_at`,
+    )
+    .bind(tenantId, attemptId)
+    .all<{
+      content_type: string;
+      id: string;
+      original_filename: string;
+      question_id: string;
+      size_bytes: number;
+      uploaded_at: string;
+    }>();
+  return result.results.map((row) => ({
+    contentType: row.content_type,
+    filename: row.original_filename,
+    id: row.id,
+    questionId: row.question_id,
+    sizeBytes: Number(row.size_bytes),
+    uploadedAt: row.uploaded_at,
+  }));
+}
+
+/* ==========================================================================
+   Editing a question already in the bank
+
+   There was no way to. A question written with a typo, a wrong mark total or
+   an option in the wrong order stayed that way for ever, and the only remedy
+   was writing a second question and leaving the first in the list.
+
+   It creates a new version rather than rewriting the old one, and that is not
+   fastidiousness: `assessment_questions` stores a snapshot of the exact
+   version a paper was published with, and an attempt is marked against that
+   snapshot. Editing in place would silently restate what a learner sat weeks
+   after they sat it. The old version stays, the papers already published stay
+   bound to it, and the next paper picks up the new one.
+   ========================================================================== */
+export async function updateBankQuestion(
+  access: AccessContext,
+  questionId: string,
+  input: CreateBankQuestionInput,
+): Promise<QuestionBankSummary> {
+  await ensureAssessmentFoundation();
+  validateQuestionInput(input);
+  const database = await getSchoolDatabase();
+
+  const existing = await database
+    .prepare(
+      `SELECT id, offering_id, current_version
+      FROM question_bank_items
+      WHERE id = ? AND tenant_id = ?
+      LIMIT 1`,
+    )
+    .bind(questionId, access.tenantId)
+    .first<{ current_version: number; id: string; offering_id: string }>();
+  if (!existing) {
+    throw new AssessmentPolicyError("That question was not found.");
+  }
+  if (!canTeachOffering(access, existing.offering_id)) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+
+  const version = Number(existing.current_version) + 1;
+  const options = toQuestionOptions(input.options);
+  const answerKey = buildAnswerKey(input, options);
+
+  await database.batch([
+    database
+      .prepare(
+        `INSERT INTO question_versions
+          (id, tenant_id, question_id, version, prompt, options, answer_key, rationale, media, formula, marks, status, created_by_person_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?)`,
+      )
+      .bind(
+        `${questionId}:v${version}`,
+        access.tenantId,
+        questionId,
+        version,
+        input.prompt.trim(),
+        JSON.stringify(options),
+        JSON.stringify(answerKey),
+        input.rationale.trim(),
+        input.media?.url && input.media.alt?.trim()
+          ? JSON.stringify(input.media)
+          : null,
+        input.formula?.trim() || null,
+        input.marks,
+        access.actorPersonId,
+      ),
+    database
+      .prepare(
+        `UPDATE question_bank_items
+        SET type = ?, difficulty = ?, topic = ?, current_version = ?
+        WHERE id = ? AND tenant_id = ?`,
+      )
+      .bind(
+        input.type,
+        input.difficulty,
+        input.topic.trim(),
+        version,
+        questionId,
+        access.tenantId,
+      ),
+    auditStatement(
+      database,
+      access,
+      "question.revised",
+      "question",
+      questionId,
+      { version },
+    ),
+  ]);
+
+  return {
+    difficulty: input.difficulty,
+    id: questionId,
+    marks: input.marks,
+    prompt: input.prompt.trim(),
+    status: "approved",
+    topic: input.topic.trim(),
+    type: input.type,
+    usageCount: 0,
+    version,
+  };
+}
+
+/** Everything the composer needs to reopen a question for editing. */
+export async function getBankQuestion(
+  access: AccessContext,
+  questionId: string,
+): Promise<CreateBankQuestionInput & { id: string }> {
+  await ensureAssessmentFoundation();
+  const database = await getSchoolDatabase();
+
+  const row = await database
+    .prepare(
+      `SELECT
+        item.id, item.offering_id, item.type, item.difficulty, item.topic,
+        version.prompt, version.options, version.answer_key, version.rationale,
+        version.media, version.formula, version.marks
+      FROM question_bank_items item
+      INNER JOIN question_versions version
+        ON version.question_id = item.id AND version.version = item.current_version
+      WHERE item.id = ? AND item.tenant_id = ?
+      LIMIT 1`,
+    )
+    .bind(questionId, access.tenantId)
+    .first<{
+      answer_key: string;
+      difficulty: QuestionBankSummary["difficulty"];
+      formula: string | null;
+      id: string;
+      marks: number;
+      media: string | null;
+      offering_id: string;
+      options: string;
+      prompt: string;
+      rationale: string;
+      topic: string;
+      type: QuestionType;
+    }>();
+  if (!row) throw new AssessmentPolicyError("That question was not found.");
+  if (!canTeachOffering(access, row.offering_id)) {
+    throw new AuthorizationError(
+      "You are not assigned to this subject offering.",
+    );
+  }
+
+  const options = parseJson<QuestionOption[]>(row.options, []);
+  const answerKey = parseJson<QuestionAnswerKey>(row.answer_key, {});
+
+  return {
+    /* The composer edits answers as the words a learner sees, so the stored
+       option ids are resolved back to labels on the way out. */
+    correctAnswer: answerToText(row.type, answerKey.value, options),
+    difficulty: row.difficulty,
+    formula: row.formula ?? undefined,
+    id: row.id,
+    marks: Number(row.marks),
+    media: row.media
+      ? parseJson<QuestionMedia | undefined>(row.media, undefined)
+      : undefined,
+    options: options.map((option) => option.label),
+    prompt: row.prompt,
+    rationale: row.rationale,
+    topic: row.topic,
+    type: row.type,
+  };
+}
+
+/** The stored answer as the composer's single text field. */
+function answerToText(
+  type: QuestionType,
+  value: unknown,
+  options: QuestionOption[],
+): string {
+  const label = (id: unknown) =>
+    options.find((option) => option.id === id)?.label ?? String(id ?? "");
+  if (value === null || value === undefined) return "";
+  if (type === "true-false") {
+    return value === true || value === "true" ? "True" : "False";
+  }
+  if (type === "single-choice") return label(value);
+  if (Array.isArray(value)) return value.map(label).join(", ");
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([left, right]) => `${label(left)} = ${label(right)}`)
+      .join(", ");
+  }
+  return String(value);
+}

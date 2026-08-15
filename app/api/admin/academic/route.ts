@@ -14,6 +14,14 @@ import {
   setTeacherOfferings,
   updateClassGroup,
 } from "../../../../db/academic-repository";
+import {
+  createGradingPeriod,
+  listGradingPeriods,
+  setGradingPeriodStatus,
+  type CreateGradingPeriodInput,
+  type GradingPeriodStatus,
+} from "../../../../db/grading-period-repository";
+import { ReportingPolicyError } from "../../../../domain/reporting/gradebook";
 import { AuthorizationError } from "../../../../domain/identity/authorization";
 import { SchoolStructureError } from "../../../../domain/academic/structure";
 
@@ -56,14 +64,22 @@ type WriteAction =
   | { offeringIds: string[]; teacherPersonId: string; type: "set-teacher-offerings" }
   | { subject: Parameters<typeof createSubject>[1]; type: "create-subject" }
   | { type: "create-year"; year: Parameters<typeof createAcademicYear>[1] }
-  | { type: "set-current-year"; yearId: string };
+  | { type: "set-current-year"; yearId: string }
+  /* Terms. Every markbook query used to bind one seeded period id, so a
+     school reaching the end of Term 1 had nowhere to put Term 2's marks. */
+  | { period: CreateGradingPeriodInput; type: "create-period" }
+  | { periodId: string; status: GradingPeriodStatus; type: "set-period-status" };
 
 export async function GET() {
   try {
     const schoolUser = await requireSchoolUser();
-    const structure = await loadAcademicStructure(schoolUser.access);
+    const [structure, periods] = await Promise.all([
+      loadAcademicStructure(schoolUser.access),
+      listGradingPeriods(schoolUser.access),
+    ]);
     return Response.json({
       canManage: schoolUser.access.role !== "teacher",
+      periods,
       structure,
     });
   } catch (error) {
@@ -144,6 +160,19 @@ export async function POST(request: Request) {
           action.offeringIds,
         );
         return Response.json({ ok: true });
+      case "create-period":
+        return Response.json(
+          { period: await createGradingPeriod(access, action.period) },
+          { status: 201 },
+        );
+      case "set-period-status":
+        return Response.json({
+          periods: await setGradingPeriodStatus(
+            access,
+            action.periodId,
+            action.status,
+          ),
+        });
       default:
         return Response.json(
           { error: "That is not something this screen can do." },
@@ -173,6 +202,11 @@ function academicErrorResponse(error: unknown) {
      subject code. 422 rather than 400: the request was understood, and the
      message is meant to be read and acted on. */
   if (error instanceof SchoolStructureError) {
+    return Response.json({ error: error.message }, { status: 422 });
+  }
+  /* A term that ends before it starts, or a name already taken. Same 422 as a
+     structure error, for the same reason: it is meant to be read and fixed. */
+  if (error instanceof ReportingPolicyError) {
     return Response.json({ error: error.message }, { status: 422 });
   }
   const message =

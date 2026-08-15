@@ -9,6 +9,10 @@ export type AuthenticatedUser = {
   email: string;
   fullName: string | null;
   id: string;
+  /* Whether a second factor is set up on this account. Read from the session
+     rather than queried, because the two-factor plugin already puts it on the
+     user record and a second lookup per request would buy nothing. */
+  twoFactorEnabled: boolean;
 };
 
 export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> {
@@ -21,6 +25,9 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> 
     email: session.user.email,
     fullName: session.user.name || null,
     id: session.user.id,
+    twoFactorEnabled: Boolean(
+      (session.user as { twoFactorEnabled?: boolean }).twoFactorEnabled,
+    ),
   };
 }
 

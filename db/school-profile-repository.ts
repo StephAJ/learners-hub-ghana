@@ -5,12 +5,18 @@ import {
 import type { AccessContext } from "../domain/identity/types";
 import {
   applySchoolProfileEdit,
+  defaultSchoolProfile,
   greenfieldProfile,
   parseSchoolProfile,
   type SchoolProfile,
   type SchoolProfileEdit,
 } from "../domain/school/public-profile";
+import { demoSchoolEnabled } from "../server/demo-school";
 import { ensurePlatformReady } from "../server/platform-ready";
+import {
+  DEFAULT_STUDENT_NUMBER_PREFIX,
+  normaliseStudentNumberPrefix,
+} from "./people-repository";
 import { getPostgresPool } from "./postgres";
 
 /* ==========================================================================
@@ -27,7 +33,12 @@ import { getPostgresPool } from "./postgres";
    asking who is reading a school's front page.
    ========================================================================== */
 
-const DEFAULT_TENANT_ID = "tenant-greenfield";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
+
+/* The one school this deployment serves. Was the literal
+   "tenant-greenfield" — the demo school's own id — written out here and
+   in five other files. */
+const DEFAULT_TENANT_ID = SCHOOL_TENANT_ID;
 
 export async function loadSchoolProfile(
   tenantId: string = DEFAULT_TENANT_ID,
@@ -39,18 +50,37 @@ export async function loadSchoolProfile(
     [tenantId],
   );
 
+  const starting = await startingProfile(tenantId);
   const stored = result.rows[0]?.document;
-  if (!stored) return greenfieldProfile;
+  if (!stored) return starting;
 
   /* A document that will not parse is a school with a broken front page, so
      the failure is swallowed and the default rendered. parseSchoolProfile
      then fills any individual field that is missing or the wrong type, so a
      partly-written document still renders the parts it does have. */
   try {
-    return parseSchoolProfile(JSON.parse(stored));
+    return parseSchoolProfile(JSON.parse(stored), starting);
   } catch {
-    return greenfieldProfile;
+    return starting;
   }
+}
+
+/**
+ * What a school with no stored document publishes.
+ *
+ * This used to be `greenfieldProfile` unconditionally, so an install that had
+ * never been near the demo still served Greenfield's address, its BECE
+ * results, its mural and two testimonials from people who do not work there.
+ * A real school starts from its own name and copy that says plainly it has not
+ * been written yet.
+ */
+async function startingProfile(tenantId: string): Promise<SchoolProfile> {
+  if (demoSchoolEnabled()) return greenfieldProfile;
+  const result = await getPostgresPool().query<{ name: string }>(
+    `SELECT name FROM tenants WHERE id = $1 LIMIT 1`,
+    [tenantId],
+  );
+  return defaultSchoolProfile(result.rows[0]?.name ?? "");
 }
 
 /**
@@ -65,6 +95,23 @@ export async function loadSchoolProfileForEditing(
 ): Promise<SchoolProfile> {
   requirePermission(access, "academic:manage");
   return loadSchoolProfile(access.tenantId);
+}
+
+/** The settings that live on the tenant row rather than in the document. */
+export async function loadSchoolSettings(
+  access: AccessContext,
+): Promise<{ studentNumberPrefix: string }> {
+  requirePermission(access, "academic:manage");
+  await ensurePlatformReady();
+  const result = await getPostgresPool().query<{
+    student_number_prefix: string;
+  }>(`SELECT student_number_prefix FROM tenants WHERE id = $1`, [
+    access.tenantId,
+  ]);
+  return {
+    studentNumberPrefix:
+      result.rows[0]?.student_number_prefix ?? DEFAULT_STUDENT_NUMBER_PREFIX,
+  };
 }
 
 export async function saveSchoolProfile(
@@ -90,8 +137,12 @@ export async function saveSchoolProfile(
      not the profile, so renaming the school in one place and not the other
      would leave staff looking at the old name all day. */
   await getPostgresPool().query(
-    `UPDATE tenants SET name = $2 WHERE id = $1`,
-    [access.tenantId, updated.name],
+    `UPDATE tenants SET name = $2, student_number_prefix = $3 WHERE id = $1`,
+    [
+      access.tenantId,
+      updated.name,
+      normaliseStudentNumberPrefix(edit.studentNumberPrefix ?? ""),
+    ],
   );
 
   await getPostgresPool().query(

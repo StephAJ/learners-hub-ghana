@@ -317,7 +317,13 @@ function LoadedGradebook({
           {tab === "reports" ? (
             <ReportsPanel workspace={workspace} />
           ) : null}
-          {tab === "policy" ? <PolicyPanel workspace={workspace} /> : null}
+          {tab === "policy" ? (
+            <PolicyPanel
+              busy={Boolean(busyAction)}
+              runAction={runAction}
+              workspace={workspace}
+            />
+          ) : null}
         </div>
       </section>
     </>
@@ -600,11 +606,35 @@ function ReportsPanel({
   );
 }
 
+/* ==========================================================================
+   Grading policy, as something a school can change
+
+   Categories, their weights and the columns under them were seed rows.
+   `seedGradeItem()` bound the demo's Integrated Science offering for every
+   column it wrote and was the only thing anywhere that inserted one, so a
+   teacher of any other subject opened this screen, read "40% continuous
+   assessment · 60% examination", and had no control that would change either
+   figure or add a single column to mark against.
+
+   The weights total is the thing to watch: every report card is computed from
+   them, and calculateWeightedGrade() refuses a set that does not sum to 100.
+   Saying so here means the refusal arrives while somebody is editing rather
+   than at the end of term.
+   ========================================================================== */
 function PolicyPanel({
+  busy,
+  runAction,
   workspace,
 }: {
+  busy: boolean;
+  runAction: (body: Record<string, unknown>) => Promise<void>;
   workspace: TeacherGradebookWorkspace;
 }) {
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [addingColumnIn, setAddingColumnIn] = useState("");
+  const total = categoryWeightTotal(workspace.categories);
+  const locked = workspace.period.submissionStatus !== "open";
+
   return (
     <section className="gradebook-panel">
       <div className="gradebook-panel-heading">
@@ -612,29 +642,73 @@ function PolicyPanel({
           <p>Stored policy</p>
           <h2>How grades are calculated</h2>
         </div>
-        <span className="policy-version">
-          Version {workspace.period.policyVersion}
-        </span>
       </div>
+
+      {locked ? (
+        <p className="form-hint">
+          {workspace.period.name} has been submitted, so its categories and
+          columns are fixed. Changing them now would restate marks a head has
+          already seen.
+        </p>
+      ) : null}
+
       <div className="policy-layout">
         <article className="category-policy">
           <h3>Category weights</h3>
           {workspace.categories.map((category) => (
-            <div key={category.id}>
-              <span>
-                <strong>{category.name}</strong>
-                <small>Included grade items are normalised within category</small>
-              </span>
-              <b>{category.weightPercent}%</b>
-            </div>
+            <CategoryRow
+              busy={busy}
+              category={category}
+              key={category.id}
+              locked={locked}
+              offeringId={workspace.offeringId}
+              runAction={runAction}
+            />
           ))}
+          {workspace.categories.length === 0 ? (
+            <p className="form-hint">
+              No categories yet. Add at least one — a column has to sit in one,
+              and a report card is the weighted total of them.
+            </p>
+          ) : null}
+
           {/* Summed, not asserted. This printed 100% whatever the weights
               added up to, so a policy a school had left at 90 still claimed
               to be whole — on the screen a teacher checks it against. */}
-          <footer>
-            <span>Total</span>
-            <strong>{categoryWeightTotal(workspace.categories)}%</strong>
+          <footer className={total !== 100 ? "is-blocking" : undefined}>
+            <span>
+              Total
+              {total !== 100 && workspace.categories.length > 0 ? (
+                <small>
+                  Weights have to total 100% before a report can be produced.
+                </small>
+              ) : null}
+            </span>
+            <strong>{total}%</strong>
           </footer>
+
+          {locked ? null : addingCategory ? (
+            <CategoryForm
+              busy={busy}
+              onCancel={() => setAddingCategory(false)}
+              onSubmit={async (input) => {
+                await runAction({
+                  action: "add-category",
+                  offeringId: workspace.offeringId,
+                  ...input,
+                });
+                setAddingCategory(false);
+              }}
+            />
+          ) : (
+            <button
+              className="ghost-button"
+              onClick={() => setAddingCategory(true)}
+              type="button"
+            >
+              Add a category
+            </button>
+          )}
         </article>
         <article className="scale-policy">
           <h3>Grade scale</h3>
@@ -655,7 +729,276 @@ function PolicyPanel({
           </p>
         </article>
       </div>
+
+      <article className="column-policy">
+        <h3>Columns in this markbook</h3>
+        <p className="form-hint">
+          A column is one thing marked out of something: a class test, a
+          project, the end-of-term paper. Publishing an assessment creates one
+          automatically, and releasing a learner&rsquo;s result fills their
+          cell.
+        </p>
+
+        {workspace.categories.map((category) => {
+          const columns = workspace.items.filter(
+            (item) => item.categoryId === category.id,
+          );
+          return (
+            <div className="column-group" key={category.id}>
+              <h4>
+                {category.name} <small>{category.weightPercent}%</small>
+              </h4>
+              {columns.map((item) => (
+                <div className="column-row" key={item.id}>
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>Out of {item.maximumMarks}</small>
+                  </span>
+                  {locked ? null : (
+                    <button
+                      className="ghost-button"
+                      disabled={busy}
+                      onClick={() =>
+                        void runAction({
+                          action: "remove-column",
+                          itemId: item.id,
+                          offeringId: workspace.offeringId,
+                        })
+                      }
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+              {columns.length === 0 ? (
+                <p className="form-hint">Nothing marked in this category yet.</p>
+              ) : null}
+
+              {locked ? null : addingColumnIn === category.id ? (
+                <ColumnForm
+                  busy={busy}
+                  onCancel={() => setAddingColumnIn("")}
+                  onSubmit={async (input) => {
+                    await runAction({
+                      action: "add-column",
+                      categoryId: category.id,
+                      offeringId: workspace.offeringId,
+                      ...input,
+                    });
+                    setAddingColumnIn("");
+                  }}
+                />
+              ) : (
+                <button
+                  className="ghost-button"
+                  onClick={() => setAddingColumnIn(category.id)}
+                  type="button"
+                >
+                  Add a column
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </article>
     </section>
+  );
+}
+
+/** One weighting, editable in place. */
+function CategoryRow({
+  busy,
+  category,
+  locked,
+  offeringId,
+  runAction,
+}: {
+  busy: boolean;
+  category: TeacherGradebookWorkspace["categories"][number];
+  locked: boolean;
+  offeringId: string;
+  runAction: (body: Record<string, unknown>) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <CategoryForm
+        busy={busy}
+        initial={{
+          kind: "other",
+          name: category.name,
+          weightPercent: category.weightPercent,
+        }}
+        onCancel={() => setEditing(false)}
+        onSubmit={async (input) => {
+          await runAction({
+            action: "edit-category",
+            categoryId: category.id,
+            ...input,
+          });
+          setEditing(false);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <span>
+        <strong>{category.name}</strong>
+        <small>Included grade items are normalised within category</small>
+      </span>
+      <b>{category.weightPercent}%</b>
+      {locked ? null : (
+        <span className="category-actions">
+          <button
+            className="ghost-button"
+            onClick={() => setEditing(true)}
+            type="button"
+          >
+            Edit
+          </button>
+          <button
+            className="ghost-button"
+            disabled={busy}
+            onClick={() =>
+              void runAction({
+                action: "remove-category",
+                categoryId: category.id,
+                offeringId,
+              })
+            }
+            type="button"
+          >
+            Remove
+          </button>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function CategoryForm({
+  busy,
+  initial,
+  onCancel,
+  onSubmit,
+}: {
+  busy: boolean;
+  initial?: { kind: string; name: string; weightPercent: number };
+  onCancel: () => void;
+  onSubmit: (input: {
+    kind: string;
+    name: string;
+    weightPercent: number;
+  }) => Promise<void>;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [kind, setKind] = useState(initial?.kind ?? "continuous-assessment");
+  const [weight, setWeight] = useState(String(initial?.weightPercent ?? ""));
+
+  return (
+    <form
+      className="policy-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void onSubmit({ kind, name, weightPercent: Number(weight) });
+      }}
+    >
+      <label>
+        <span>Name</span>
+        <input
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Continuous assessment"
+          required
+          value={name}
+        />
+      </label>
+      <label>
+        <span>Kind</span>
+        <select onChange={(event) => setKind(event.target.value)} value={kind}>
+          <option value="continuous-assessment">Continuous assessment</option>
+          <option value="examination">Examination</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label>
+        <span>Weight</span>
+        <input
+          max={100}
+          min={0}
+          onChange={(event) => setWeight(event.target.value)}
+          required
+          type="number"
+          value={weight}
+        />
+      </label>
+      <div className="policy-form-actions">
+        <button disabled={busy} type="submit">
+          Save
+        </button>
+        <button className="ghost-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ColumnForm({
+  busy,
+  onCancel,
+  onSubmit,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (input: {
+    maximumMarks: number;
+    title: string;
+  }) => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [maximum, setMaximum] = useState("20");
+
+  return (
+    <form
+      className="policy-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void onSubmit({ maximumMarks: Number(maximum), title });
+      }}
+    >
+      <label>
+        <span>Title</span>
+        <input
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Class test 1"
+          required
+          value={title}
+        />
+      </label>
+      <label>
+        <span>Out of</span>
+        <input
+          min={1}
+          onChange={(event) => setMaximum(event.target.value)}
+          required
+          type="number"
+          value={maximum}
+        />
+      </label>
+      <div className="policy-form-actions">
+        <button disabled={busy} type="submit">
+          Add column
+        </button>
+        <button className="ghost-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -709,6 +1052,16 @@ function actionNotice(action: string) {
   if (action === "save-entry") return "Missing mark recorded.";
   if (action === "submit-gradebook") {
     return "Gradebook submitted. The head approves and releases the reports.";
+  }
+  if (action === "add-category") return "Category added.";
+  if (action === "edit-category") return "Weighting saved.";
+  if (action === "remove-category") return "Category removed.";
+  if (action === "add-column") {
+    return "Column added, with a blank mark for every learner in the class.";
+  }
+  if (action === "edit-column") return "Column saved.";
+  if (action === "remove-column") {
+    return "Column removed from the markbook. The marks in it are kept.";
   }
   return "Gradebook updated.";
 }

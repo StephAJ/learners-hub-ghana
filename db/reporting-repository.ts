@@ -1,4 +1,10 @@
 import { ensurePeopleSeed } from "./people-repository";
+import { loadLearnerPlacement, loadSchoolName } from "./school-identity";
+import { sendReportReleasedMail } from "../server/mail/notification-mail";
+import {
+  ensureGradingPeriod,
+  resolveCurrentPeriod,
+} from "./grading-period-repository";
 import {
   demoReportAverageTenths,
   demoReports,
@@ -46,7 +52,17 @@ import {
 } from "../domain/identity/authorization";
 import type { AccessContext } from "../domain/identity/types";
 
-const TENANT_ID = "tenant-greenfield";
+import { demoSchoolEnabled } from "../server/demo-school";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
+
+/* The one school this deployment serves. Was the literal
+   "tenant-greenfield" — the demo school's own id — written out here and
+   in five other files. */
+const TENANT_ID = SCHOOL_TENANT_ID;
+/* The demo school's own term. Every live query used to bind this, so a real
+   school's markbook read a period that did not exist and a school reaching
+   Term 2 had nowhere to put its marks. It is now the seed's alone — see
+   db/grading-period-repository.ts for what replaced it. */
 export const CURRENT_PERIOD_ID = "period-2026-term1";
 
 export type GradebookCell = {
@@ -174,22 +190,33 @@ export async function listTeacherGradebookWorkspace(
   }
   const offering = selectOffering(offerings, requestedOfferingId)!;
 
-  const [categories, items, scale, period, submission] = await Promise.all([
-    loadCategories(database, access.tenantId, offering.id),
-    loadItems(database, access.tenantId, offering.id),
-    loadScale(database, access.tenantId),
-    loadPeriod(database, access.tenantId),
-    loadSubmission(database, access.tenantId, offering.id),
+  /* Asked of the table rather than bound from a constant. The markbook used to
+     read `period-2026-term1` — a row only the demo seed writes — so a real
+     school's markbook had no categories, no columns and no scale, and there
+     was no second term to move to when the first one ended. */
+  const period = await ensureGradingPeriod(database, access.tenantId);
+
+  const [categories, items, scale, submission] = await Promise.all([
+    loadCategories(database, access.tenantId, period.id, offering.id),
+    loadItems(database, access.tenantId, period.id, offering.id),
+    loadScale(database, access.tenantId, period.id),
+    loadSubmission(database, access.tenantId, period.id, offering.id),
   ]);
   const learners = await loadGradebookLearners(
     database,
     access.tenantId,
+    period.id,
     offering,
     categories,
     items,
     scale,
   );
-  const reports = await loadReportQueue(database, access.tenantId, offering);
+  const reports = await loadReportQueue(
+    database,
+    access.tenantId,
+    period.id,
+    offering,
+  );
 
   return {
     categories,
@@ -199,10 +226,10 @@ export async function listTeacherGradebookWorkspace(
     offeringId: offering.id,
     offerings,
     period: {
-      academicYear: period.academic_year_id,
+      academicYear: period.academicYearId,
       id: period.id,
       name: period.name,
-      policyVersion: period.policy_version,
+      policyVersion: period.policyVersion,
       submissionStatus: submission.status,
     },
     reports,
@@ -340,9 +367,14 @@ export async function submitPersistentGradebook(
     (item) => item.id === workspace.offeringId,
   )!;
   const database = await getSchoolDatabase();
+  /* The same term the markbook was read in, carried rather than re-resolved:
+     a period that closed between the read and the write must not send these
+     marks somewhere else. */
+  const periodId = workspace.period.id;
   const entries = await loadAllEntries(
     database,
     access.tenantId,
+    periodId,
     workspace.offeringId,
   );
   submitGradebook(entries, new Date().toISOString());
@@ -401,7 +433,7 @@ export async function submitPersistentGradebook(
       .bind(
         access.actorPersonId,
         access.tenantId,
-        CURRENT_PERIOD_ID,
+        periodId,
         workspace.offeringId,
       ),
     database
@@ -410,7 +442,7 @@ export async function submitPersistentGradebook(
         SET status = 'submitted', updated_at = CURRENT_TIMESTAMP
         WHERE tenant_id = ? AND period_id = ? AND status = 'draft'`,
       )
-      .bind(access.tenantId, CURRENT_PERIOD_ID),
+      .bind(access.tenantId, periodId),
     database
       .prepare(
         `UPDATE report_card_versions
@@ -421,14 +453,14 @@ export async function submitPersistentGradebook(
           )
           AND version = 0`,
       )
-      .bind(access.tenantId, CURRENT_PERIOD_ID),
+      .bind(access.tenantId, periodId),
     auditStatement(
       database,
       access,
       "gradebook.submitted",
       "subject-offering",
       workspace.offeringId,
-      { periodId: CURRENT_PERIOD_ID },
+      { periodId },
     ),
   ]);
   return listTeacherGradebookWorkspace(access, workspace.offeringId);
@@ -574,6 +606,178 @@ export async function releasePersistentReport(
       { version: released.version },
     ),
   ]);
+
+  /* Releasing a report told nobody. A school that released the term's reports
+     had informed no family, and each of them found out on their next sign-in
+     — which for a parent may be never. Best-effort and never thrown: the
+     release is the record, the mail is only the notice. */
+  await notifyReportReleased(database, access, reportId);
+
+  return listReportApprovalQueue(access);
+}
+
+async function notifyReportReleased(
+  database: SchoolDatabase,
+  access: AccessContext,
+  reportId: string,
+) {
+  const row = await database
+    .prepare(
+      `SELECT
+        report.learner_person_id,
+        person.first_name || ' ' || person.last_name AS learner_name,
+        period.name AS period_name
+      FROM report_cards report
+      INNER JOIN people person ON person.id = report.learner_person_id
+      INNER JOIN grading_periods period ON period.id = report.period_id
+      WHERE report.id = ? AND report.tenant_id = ?
+      LIMIT 1`,
+    )
+    .bind(reportId, access.tenantId)
+    .first<{
+      learner_name: string;
+      learner_person_id: string;
+      period_name: string;
+    }>();
+  if (!row) return;
+
+  await sendReportReleasedMail({
+    learnerName: row.learner_name,
+    learnerPersonId: row.learner_person_id,
+    periodName: row.period_name,
+    tenantId: access.tenantId,
+  });
+}
+
+/* ==========================================================================
+   Correcting a report that has already gone out
+
+   The queue could approve and release, and that was all. A head who spotted a
+   wrong mark on a report a family had already read had no way to fix it
+   through the product — the only route was the database.
+
+   The integrity rules are explicit about how this has to work: "Report
+   correction creates a new version and does not replace the audit history",
+   and "No destructive recalculation of already issued reports". So nothing
+   here rewrites the released version. It copies it forward into a new draft,
+   marks the old one superseded, and sends the report back to the head's queue
+   to be approved and released again as the next version. The family keeps
+   whatever they were issued, and both versions stay readable.
+   ========================================================================== */
+
+export async function correctReleasedReport(
+  access: AccessContext,
+  reportId: string,
+  reason: string,
+): Promise<ReportApprovalQueue> {
+  if (!canPerform(access, "report:approve")) {
+    throw new AuthorizationError(
+      "Only a school or academic administrator corrects a released report.",
+    );
+  }
+  const explanation = reason.trim();
+  if (!explanation) {
+    throw new ReportingPolicyError(
+      "Say what is being corrected. It is kept against the report for good.",
+    );
+  }
+
+  await ensureReportingFoundation();
+  const database = await getSchoolDatabase();
+  const current = await loadReportCard(database, access.tenantId, reportId);
+  if (current.status !== "released") {
+    throw new ReportingPolicyError(
+      "Only a released report is corrected. One still in the queue is edited in the markbook.",
+    );
+  }
+
+  const source = await loadReportVersion(
+    database,
+    access.tenantId,
+    reportId,
+    current.version,
+  );
+  const sourceSubjects = await loadReportSubjects(
+    database,
+    access.tenantId,
+    source.id,
+  );
+  const nextVersion = current.version + 1;
+  const draftVersionId = `${reportId}:v${nextVersion}`;
+
+  await database.batch([
+    /* The issued version is marked superseded rather than changed. It stays
+       exactly as the family read it, which is the whole point. */
+    database
+      .prepare(
+        `UPDATE report_card_versions SET status = 'superseded'
+        WHERE id = ? AND tenant_id = ?`,
+      )
+      .bind(source.id, access.tenantId),
+    database
+      .prepare(
+        `INSERT INTO report_card_versions
+          (id, tenant_id, report_card_id, version, status, overall_average_tenths,
+           attendance_present, attendance_total, conduct, class_teacher_comment,
+           headteacher_comment, promotion_decision, next_term_begins_on,
+           submitted_at, created_by_person_id)
+        VALUES (?, ?, ?, ?, 'submitted', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        draftVersionId,
+        access.tenantId,
+        reportId,
+        nextVersion,
+        source.overall_average_tenths,
+        source.attendance_present,
+        source.attendance_total,
+        source.conduct,
+        source.class_teacher_comment,
+        source.headteacher_comment,
+        source.promotion_decision,
+        source.next_term_begins_on,
+        new Date().toISOString(),
+        access.actorPersonId,
+      ),
+    ...sourceSubjects.map((subject) =>
+      database
+        .prepare(
+          `INSERT INTO report_subject_results
+            (id, tenant_id, report_version_id, offering_id, subject_code,
+             subject_name, score_tenths, grade, remark, teacher_comment, position)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          access.tenantId,
+          draftVersionId,
+          subject.offering_id,
+          subject.subject_code,
+          subject.subject_name,
+          subject.score_tenths,
+          subject.grade,
+          subject.remark,
+          subject.teacher_comment,
+          subject.position,
+        ),
+    ),
+    database
+      .prepare(
+        `UPDATE report_cards
+        SET status = 'submitted', current_version = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND tenant_id = ?`,
+      )
+      .bind(nextVersion, reportId, access.tenantId),
+    auditStatement(
+      database,
+      access,
+      "report.correction_opened",
+      "report-card",
+      reportId,
+      { reason: explanation, supersededVersion: current.version, version: nextVersion },
+    ),
+  ]);
+
   return listReportApprovalQueue(access);
 }
 
@@ -687,6 +891,18 @@ export async function listReportApprovalQueue(
      that hides released reports answers "what is left" but not "what did I
      send home", and the second question is the one asked when a guardian
      telephones. */
+  /* No period means a school that has not started marking, which is an empty
+     queue rather than an error. */
+  const period = await resolveCurrentPeriod(database, access.tenantId);
+  if (!period) {
+    return {
+      awaitingApproval: 0,
+      awaitingRelease: 0,
+      periodName: "",
+      reports: [],
+    };
+  }
+
   const result = await database
     .prepare(
       `SELECT
@@ -717,7 +933,7 @@ export async function listReportApprovalQueue(
         r.class_name,
         learner_name`,
     )
-    .bind(access.tenantId, CURRENT_PERIOD_ID)
+    .bind(access.tenantId, period.id)
     .all<{
       class_name: string;
       current_version: number;
@@ -747,7 +963,7 @@ export async function listReportApprovalQueue(
       .length,
     awaitingRelease: reports.filter((item) => item.status === "approved")
       .length,
-    periodName: (await loadPeriod(database, access.tenantId)).name,
+    periodName: period.name,
     reports,
   };
 }
@@ -765,13 +981,16 @@ export async function countReportsAwaitingApproval(
   if (!canPerform(access, "report:approve")) return 0;
   await ensureReportingFoundation();
   const database = await getSchoolDatabase();
+  const period = await resolveCurrentPeriod(database, access.tenantId);
+  if (!period) return 0;
+
   const row = await database
     .prepare(
       `SELECT COUNT(*) AS waiting
       FROM report_cards
       WHERE tenant_id = ? AND period_id = ? AND status IN ('submitted', 'approved')`,
     )
-    .bind(access.tenantId, CURRENT_PERIOD_ID)
+    .bind(access.tenantId, period.id)
     .first<{ waiting: number }>();
   return Number(row?.waiting ?? 0);
 }
@@ -817,10 +1036,17 @@ export async function getGuardianReportWorkspace(
     .bind(learnerId, access.tenantId)
     .first<{ id: string; name: string; student_number: string | null }>();
   if (!child) throw new ReportingPolicyError("Learner was not found.");
-  const reports = await loadReleasedReports(database, access, learnerId);
+  /* Both of these were literals — "JHS 2 Gold" and "Greenfield Academy" — so
+     the header of every guardian's report card named a class their child is
+     not in, at a school they do not attend. */
+  const [placement, schoolName, reports] = await Promise.all([
+    loadLearnerPlacement(database, access.tenantId, learnerId),
+    loadSchoolName(database, access.tenantId),
+    loadReleasedReports(database, access, learnerId),
+  ]);
   return {
     child: {
-      className: "JHS 2 Gold",
+      className: placement?.name ?? "",
       id: child.id,
       name: child.name,
       studentId: child.student_number ?? "",
@@ -828,7 +1054,7 @@ export async function getGuardianReportWorkspace(
     linkedChildren:
       linkedChildren.length > 0 ? linkedChildren : [{ id: child.id, name: child.name }],
     reports,
-    schoolName: "Greenfield Academy",
+    schoolName,
   };
 }
 
@@ -838,6 +1064,10 @@ export async function ensureReportingFoundation() {
      they showed up in the markbook and in no directory. */
   await ensurePeopleSeed();
   await ensureAssessmentFoundation();
+  /* Marks, and a released report card for a child who does not attend, are
+     the least defensible thing to write into a real school. */
+  if (!demoSchoolEnabled()) return;
+
   const database = await getSchoolDatabase();
   /* Categories, grade items and report lines all carry offering_id, so this
      seed reaches only the subjects the learning seed created — see
@@ -1218,6 +1448,7 @@ function seedGrade(score: number) {
 async function loadCategories(
   database: SchoolDatabase,
   tenantId: string,
+  periodId: string,
   offeringId: string,
 ) {
   const result = await database
@@ -1227,7 +1458,7 @@ async function loadCategories(
       WHERE tenant_id = ? AND period_id = ? AND offering_id = ?
       ORDER BY position`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID, offeringId)
+    .bind(tenantId, periodId, offeringId)
     .all<{ id: string; name: string; weight_percent: number }>();
   return result.results.map((row) => ({
     id: row.id,
@@ -1239,6 +1470,7 @@ async function loadCategories(
 async function loadItems(
   database: SchoolDatabase,
   tenantId: string,
+  periodId: string,
   offeringId: string,
 ) {
   const result = await database
@@ -1250,7 +1482,7 @@ async function loadItems(
         AND i.status != 'excluded'
       ORDER BY i.position`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID, offeringId)
+    .bind(tenantId, periodId, offeringId)
     .all<{
       category_id: string;
       category_name: string;
@@ -1267,7 +1499,11 @@ async function loadItems(
   }));
 }
 
-async function loadScale(database: SchoolDatabase, tenantId: string) {
+async function loadScale(
+  database: SchoolDatabase,
+  tenantId: string,
+  periodId: string,
+) {
   const result = await database
     .prepare(
       `SELECT grade, remark, minimum_tenths, maximum_tenths
@@ -1275,7 +1511,7 @@ async function loadScale(database: SchoolDatabase, tenantId: string) {
       WHERE tenant_id = ? AND period_id = ?
       ORDER BY position`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID)
+    .bind(tenantId, periodId)
     .all<{
       grade: string;
       maximum_tenths: number;
@@ -1290,28 +1526,10 @@ async function loadScale(database: SchoolDatabase, tenantId: string) {
   }));
 }
 
-async function loadPeriod(database: SchoolDatabase, tenantId: string) {
-  const period = await database
-    .prepare(
-      `SELECT id, academic_year_id, name, policy_version
-      FROM grading_periods
-      WHERE id = ? AND tenant_id = ?
-      LIMIT 1`,
-    )
-    .bind(CURRENT_PERIOD_ID, tenantId)
-    .first<{
-      academic_year_id: string;
-      id: string;
-      name: string;
-      policy_version: number;
-    }>();
-  if (!period) throw new ReportingPolicyError("Grading period was not found.");
-  return period;
-}
-
 async function loadSubmission(
   database: SchoolDatabase,
   tenantId: string,
+  periodId: string,
   offeringId: string,
 ) {
   const submission = await database
@@ -1321,7 +1539,7 @@ async function loadSubmission(
       WHERE tenant_id = ? AND period_id = ? AND offering_id = ?
       LIMIT 1`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID, offeringId)
+    .bind(tenantId, periodId, offeringId)
     .first<{
       status: TeacherGradebookWorkspace["period"]["submissionStatus"];
     }>();
@@ -1334,6 +1552,7 @@ async function loadSubmission(
 async function loadGradebookLearners(
   database: SchoolDatabase,
   tenantId: string,
+  periodId: string,
   offering: TeacherGradebookOffering,
   categories: GradeCategory[],
   items: Array<GradeItem & { categoryName: string }>,
@@ -1381,7 +1600,7 @@ async function loadGradebookLearners(
           AND i.period_id = ? AND i.offering_id = ?
         ORDER BY i.position`,
       )
-      .bind(tenantId, learner.id, CURRENT_PERIOD_ID, offering.id)
+      .bind(tenantId, learner.id, periodId, offering.id)
       .all<{
         adjusted_marks: number | null;
         id: string;
@@ -1409,8 +1628,14 @@ async function loadGradebookLearners(
     const missingCount = domainEntries.filter(
       (entry) => entry.status === "missing",
     ).length;
+    /* A markbook nobody has set up yet has no categories, and weights that
+       total nought are not a hundred — so calculateWeightedGrade() threw and
+       the screen would not open at all. A school on its first morning has no
+       total, which is a thing to show rather than an error to raise. The
+       refusal still stands where it matters: submitting a markbook whose
+       weights do not add up. */
     const totalPercent =
-      missingCount > 0
+      missingCount > 0 || categories.length === 0
         ? null
         : calculateWeightedGrade(categories, items, domainEntries).totalPercent;
     const grade =
@@ -1434,6 +1659,7 @@ async function loadGradebookLearners(
 async function loadAllEntries(
   database: SchoolDatabase,
   tenantId: string,
+  periodId: string,
   offeringId: string,
 ) {
   const result = await database
@@ -1449,7 +1675,7 @@ async function loadAllEntries(
       INNER JOIN grade_items i ON i.id = e.item_id
       WHERE e.tenant_id = ? AND i.period_id = ? AND i.offering_id = ?`,
     )
-    .bind(tenantId, CURRENT_PERIOD_ID, offeringId)
+    .bind(tenantId, periodId, offeringId)
     .all<{
       adjusted_marks: number | null;
       id: string;
@@ -1475,6 +1701,7 @@ async function loadAllEntries(
 async function loadReportQueue(
   database: SchoolDatabase,
   tenantId: string,
+  periodId: string,
   offering: TeacherGradebookOffering,
 ) {
   const result = await database
@@ -1497,12 +1724,7 @@ async function loadReportQueue(
       WHERE r.tenant_id = ? AND r.period_id = ?
       ORDER BY p.first_name, p.last_name`,
     )
-    .bind(
-      offering.classGroupId,
-      offering.className,
-      tenantId,
-      CURRENT_PERIOD_ID,
-    )
+    .bind(offering.classGroupId, offering.className, tenantId, periodId)
     .all<{
       current_version: number;
       id: string;
@@ -1600,6 +1822,7 @@ async function resolveAccessibleChildren(
         FROM guardian_relationships g
         INNER JOIN people p ON p.id = g.learner_person_id
         WHERE g.tenant_id = ? AND g.guardian_person_id = ?
+          AND g.status = 'active'
         ORDER BY p.first_name, p.last_name`,
       )
       .bind(access.tenantId, access.actorPersonId)

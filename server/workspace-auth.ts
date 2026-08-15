@@ -7,6 +7,7 @@ import {
 } from "../db/people-repository";
 import type { SchoolRole } from "../domain/identity/types";
 import { REQUEST_PATH_HEADER, resolveRequestPath } from "./request-path";
+import { twoFactorStanding } from "./two-factor-policy";
 
 export type WorkspaceKind =
   | "admin"
@@ -39,7 +40,7 @@ const roleWorkspace: Record<SchoolRole, string> = {
 export async function requireWorkspaceUser(
   workspace: WorkspaceKind,
   fallbackReturnTo: string,
-): Promise<AuthenticatedSchoolUser> {
+): Promise<AuthenticatedSchoolUser & { twoFactorAsked: boolean }> {
   const identity = await requireAuthenticatedUser(
     await requestedPath(fallbackReturnTo),
   );
@@ -52,7 +53,19 @@ export async function requireWorkspaceUser(
     redirect(workspaceHrefForRole(schoolUser.primaryRole));
   }
 
-  return schoolUser;
+  /* The school's own requirement, applied where the roles are known. Off
+     unless TWO_FACTOR_ENFORCED is set, because enforcing it on a deployment
+     whose administrators have not enrolled locks a school out of itself and
+     there is no support desk behind this product. */
+  const standing = twoFactorStanding({
+    enabled: identity.twoFactorEnabled,
+    role: schoolUser.access.role,
+  });
+  if (standing.state === "required") {
+    redirect("/account/security");
+  }
+
+  return { ...schoolUser, twoFactorAsked: standing.state === "asked" };
 }
 
 /**

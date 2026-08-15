@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import type { SchoolProfileEdit } from "../../../domain/school/public-profile";
+import type {
+  HeroSlide,
+  NewsItem,
+  Programme,
+  SchoolFact,
+  SchoolProfileEdit,
+  Testimonial,
+} from "../../../domain/school/public-profile";
 import "../academic/academic.css";
 import "./school-profile.css";
 
@@ -15,11 +22,16 @@ import "./school-profile.css";
    applicant account and the admissions emails. A school could not correct its
    own telephone number without a developer and a redeploy.
 
-   Deliberately not everything the public site shows. Hero photographs,
-   programmes, news and testimonials are still carried in the profile document
-   and still rendered — they just need an editor of their own, with image
-   upload, which is a bigger screen than this one. What is here is the part a
-   school gets wrong soonest: who they are and how to reach them.
+   It now reaches every word the public site says. It used to cover ten
+   fields — name, address, telephone and the like — and carry the rest of the
+   document through untouched, so a school that filled this in still published
+   Greenfield's story about a mural, its BECE results, its three programmes and
+   two testimonials from people who do not work there.
+
+   Photographs are the one thing still carried through rather than edited.
+   Choosing one is a media-library job rather than a text field, and a school
+   part-way through replacing them is better served by the stock images than by
+   empty frames.
    ========================================================================== */
 
 /* Four is what the design allows for and what a Ghanaian postal address
@@ -27,15 +39,28 @@ import "./school-profile.css";
 const ADDRESS_LINES = 4;
 
 const BLANK: SchoolProfileEdit = {
+  aboutBody: "",
+  aboutFacts: [],
+  aboutHeading: "",
+  aboutLead: "",
+  academicsHeading: "",
+  academicsLead: "",
   admissionsNote: "",
   contactAddress: [],
   contactEmail: "",
   established: new Date().getUTCFullYear(),
+  heroSlides: [],
   location: "",
   name: "",
+  news: [],
   officeHours: "",
+  programmes: [],
   strapline: "",
+  studentLifeHeading: "",
+  studentLifeHighlights: [],
+  studentNumberPrefix: "",
   telephone: "",
+  testimonials: [],
 };
 
 async function fetchProfile(): Promise<SchoolProfileEdit | null> {
@@ -84,6 +109,42 @@ export function SchoolProfileView() {
     value: SchoolProfileEdit[Field],
   ) {
     setProfile((current) => ({ ...current, [field]: value }));
+    setNotice("");
+  }
+
+  /* One updater for every repeated section, so adding a programme and adding a
+     news item are not two nearly-identical pieces of state juggling. */
+  function setRow<Field extends keyof SchoolProfileEdit>(
+    field: Field,
+    index: number,
+    row: SchoolProfileEdit[Field] extends Array<infer Item> ? Item : never,
+  ) {
+    setProfile((current) => {
+      const rows = [...(current[field] as unknown as unknown[])];
+      rows[index] = row;
+      return { ...current, [field]: rows };
+    });
+    setNotice("");
+  }
+
+  function addRow<Field extends keyof SchoolProfileEdit>(
+    field: Field,
+    row: SchoolProfileEdit[Field] extends Array<infer Item> ? Item : never,
+  ) {
+    setProfile((current) => ({
+      ...current,
+      [field]: [...(current[field] as unknown as unknown[]), row],
+    }));
+    setNotice("");
+  }
+
+  function removeRow(field: keyof SchoolProfileEdit, index: number) {
+    setProfile((current) => ({
+      ...current,
+      [field]: (current[field] as unknown as unknown[]).filter(
+        (_, position) => position !== index,
+      ),
+    }));
     setNotice("");
   }
 
@@ -221,6 +282,27 @@ export function SchoolProfileView() {
             />
             <small>The line under the crest, in the school’s own words.</small>
           </label>
+
+          {/* Everything else on this screen is published on the public site.
+              This is not — it is the school's own filing, and it is here
+              because this is where a school edits itself. */}
+          <label className="wide-field">
+            <span>Student number prefix</span>
+            <input
+              maxLength={6}
+              onChange={(event) =>
+                set("studentNumberPrefix", event.target.value)
+              }
+              placeholder="GA"
+              value={profile.studentNumberPrefix}
+            />
+            <small>
+              Goes in front of each learner&rsquo;s number:{" "}
+              {previewStudentNumber(profile.studentNumberPrefix)}. Letters and
+              digits only. Changing it renames nobody — learners already
+              enrolled keep the number the school gave them.
+            </small>
+          </label>
         </section>
 
         <section className="admin-panel school-section">
@@ -295,6 +377,524 @@ export function SchoolProfileView() {
           </label>
         </section>
 
+        <section className="admin-panel school-section">
+          <div className="admin-panel-heading">
+            <div>
+              <p className="eyebrow">Public page</p>
+              <h2>Who we are</h2>
+            </div>
+          </div>
+          <label className="wide-field">
+            <span>Heading</span>
+            <input
+              onChange={(event) => set("aboutHeading", event.target.value)}
+              required
+              value={profile.aboutHeading}
+            />
+          </label>
+          <label className="wide-field">
+            <span>Opening paragraph</span>
+            <textarea
+              onChange={(event) => set("aboutLead", event.target.value)}
+              rows={4}
+              value={profile.aboutLead}
+            />
+          </label>
+          <label className="wide-field">
+            <span>Second paragraph</span>
+            <textarea
+              onChange={(event) => set("aboutBody", event.target.value)}
+              rows={3}
+              value={profile.aboutBody}
+            />
+          </label>
+
+          <fieldset className="profile-rows">
+            <legend>Figures beside the photograph</legend>
+            {profile.aboutFacts.map((fact, index) => (
+              <div className="profile-row profile-row-pair" key={fact.id || index}>
+                <label>
+                  <span>Label</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("aboutFacts", index, {
+                        ...fact,
+                        label: event.target.value,
+                      })
+                    }
+                    placeholder="Learners"
+                    value={fact.label}
+                  />
+                </label>
+                <label>
+                  <span>Figure</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("aboutFacts", index, {
+                        ...fact,
+                        value: event.target.value,
+                      })
+                    }
+                    placeholder="640"
+                    value={fact.value}
+                  />
+                </label>
+                <button
+                  className="ghost-button"
+                  onClick={() => removeRow("aboutFacts", index)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              className="ghost-button"
+              onClick={() =>
+                addRow("aboutFacts", {
+                  id: `fact-${Date.now()}`,
+                  label: "",
+                  value: "",
+                } satisfies SchoolFact)
+              }
+              type="button"
+            >
+              Add a figure
+            </button>
+            <small>
+              A figure with no label is left out. Nothing here is checked
+              against the register — these are the school&rsquo;s own claims.
+            </small>
+          </fieldset>
+        </section>
+
+        <section className="admin-panel school-section">
+          <div className="admin-panel-heading">
+            <div>
+              <p className="eyebrow">Public page</p>
+              <h2>Academics</h2>
+            </div>
+          </div>
+          <label className="wide-field">
+            <span>Heading</span>
+            <input
+              onChange={(event) => set("academicsHeading", event.target.value)}
+              required
+              value={profile.academicsHeading}
+            />
+          </label>
+          <label className="wide-field">
+            <span>Introduction</span>
+            <textarea
+              onChange={(event) => set("academicsLead", event.target.value)}
+              rows={3}
+              value={profile.academicsLead}
+            />
+          </label>
+
+          <fieldset className="profile-rows">
+            <legend>Stages</legend>
+            {profile.programmes.map((programme, index) => (
+              <div className="profile-row" key={programme.id || index}>
+                <div className="inline-form-fields">
+                  <label>
+                    <span>Name</span>
+                    <input
+                      onChange={(event) =>
+                        setRow("programmes", index, {
+                          ...programme,
+                          name: event.target.value,
+                        })
+                      }
+                      placeholder="Junior High"
+                      value={programme.name}
+                    />
+                  </label>
+                  <label>
+                    <span>Years</span>
+                    <input
+                      onChange={(event) =>
+                        setRow("programmes", index, {
+                          ...programme,
+                          years: event.target.value,
+                        })
+                      }
+                      placeholder="JHS 1 – 3"
+                      value={programme.years}
+                    />
+                  </label>
+                  <label>
+                    <span>Ages</span>
+                    <input
+                      onChange={(event) =>
+                        setRow("programmes", index, {
+                          ...programme,
+                          ages: event.target.value,
+                        })
+                      }
+                      placeholder="Ages 12 – 15"
+                      value={programme.ages}
+                    />
+                  </label>
+                </div>
+                <label className="wide-field">
+                  <span>Summary</span>
+                  <textarea
+                    onChange={(event) =>
+                      setRow("programmes", index, {
+                        ...programme,
+                        summary: event.target.value,
+                      })
+                    }
+                    rows={2}
+                    value={programme.summary}
+                  />
+                </label>
+                <label className="wide-field">
+                  <span>Points</span>
+                  <textarea
+                    onChange={(event) =>
+                      setRow("programmes", index, {
+                        ...programme,
+                        points: event.target.value.split("\n"),
+                      })
+                    }
+                    rows={3}
+                    value={programme.points.join("\n")}
+                  />
+                  <small>One per line.</small>
+                </label>
+                <button
+                  className="ghost-button"
+                  onClick={() => removeRow("programmes", index)}
+                  type="button"
+                >
+                  Remove this stage
+                </button>
+              </div>
+            ))}
+            <button
+              className="ghost-button"
+              onClick={() =>
+                addRow("programmes", {
+                  ages: "",
+                  id: `programme-${Date.now()}`,
+                  name: "",
+                  points: [],
+                  summary: "",
+                  years: "",
+                } satisfies Programme)
+              }
+              type="button"
+            >
+              Add a stage
+            </button>
+          </fieldset>
+        </section>
+
+        <section className="admin-panel school-section">
+          <div className="admin-panel-heading">
+            <div>
+              <p className="eyebrow">Public page</p>
+              <h2>Student life</h2>
+            </div>
+          </div>
+          <label className="wide-field">
+            <span>Heading</span>
+            <input
+              onChange={(event) => set("studentLifeHeading", event.target.value)}
+              required
+              value={profile.studentLifeHeading}
+            />
+          </label>
+          <label className="wide-field">
+            <span>On the timetable</span>
+            <textarea
+              onChange={(event) =>
+                set("studentLifeHighlights", event.target.value.split("\n"))
+              }
+              rows={5}
+              value={profile.studentLifeHighlights.join("\n")}
+            />
+            <small>
+              One per line. Leave it empty and the panel is not shown.
+            </small>
+          </label>
+        </section>
+
+        <section className="admin-panel school-section">
+          <div className="admin-panel-heading">
+            <div>
+              <p className="eyebrow">Public page</p>
+              <h2>Hero slides</h2>
+            </div>
+          </div>
+          {profile.heroSlides.map((slide, index) => (
+            <div className="profile-row" key={slide.id || index}>
+              <div className="inline-form-fields">
+                <label>
+                  <span>Eyebrow</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("heroSlides", index, {
+                        ...slide,
+                        eyebrow: event.target.value,
+                      })
+                    }
+                    placeholder="Academics"
+                    value={slide.eyebrow}
+                  />
+                </label>
+                <label>
+                  <span>Figure</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("heroSlides", index, {
+                        ...slide,
+                        stat: { ...slide.stat, value: event.target.value },
+                      })
+                    }
+                    placeholder="18"
+                    value={slide.stat.value}
+                  />
+                </label>
+                <label>
+                  <span>What it counts</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("heroSlides", index, {
+                        ...slide,
+                        stat: { ...slide.stat, label: event.target.value },
+                      })
+                    }
+                    placeholder="Average class size"
+                    value={slide.stat.label}
+                  />
+                </label>
+              </div>
+              <label className="wide-field">
+                <span>Headline</span>
+                <input
+                  onChange={(event) =>
+                    setRow("heroSlides", index, {
+                      ...slide,
+                      headline: event.target.value,
+                    })
+                  }
+                  value={slide.headline}
+                />
+              </label>
+              <label className="wide-field">
+                <span>Body</span>
+                <textarea
+                  onChange={(event) =>
+                    setRow("heroSlides", index, {
+                      ...slide,
+                      body: event.target.value,
+                    })
+                  }
+                  rows={3}
+                  value={slide.body}
+                />
+              </label>
+              <button
+                className="ghost-button"
+                onClick={() => removeRow("heroSlides", index)}
+                type="button"
+              >
+                Remove this slide
+              </button>
+            </div>
+          ))}
+          <button
+            className="ghost-button"
+            onClick={() =>
+              addRow("heroSlides", {
+                body: "",
+                eyebrow: "",
+                headline: "",
+                id: `hero-${Date.now()}`,
+                image: { alt: "", src: "" },
+                stat: { label: "", value: "" },
+              } satisfies HeroSlide)
+            }
+            type="button"
+          >
+            Add a slide
+          </button>
+          <small className="form-hint">
+            A slide keeps the photograph already behind it. A slide with no
+            headline is left out.
+          </small>
+        </section>
+
+        <section className="admin-panel school-section">
+          <div className="admin-panel-heading">
+            <div>
+              <p className="eyebrow">Public page</p>
+              <h2>News and events</h2>
+            </div>
+          </div>
+          {profile.news.map((item, index) => (
+            <div className="profile-row" key={item.id || index}>
+              <div className="inline-form-fields">
+                <label>
+                  <span>Title</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("news", index, {
+                        ...item,
+                        title: event.target.value,
+                      })
+                    }
+                    value={item.title}
+                  />
+                </label>
+                <label>
+                  <span>Category</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("news", index, {
+                        ...item,
+                        category: event.target.value,
+                      })
+                    }
+                    placeholder="Admissions"
+                    value={item.category}
+                  />
+                </label>
+                <label>
+                  <span>Date</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("news", index, {
+                        ...item,
+                        date: event.target.value,
+                      })
+                    }
+                    type="date"
+                    value={item.date}
+                  />
+                </label>
+              </div>
+              <label className="wide-field">
+                <span>Summary</span>
+                <textarea
+                  onChange={(event) =>
+                    setRow("news", index, {
+                      ...item,
+                      summary: event.target.value,
+                    })
+                  }
+                  rows={2}
+                  value={item.summary}
+                />
+              </label>
+              <button
+                className="ghost-button"
+                onClick={() => removeRow("news", index)}
+                type="button"
+              >
+                Remove this item
+              </button>
+            </div>
+          ))}
+          <button
+            className="ghost-button"
+            onClick={() =>
+              addRow("news", {
+                category: "",
+                date: new Date().toISOString().slice(0, 10),
+                href: "/admissions",
+                id: `news-${Date.now()}`,
+                summary: "",
+                title: "",
+              } satisfies NewsItem)
+            }
+            type="button"
+          >
+            Add a news item
+          </button>
+        </section>
+
+        <section className="admin-panel school-section">
+          <div className="admin-panel-heading">
+            <div>
+              <p className="eyebrow">Public page</p>
+              <h2>What people say</h2>
+            </div>
+          </div>
+          {profile.testimonials.map((testimonial, index) => (
+            <div className="profile-row" key={testimonial.id || index}>
+              <label className="wide-field">
+                <span>Quote</span>
+                <textarea
+                  onChange={(event) =>
+                    setRow("testimonials", index, {
+                      ...testimonial,
+                      quote: event.target.value,
+                    })
+                  }
+                  rows={3}
+                  value={testimonial.quote}
+                />
+              </label>
+              <div className="inline-form-fields">
+                <label>
+                  <span>Name</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("testimonials", index, {
+                        ...testimonial,
+                        name: event.target.value,
+                      })
+                    }
+                    value={testimonial.name}
+                  />
+                </label>
+                <label>
+                  <span>Who they are</span>
+                  <input
+                    onChange={(event) =>
+                      setRow("testimonials", index, {
+                        ...testimonial,
+                        role: event.target.value,
+                      })
+                    }
+                    placeholder="Parent, Primary 4"
+                    value={testimonial.role}
+                  />
+                </label>
+                <button
+                  className="ghost-button"
+                  onClick={() => removeRow("testimonials", index)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            className="ghost-button"
+            onClick={() =>
+              addRow("testimonials", {
+                id: `testimonial-${Date.now()}`,
+                name: "",
+                quote: "",
+                role: "",
+              } satisfies Testimonial)
+            }
+            type="button"
+          >
+            Add a quote
+          </button>
+          <small className="form-hint">
+            Real people, with their permission. The first one is shown on the
+            student life panel.
+          </small>
+        </section>
+
         <div className="form-actions school-actions">
           <button disabled={busy} type="submit">
             {busy ? "Saving…" : "Save school details"}
@@ -303,4 +903,13 @@ export function SchoolProfileView() {
       </form>
     </div>
   );
+}
+
+/* What the school will see on the next learner it admits. Rendered from the
+   same shape allocateStudentNumber() builds, so the example cannot drift from
+   what is actually issued. */
+function previewStudentNumber(prefix: string): string {
+  const cleaned = prefix.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 6);
+  const year = String(new Date().getFullYear()).slice(-2);
+  return `${cleaned || "LH"}-${year}0001`;
 }

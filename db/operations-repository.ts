@@ -16,6 +16,12 @@ import {
   submitAttendanceRegister,
   summarizeAttendance,
 } from "../domain/operations/daily-operations";
+import {
+  isSchoolDay,
+  recentSchoolDays,
+  schoolDate,
+  schoolWeekday,
+} from "../domain/operations/school-calendar";
 import type {
   AttendanceCode,
   AttendanceRecord,
@@ -26,6 +32,7 @@ import type {
   TimetableEntryStatus,
 } from "../domain/operations/types";
 import { validateUpload } from "../domain/content/content-policy";
+import { scanUpload } from "../server/content-scan";
 import type { MediaKind } from "../domain/content/types";
 import { ensureReportingFoundation } from "./reporting-repository";
 import { getMediaStore, getSchoolDatabase } from "./index";
@@ -40,6 +47,8 @@ import {
   type TeachingOffering,
 } from "./teaching-offerings";
 import { ensurePeopleSeed } from "./people-repository";
+import { loadLearnerPlacement } from "./school-identity";
+import { sendAbsenceNoticeMail } from "../server/mail/notification-mail";
 import {
   demoLearners,
   demoPeriods,
@@ -50,11 +59,15 @@ import {
    video. Each file is still bounded by the shared 25 MB upload limit. */
 const MAX_SUBMISSION_ATTACHMENTS = 6;
 
-const TENANT_ID = "tenant-greenfield";
+import { demoSchoolEnabled } from "../server/demo-school";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
+
+/* The one school this deployment serves. Was the literal
+   "tenant-greenfield" — the demo school's own id — written out here and
+   in five other files. */
+const TENANT_ID = SCHOOL_TENANT_ID;
 const CLASS_GROUP_ID = "class-jhs2-gold";
 const CLASS_NAME = "JHS 2 Gold";
-const CURRENT_DATE = "2026-07-24";
-const CURRENT_WEEKDAY = 5;
 
 export type RubricCriterionView = RubricCriterion & {
   description: string;
@@ -304,7 +317,7 @@ export async function getTeacherOperationsWorkspace(
     assignments,
     attendance,
     className: scope.className,
-    currentDate: CURRENT_DATE,
+    currentDate: schoolDate(),
     markingQueue: await loadMarkingQueue(
       database,
       access.tenantId,
@@ -606,7 +619,7 @@ export async function submitPersistentAttendance(
         WHERE id = ? AND tenant_id = ? AND status = 'draft'`,
       )
       .bind(attendance.sessionId, access.tenantId),
-    ...alerts,
+    ...alerts.alertStatements,
     auditStatement(
       database,
       access,
@@ -616,6 +629,14 @@ export async function submitPersistentAttendance(
       summarizeAttendance(attendance.rows),
     ),
   ]);
+
+  /* After the register is committed, and never allowed to fail it. A teacher
+     whose morning register would not save because an SMTP server was slow is
+     a teacher who stops taking the register in the product. */
+  for (const notice of alerts.notices) {
+    await sendAbsenceNoticeMail(notice);
+  }
+
   return getTeacherOperationsWorkspace(access);
 }
 
@@ -981,6 +1002,11 @@ export async function attachLearnerSubmissionFile(
     kind,
     sizeBytes: input.file.size,
   });
+  /* Read once, checked, then written from the same bytes. Handed-in work is
+     the upload path a school has least control over — it is whatever a learner
+     had on their phone. */
+  const bytes = new Uint8Array(await input.file.arrayBuffer());
+  await scanUpload({ bytes, extension: validated.extension, kind });
 
   const assetId = crypto.randomUUID();
   const objectKey = [
@@ -989,7 +1015,9 @@ export async function attachLearnerSubmissionFile(
     `${assetId}.${validated.extension}`,
   ].join("/");
   const bucket = await getMediaStore();
-  await bucket.put(objectKey, input.file.stream(), {
+  /* The bytes already read for the scan, rather than a second pass over
+     the same 25 MB. */
+  await bucket.put(objectKey, bytes, {
     customMetadata: {
       assetId,
       offeringId: submission.offering_id,
@@ -1266,6 +1294,9 @@ export async function getGuardianSchoolDay(
 export async function ensureOperationsFoundation() {
   await ensurePeopleSeed();
   await ensureReportingFoundation();
+  /* A school's timetable, its registers and its homework are its own. */
+  if (!demoSchoolEnabled()) return;
+
   const database = await getSchoolDatabase();
   /* A timetable entry names its offering, and the homework below is Integrated
      Science's, so both reach only what the learning seed created — see
@@ -1485,32 +1516,49 @@ function seedTimetableEntries(
 
 function seedAttendance(database: SchoolDatabase) {
   const statements: SchoolStatement[] = [];
+  /* The last four school days, ending today. These were four fixed dates in
+     July 2026, so a demo opened in any other week showed a register nobody
+     could take and three days of history that had already passed.
+
+     The run skips weekends, so a Monday reaches back to the previous
+     Wednesday. Today's register is a draft — it is the one waiting to be
+     taken — and the days before it are submitted.
+
+     Every statement is INSERT OR IGNORE, so a register a teacher has already
+     submitted is never reset by the next boot. A day that came and went
+     without anybody taking it stays a draft, which is what happened. */
+  /* Three completed days, plus today's if the school is open. Asking for a
+     fourth day only when there is a today to spend it on: on a Saturday the
+     run still has to end on the Friday just gone, and dropping that entry
+     instead would lose a real school day's register. */
+  const openToday = isSchoolDay();
+  const days = recentSchoolDays(openToday ? 4 : 3);
+  const today = openToday ? days.pop() : undefined;
+  const marks = [
+    ["present", "present", "late"],
+    ["present", "absent", "present"],
+    ["present", "present", "present"],
+  ];
+
   const sessions = [
-    {
-      date: "2026-07-21",
-      id: "attendance-2026-07-21",
-      records: ["present", "present", "late"],
+    ...days.map((date, index) => ({
+      date,
+      records: marks[index % marks.length],
       status: "submitted",
-    },
-    {
-      date: "2026-07-22",
-      id: "attendance-2026-07-22",
-      records: ["present", "absent", "present"],
-      status: "submitted",
-    },
-    {
-      date: "2026-07-23",
-      id: "attendance-2026-07-23",
-      records: ["present", "present", "present"],
-      status: "submitted",
-    },
-    {
-      date: CURRENT_DATE,
-      id: "attendance-2026-07-24",
-      records: ["present", "present", "late"],
-      status: "draft",
-    },
-  ] as const;
+    })),
+    /* Today's is the one waiting to be taken. Never seeded on a day the
+       school is shut, which would ask a teacher to mark a day that did not
+       happen. */
+    ...(today
+      ? [
+          {
+            date: today,
+            records: ["present", "present", "late"],
+            status: "draft",
+          },
+        ]
+      : []),
+  ].map((session) => ({ ...session, id: `attendance-${session.date}` }));
   const learnerIds = demoLearners.map((learner) => learner.id);
   sessions.forEach((session) => {
     statements.push(
@@ -1551,20 +1599,25 @@ function seedAttendance(database: SchoolDatabase) {
       );
     });
   });
+  /* The alert that follows the absence seeded above, on whichever day that
+     now falls. Its id moves with the date so a new week's alert is a new row
+     rather than one that silently kept July's wording. */
+  const absenceDate = days[1];
   statements.push(
     database
       .prepare(
         `INSERT OR IGNORE INTO guardian_alerts
           (id, tenant_id, guardian_person_id, learner_person_id, source_type,
            source_id, kind, title, message, status, issued_at)
-        VALUES ('alert-kwame-absence-2026-07-22', ?, 'person-efua',
-          'person-kwame', 'attendance', 'attendance-2026-07-22:person-kwame',
-          'absence', 'Kwame was marked absent', ?,
-          'issued', '2026-07-22T08:22:00Z')`,
+        VALUES (?, ?, 'person-efua', 'person-kwame', 'attendance', ?,
+          'absence', 'Kwame was marked absent', ?, 'issued', ?)`,
       )
       .bind(
+        `alert-kwame-absence-${absenceDate}`,
         TENANT_ID,
-        "Kwame was marked absent from JHS 2 Gold on 22 July. Please contact the school if this record needs clarification.",
+        `attendance-${absenceDate}:person-kwame`,
+        `Kwame was marked absent from ${CLASS_NAME} on ${absenceDate}. Please contact the school if this record needs clarification.`,
+        `${absenceDate}T08:22:00Z`,
       ),
   );
   return statements;
@@ -1720,7 +1773,7 @@ async function loadAttendanceWorkspace(
         AND mode = 'daily'
       LIMIT 1`,
     )
-    .bind(tenantId, classGroupId, CURRENT_DATE)
+    .bind(tenantId, classGroupId, schoolDate())
     .first<{
       id: string;
       session_date: string;
@@ -1731,7 +1784,7 @@ async function loadAttendanceWorkspace(
      class's daily workspace unopenable. */
   if (!session) {
     return {
-      date: CURRENT_DATE,
+      date: schoolDate(),
       rows: [],
       sessionId: "",
       status: "draft" as AttendanceSessionStatus,
@@ -1859,24 +1912,7 @@ async function buildLearnerSchoolDay(
   }
   /* The learner's own class, so their school day is their timetable rather
      than JHS 2 Gold's. */
-  const placement = await database
-    .prepare(
-      `SELECT class_group.id, class_group.name
-      FROM class_groups AS class_group
-      INNER JOIN tenant_memberships AS membership
-        ON membership.tenant_id = class_group.tenant_id
-          AND membership.person_id = ?
-          AND membership.status = 'active'
-          AND membership.scope_type = 'class'
-          AND (
-            membership.scope_id = class_group.id
-            OR membership.scope_id = class_group.name
-          )
-      WHERE class_group.tenant_id = ?
-      LIMIT 1`,
-    )
-    .bind(learnerId, tenantId)
-    .first<{ id: string; name: string }>();
+  const placement = await loadLearnerPlacement(database, tenantId, learnerId);
   const learnerClassGroupId = placement?.id ?? CLASS_GROUP_ID;
   const [assignments, attendanceRecords, periods, timetable] =
     await Promise.all([
@@ -1886,7 +1922,7 @@ async function buildLearnerSchoolDay(
       loadTimetable(database, tenantId, learnerClassGroupId),
     ]);
   const currentRecord = attendanceRecords.find(
-    (record) => record.sessionDate === CURRENT_DATE && record.submitted,
+    (record) => record.sessionDate === schoolDate() && record.submitted,
   );
   return {
     assignments,
@@ -1901,7 +1937,7 @@ async function buildLearnerSchoolDay(
           })),
       ),
     },
-    currentDate: CURRENT_DATE,
+    currentDate: schoolDate(),
     learner: {
       /* The class this learner is actually placed in. CLASS_NAME — the
          demo school's "JHS 2 Gold" — stood here, so every learner's school
@@ -1913,7 +1949,7 @@ async function buildLearnerSchoolDay(
     },
     periods,
     timetable: timetable.filter(
-      (entry) => entry.weekday === CURRENT_WEEKDAY,
+      (entry) => entry.weekday === schoolWeekday(),
     ),
   };
 }
@@ -2004,6 +2040,7 @@ async function loadAccessibleChildren(
         FROM guardian_relationships g
         INNER JOIN people p ON p.id = g.learner_person_id
         WHERE g.tenant_id = ? AND g.guardian_person_id = ?
+          AND g.status = 'active'
         ORDER BY p.first_name, p.last_name`,
       )
       .bind(access.tenantId, access.actorPersonId)
@@ -2108,8 +2145,40 @@ async function buildGuardianAlertStatements(
   attendance: AttendanceWorkspace,
 ) {
   const alertStatements: SchoolStatement[] = [];
+  const notices: Array<{
+    date: string;
+    learnerName: string;
+    learnerPersonId: string;
+    tenantId: string;
+  }> = [];
+  /* Resolved per learner rather than from the module constant. This message
+     said "was marked absent from JHS 2 Gold" to every guardian in every
+     school, naming the demo school's class whoever the child was — with
+     classNameOf() sitting directly below it, unused. */
+  const classNames = new Map<string, string>();
   for (const row of attendance.rows) {
     if (!shouldCreateGuardianAlert("submitted", row)) continue;
+    if (!classNames.has(row.learnerPersonId)) {
+      const placement = await loadLearnerPlacement(
+        database,
+        access.tenantId,
+        row.learnerPersonId,
+      );
+      classNames.set(row.learnerPersonId, placement?.name ?? "");
+    }
+    /* A learner whose placement cannot be resolved gets a sentence that reads
+       without it, rather than one with a hole or a borrowed class in it. */
+    const className = classNames.get(row.learnerPersonId) ?? "";
+    const from = className ? ` from ${className}` : "";
+    /* The alert is in the app; this is the message that reaches a parent who
+       is not going to open it. A family finding out their child was absent on
+       their next sign-in is a family that finds out weeks later. */
+    notices.push({
+      date: attendance.date,
+      learnerName: row.learnerName,
+      learnerPersonId: row.learnerPersonId,
+      tenantId: access.tenantId,
+    });
     const guardians = await database
       .prepare(
         `SELECT guardian_person_id
@@ -2134,12 +2203,12 @@ async function buildGuardianAlertStatements(
             row.learnerPersonId,
             row.recordId,
             `${row.learnerName} was marked absent`,
-            `${row.learnerName} was marked absent from ${CLASS_NAME} on ${attendance.date}. Please contact the school if this record needs clarification.`,
+            `${row.learnerName} was marked absent${from} on ${attendance.date}. Please contact the school if this record needs clarification.`,
           ),
       );
     });
   }
-  return alertStatements;
+  return { alertStatements, notices };
 }
 
 async function classNameOf(
@@ -2160,7 +2229,13 @@ async function loadClassLearnerIds(
 ) {
   const result = await database
     .prepare(
-      `SELECT DISTINCT p.id
+      /* first_name is selected as well as ordered by. PostgreSQL rejects a
+         SELECT DISTINCT ordered by an expression that is not in the select
+         list — "for SELECT DISTINCT, ORDER BY expressions must appear in
+         select list" — so this raised on every register submission, which is
+         the one thing a class teacher does every morning. SQLite allowed it,
+         and nothing had run the statement against PostgreSQL. */
+      `SELECT DISTINCT p.id, p.first_name
       FROM people p
       INNER JOIN tenant_memberships m ON m.person_id = p.id
       WHERE p.tenant_id = ? AND p.kind = 'learner'

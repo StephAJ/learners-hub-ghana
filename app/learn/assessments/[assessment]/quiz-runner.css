@@ -10,9 +10,7 @@
 
 .quiz-intro-shell,
 .quiz-result-shell,
-/* The runner sits in the workspace content column now, so it no longer paints
-   a page background or claims the viewport height. */
-.runner {
+.lesson-shell {
   color: var(--quiz-ink);
 }
 
@@ -228,51 +226,6 @@
    could never line up, which is exactly how it looked.
    ========================================================================== */
 
-.runner {
-  display: grid;
-  gap: var(--space-4);
-  margin: 0 auto;
-  max-width: 68rem;
-  width: 100%;
-}
-
-.runner-bar {
-  align-items: center;
-  background: var(--card);
-  border: 1px solid var(--quiz-line);
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
-}
-
-.runner-bar-where {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.runner-bar-position {
-  color: var(--quiz-muted);
-  font-size: var(--fs-13);
-  letter-spacing: var(--tracking-label);
-  margin: 0;
-  text-transform: uppercase;
-}
-
-.runner-bar-counts {
-  font-size: var(--fs-18);
-  font-weight: var(--fw-semibold);
-  margin: 0;
-}
-
-.runner-bar-side {
-  align-items: center;
-  display: flex;
-  gap: var(--space-4);
-}
 
 /* -- Save state ----------------------------------------------------------- */
 
@@ -344,116 +297,6 @@
   background: #fdece7;
   border-color: #f2c3b6;
   color: #ae3f2d;
-}
-
-/* -- Layout --------------------------------------------------------------- */
-
-.runner-grid {
-  align-items: start;
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: 15rem minmax(0, 1fr);
-}
-
-/* -- Navigator ------------------------------------------------------------ */
-
-.runner-nav {
-  background: var(--card);
-  border: 1px solid var(--quiz-line);
-  border-radius: var(--radius-lg);
-  display: grid;
-  gap: var(--space-5);
-  padding: var(--space-5);
-  position: sticky;
-  top: var(--space-4);
-}
-
-.runner-nav-progress {
-  align-items: center;
-  display: flex;
-  gap: var(--space-3);
-}
-
-.runner-nav-progress .progress-donut {
-  font-size: 2.75rem;
-  flex: none;
-}
-
-.runner-nav-progress p {
-  color: var(--quiz-muted);
-  display: grid;
-  font-size: var(--fs-13);
-  margin: 0;
-}
-
-.runner-nav-progress strong {
-  color: var(--quiz-ink);
-  font-size: var(--fs-16);
-}
-
-.runner-nav-grid {
-  display: grid;
-  gap: var(--space-2);
-  grid-template-columns: repeat(5, 1fr);
-}
-
-.runner-nav-grid button {
-  aspect-ratio: 1;
-  background: var(--canvas);
-  border: 1px solid var(--quiz-line);
-  border-radius: var(--radius-sm);
-  color: var(--quiz-muted);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  position: relative;
-}
-
-.runner-nav-grid button:hover {
-  border-color: var(--brand-line);
-}
-
-.runner-nav-grid button.is-answered {
-  background: var(--quiz-green);
-  border-color: var(--quiz-green);
-  color: #ffffff;
-}
-
-/* Outlined rather than filled, so "where I am" and "what I have answered"
-   are two readings of the same chip instead of competing for one. */
-.runner-nav-grid button.is-active {
-  box-shadow: 0 0 0 2px var(--brand-line);
-  border-color: var(--quiz-green);
-}
-
-.runner-nav-grid button.is-flagged::after {
-  background: var(--brand-accent);
-  border: 2px solid var(--card);
-  border-radius: var(--radius-pill);
-  content: "";
-  height: 0.625rem;
-  position: absolute;
-  right: -0.1875rem;
-  top: -0.1875rem;
-  width: 0.625rem;
-}
-
-.runner-submit {
-  background: transparent;
-  border: 1px solid var(--quiz-green);
-  border-radius: var(--radius-md);
-  color: var(--quiz-green);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--fs-14);
-  font-weight: var(--fw-semibold);
-  padding: var(--space-3);
-  width: 100%;
-}
-
-.runner-submit:hover {
-  background: var(--brand-tint);
 }
 
 .runner-stage {
@@ -749,19 +592,8 @@
     display: none;
   }
 
-  /* The navigator stops being a column and becomes a strip above the
-     question, so the paper gets the full width on a phone. */
-  .runner-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .runner-nav {
-    position: static;
-  }
-
-  .runner-nav-grid {
-    grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
-  }
+  /* The outline stacks above the paper on a narrow screen — handled by the
+     lesson player's own .course-player rules, which this shell now shares. */
 }
 
 @media (max-width: 600px) {
@@ -786,14 +618,6 @@
      countdown and the question are not. */
   .runner-save {
     display: none;
-  }
-
-  .runner-bar {
-    padding: var(--space-4);
-  }
-
-  .runner-nav {
-    padding: var(--space-4);
   }
 
   .question-paper {
@@ -972,3 +796,199 @@
   }
 }
 
+
+/* ==========================================================================
+   The review
+
+   A learner reading back what they got wrong is doing the most useful thing
+   this screen supports, so the marking is set as a list they can work down
+   rather than a table they have to scan across. The colour on the left edge
+   is a stripe rather than a fill: a page of red panels reads as a telling-off,
+   and the mark beside each question already says what happened.
+   ========================================================================== */
+
+.quiz-review {
+  margin: var(--space-6) auto 0;
+  max-width: 44rem;
+  width: 100%;
+}
+
+.quiz-review h2 {
+  font-size: var(--fs-18);
+  margin: 0 0 var(--space-4);
+}
+
+.quiz-review ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quiz-review li {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.quiz-review li.is-correct {
+  border-left-color: var(--hue-lime-ink);
+}
+
+.quiz-review li.is-partial {
+  border-left-color: var(--hue-amber-ink);
+}
+
+.quiz-review li.is-incorrect {
+  border-left-color: var(--hue-rose-ink);
+}
+
+.review-head {
+  align-items: baseline;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: auto 1fr auto;
+}
+
+.review-number {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-prompt {
+  font-weight: var(--fw-medium);
+  margin: 0;
+}
+
+.review-marks {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.review-answer,
+.review-feedback {
+  margin: 0;
+  padding-left: calc(var(--space-3) + 1ch);
+}
+
+.review-answer span,
+.review-feedback span {
+  color: var(--muted);
+  display: block;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.review-feedback {
+  border-left: 2px solid var(--line);
+  padding-left: var(--space-3);
+}
+
+@media (max-width: 34rem) {
+  .review-head {
+    grid-template-columns: auto 1fr;
+  }
+
+  .review-marks {
+    grid-column: 2;
+  }
+}
+
+/* ==========================================================================
+   The paper, on the lesson player's shell
+
+   The runner used to be a boxed panel inside the workspace column: a bar, a
+   grid of numbered squares, and a question card beside them. Sitting a paper
+   is the most focused thing a learner does and it had the least room of any
+   screen in the product.
+
+   It now reuses the lesson player's shell classes outright — .lesson-shell,
+   .lesson-toprail, .course-player, .course-outline, .course-stage — so a
+   learner meets one layout across both, and the two cannot drift apart the
+   way a second copy of the same rules eventually would. What follows is only
+   the part a paper needs and a lesson does not.
+   ========================================================================== */
+
+/* A question is a sentence, not a lesson title, so the outline row gives it
+   three lines before truncating rather than one. A learner scanning for "the
+   one about the small intestine" reads it here instead of remembering which
+   number it was. */
+.quiz-outline-question .course-outline-lesson-copy strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+/* The flag sits at the end of the row and holds its width whether or not it
+   is there, so flagging a question does not shuffle the text beside it. */
+.quiz-outline-question {
+  align-items: flex-start;
+}
+
+.quiz-outline-question > svg {
+  color: var(--brand-accent-ink);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+/* Pinned under the list rather than after it: a learner three questions from
+   the end should not have to scroll the whole paper to find Submit. */
+.quiz-outline-foot {
+  border-top: 1px solid var(--workspace-line);
+  display: grid;
+  margin-top: auto;
+  padding: var(--space-4);
+  position: sticky;
+  bottom: 0;
+  background: var(--card);
+}
+
+.quiz-outline-foot .course-primary {
+  justify-content: center;
+  width: 100%;
+}
+
+/* The stage holds one question at a time, so it is a reading column rather
+   than the full width of a wide screen — the same measure the lesson stage
+   uses for its reading blocks. */
+.quiz-stage .question-paper {
+  max-width: 52rem;
+  width: 100%;
+}
+
+.quiz-stage .question-actions {
+  max-width: 52rem;
+  width: 100%;
+}
+
+/* -- In the rail ---------------------------------------------------------- */
+
+/* The save state and the clock live in the toprail now, beside the step
+   controls, rather than in a bar of their own above the paper. */
+.lesson-toprail .runner-save,
+.lesson-toprail .runner-timer {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 60rem) {
+  /* The outline stacks above the paper on a narrow screen, as the lesson
+     outline does, and the submit button stops being sticky — a pinned control
+     over a short list is just a control covering the list. */
+  .quiz-outline-foot {
+    position: static;
+  }
+}

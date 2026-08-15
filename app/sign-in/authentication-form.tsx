@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import gsap from "gsap";
@@ -10,11 +11,16 @@ type Mode = "register" | "sign-in";
 
 export function AuthenticationForm({
   initialMode,
+  passwordReset,
   returnTo,
 }: {
   initialMode: Mode;
+  /* Set when somebody has just been through the reset flow, so the screen
+     they land on says it worked rather than looking like an ordinary visit. */
+  passwordReset?: boolean;
   returnTo: string;
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState(initialMode);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -69,6 +75,21 @@ export function AuthenticationForm({
             password,
           });
 
+    /* An account with a second factor does not sign in here — better-auth
+       answers with twoFactorRedirect and the code is asked for on its own
+       screen. Without this the form reports success and nothing happens. */
+    if (
+      !result.error &&
+      (result.data as { twoFactorRedirect?: boolean } | undefined)
+        ?.twoFactorRedirect
+    ) {
+      setBusy(false);
+      router.push(
+        `/sign-in/verify?returnTo=${encodeURIComponent(returnTo)}`,
+      );
+      return;
+    }
+
     if (result.error) {
       setError(result.error.message ?? "Authentication failed.");
       setBusy(false);
@@ -108,6 +129,11 @@ export function AuthenticationForm({
       </header>
 
       <form className="auth-form" noValidate={false} onSubmit={submit}>
+        {passwordReset && !error ? (
+          <p className="auth-done" role="status">
+            Your password has been changed. Sign in with the new one.
+          </p>
+        ) : null}
         {error ? (
           <p className="auth-alert" role="alert">
             {error}
@@ -184,6 +210,15 @@ export function AuthenticationForm({
           {busy ? "Please wait…" : registering ? "Create account" : "Sign in"}
           {busy ? null : <ArrowRight aria-hidden="true" size={17} />}
         </button>
+
+        {/* There was no way back into an account at all. A teacher or a
+            guardian who forgot their password had one recovery route: a CLI
+            script somebody had to run on the server. */}
+        {registering ? null : (
+          <p className="auth-forgot" data-auth-line>
+            <Link href="/sign-in/forgot">Forgotten your password?</Link>
+          </p>
+        )}
       </form>
 
       <div className="auth-switch" data-auth-line>

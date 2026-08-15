@@ -109,9 +109,11 @@
      it, and it still means "the interface face". */
   --font-sans: var(--font-body);
 
-  /* Kept for display headings only. The serif is what stops the product
-     reading like every other dashboard, and it is never set below 18px. */
-  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  /* Display headings only, and never below 18px. Lora is loaded in
+     app/layout.tsx; this used to list no webfont at all, so every heading in
+     the product rendered in Georgia. */
+  --font-serif:
+    var(--font-lora), ui-serif, Georgia, Cambria, "Times New Roman", serif;
 
   /* Inter's default tracking is loose for UI text at 14-16px. */
   --tracking-body: -0.011em;
@@ -269,11 +271,12 @@ th.numeric {
   font-variant-numeric: tabular-nums;
 }
 
-/* Serif display face for page and panel headings. Georgia has no medium
-   instance, so headings use regular weight and rely on size for presence. */
+/* Serif display face for page and panel headings. Lora has a real medium, so
+   a heading can carry weight rather than relying on size alone — which is what
+   the Georgia fallback forced. */
 .display-heading {
   font-family: var(--font-serif);
-  font-weight: var(--fw-regular);
+  font-weight: var(--fw-medium);
   letter-spacing: var(--tracking-display);
   line-height: var(--lh-display);
 }

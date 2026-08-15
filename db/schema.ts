@@ -11,6 +11,10 @@ export const tenants = sqliteTable("tenants", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  /* What the school puts in front of a student number. "LH" is this
+     product's initials and only ever a default — see allocateStudentNumber
+     in db/people-repository.ts. */
+  studentNumberPrefix: text("student_number_prefix").notNull().default("LH"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -1523,6 +1527,42 @@ export const submissionAttachments = sqliteTable(
     index("submission_attachment_submission_idx").on(
       table.tenantId,
       table.submissionId,
+    ),
+  ],
+);
+
+/* The file a learner hands in as the answer to one question. Parallel to
+   submissionAttachments, which does the same for assignment work: the media
+   asset carries the bytes, this carries which answer they belong to. */
+export const assessmentResponseAttachments = sqliteTable(
+  "assessment_response_attachments",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    attemptId: text("attempt_id")
+      .notNull()
+      .references(() => assessmentAttempts.id),
+    /* The question id rather than the version id: a learner attaches to the
+       question in front of them, and the version they sat is already fixed on
+       the attempt. */
+    questionId: text("question_id").notNull(),
+    mediaAssetId: text("media_asset_id")
+      .notNull()
+      .references(() => mediaAssets.id),
+    uploadedAt: text("uploaded_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    /* Attaching the same file twice is a double-click, not an intention. */
+    uniqueIndex("assessment_response_attachment_asset_idx").on(
+      table.attemptId,
+      table.mediaAssetId,
+    ),
+    index("assessment_response_attachment_idx").on(
+      table.tenantId,
+      table.attemptId,
+      table.questionId,
     ),
   ],
 );

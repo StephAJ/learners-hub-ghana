@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnnouncementsPanel } from "../components/announcements/announcements-panel";
 import { WorkspaceShell } from "../components/workspace-shell";
 import {
   ChevronRightIcon,
@@ -133,6 +134,12 @@ export default async function AdminHomePage() {
             )}
           </div>
         </section>
+
+        {/* The composer rendered on the teacher, learner and guardian home
+            screens and on no administrator's, so "the school tells everyone at
+            once" had to be done by a teacher — while school and academic
+            admins held announcement:post with nowhere to use it. */}
+        <AnnouncementsPanel />
       </div>
     </WorkspaceShell>
   );

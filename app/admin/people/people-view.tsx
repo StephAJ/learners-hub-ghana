@@ -12,6 +12,12 @@ import type {
   SchoolRole,
 } from "../../../domain/identity/types";
 import { PersonAvatar } from "../../components/person-avatar";
+import type { GuardianLink } from "../../../db/directory-repository";
+import {
+  IMPORT_TEMPLATE,
+  parsePeopleImport,
+  type ImportRowInput,
+} from "../../../domain/identity/bulk-import";
 import {
   BooksIcon,
   InboxIcon,
@@ -43,6 +49,7 @@ const roleLabels: Record<SchoolRole, string> = {
    ========================================================================== */
 
 type DirectoryResponse = {
+  guardianLinks?: GuardianLink[];
   actor: { email: string; name: string; role: SchoolRole };
   people: DirectoryPerson[];
   school: { id: string; name: string };
@@ -51,6 +58,10 @@ type DirectoryResponse = {
 export function PeopleView() {
   const searchParams = useSearchParams();
   const [people, setPeople] = useState<DirectoryPerson[]>([]);
+  /* Guardian links were written by admissions and by the demo seed, and by
+     nothing else — so a parent could only ever be linked to a child by
+     admitting that child, and a wrong link could never be corrected. */
+  const [guardianLinks, setGuardianLinks] = useState<GuardianLink[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [kindFilter, setKindFilter] = useState<DirectoryPerson["kind"] | "all">(
     "all",
@@ -65,6 +76,12 @@ export function PeopleView() {
      that inviting is a task, the caller has to be able to open it, and a
      query the router hands us at render does that without an effect that
      sets state on mount (and without the flash of a closed panel). */
+  /* Editing, offboarding and importing. The directory was invite-only, so a
+     person invited into the wrong role stayed in it and a leaver stayed
+     active for ever. */
+  const [editing, setEditing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [inviting, setInviting] = useState(
     searchParams.get("invite") !== null,
   );
@@ -83,6 +100,7 @@ export function PeopleView() {
           throw new Error(directory.error ?? "The directory is unavailable.");
         }
         setPeople(directory.people);
+        setGuardianLinks(directory.guardianLinks ?? []);
         setSelectedId((current) =>
           directory.people.some((person) => person.id === current)
             ? current
@@ -156,6 +174,34 @@ export function PeopleView() {
     setNotice(`${payload.person.name} has been added with invited access.`);
   }
 
+  /* Everything but the invitation goes through here: each of these changes
+     more than one row, so the directory is re-read rather than patched. */
+  async function send(body: unknown, success: string) {
+    setBusy(true);
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/people", {
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "That change could not be saved.");
+      }
+      setReloadKey((key) => key + 1);
+      setNotice(success);
+      return true;
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Something went wrong.",
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (state === "loading") {
     return <p className="workspace-loading">Loading the school directory…</p>;
   }
@@ -222,6 +268,15 @@ export function PeopleView() {
                   type="button"
                 >
                   Invite someone
+                </button>
+                {/* Inviting a hundred and twenty learners one form at a time
+                    is what setting a school up used to mean. */}
+                <button
+                  className="ghost-button"
+                  onClick={() => setImporting(true)}
+                  type="button"
+                >
+                  Import a list
                 </button>
               </div>
 
@@ -293,9 +348,86 @@ export function PeopleView() {
             </section>
 
             <aside className="access-sidebar">
-              {selected && <PersonAccessCard person={selected} />}
+              {selected && (
+                <PersonAccessCard
+                  busy={busy}
+                  editing={editing}
+                  onEdit={() => setEditing(true)}
+                  onCancelEdit={() => setEditing(false)}
+                  onOffboard={(reason) =>
+                    send(
+                      {
+                        action: "offboard",
+                        personId: selected.id,
+                        reason,
+                      },
+                      `${selected.name} no longer has access.`,
+                    )
+                  }
+                  onReinstate={() =>
+                    send(
+                      { action: "reinstate", personId: selected.id },
+                      `${selected.name} has access again.`,
+                    )
+                  }
+                  onSave={async (input) => {
+                    const saved = await send(
+                      { action: "update", personId: selected.id, ...input },
+                      `${input.firstName} ${input.lastName} was updated.`,
+                    );
+                    if (saved) setEditing(false);
+                  }}
+                  person={selected}
+                />
+              )}
             </aside>
           </div>
+
+          <GuardianLinksPanel
+            busy={busy}
+            links={guardianLinks}
+            onLink={(input) =>
+              send(
+                { action: "link-guardian", ...input },
+                "Guardian linked. They can see this child from their next page load.",
+              )
+            }
+            onRevoke={(linkId, reason) =>
+              send(
+                { action: "revoke-guardian", linkId, reason },
+                "Link removed. That guardian can no longer see this child.",
+              )
+            }
+            people={people}
+          />
+
+          {importing && (
+            <ImportPeopleForm
+              busy={busy}
+              onCancel={() => setImporting(false)}
+              onImport={async (rows) => {
+                const response = await fetch("/api/admin/people", {
+                  body: JSON.stringify({ action: "import", rows }),
+                  headers: { "content-type": "application/json" },
+                  method: "POST",
+                });
+                const payload = (await response.json()) as {
+                  error?: string;
+                  outcome?: {
+                    failed: Array<{ name: string; problem: string }>;
+                    imported: number;
+                  };
+                };
+                setReloadKey((key) => key + 1);
+                return (
+                  payload.outcome ?? {
+                    failed: [],
+                    imported: 0,
+                  }
+                );
+              }}
+            />
+          )}
 
           {inviting && (
             <InvitePersonForm
@@ -312,8 +444,48 @@ export function PeopleView() {
   );
 }
 
-function PersonAccessCard({ person }: { person: DirectoryPerson }) {
+type PersonEdit = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  role: SchoolRole;
+  scopeId: string;
+  scopeType: "tenant" | "class" | "subject" | "learner";
+};
+
+function PersonAccessCard({
+  busy,
+  editing,
+  onCancelEdit,
+  onEdit,
+  onOffboard,
+  onReinstate,
+  onSave,
+  person,
+}: {
+  busy: boolean;
+  editing: boolean;
+  onCancelEdit: () => void;
+  onEdit: () => void;
+  onOffboard: (reason: string) => Promise<boolean>;
+  onReinstate: () => Promise<boolean>;
+  onSave: (input: PersonEdit) => Promise<void>;
+  person: DirectoryPerson;
+}) {
   const permissions = permissionsFor(person.role);
+
+  if (editing) {
+    return (
+      <PersonEditForm
+        busy={busy}
+        onCancel={onCancelEdit}
+        onSave={onSave}
+        person={person}
+      />
+    );
+  }
+
   return (
     <section className="person-access-card" aria-labelledby="person-access-title">
       <div className="person-access-head">
@@ -337,6 +509,222 @@ function PersonAccessCard({ person }: { person: DirectoryPerson }) {
         ))}
       </div>
       <div className="access-rule"><span aria-hidden="true">i</span><p>Every API request rechecks school, role, membership status, and relationship scope.</p></div>
+
+      {/* None of this existed. A person invited into the wrong role stayed in
+          it, a leaver stayed active, and a mistyped address could never be
+          corrected: the whole write surface was one invitation form. */}
+      <div className="person-actions">
+        <button className="ghost-button" onClick={onEdit} type="button">
+          Edit details
+        </button>
+        {person.status === "revoked" ? (
+          <button
+            className="ghost-button"
+            disabled={busy}
+            onClick={() => void onReinstate()}
+            type="button"
+          >
+            Restore access
+          </button>
+        ) : (
+          <OffboardButton busy={busy} onOffboard={onOffboard} person={person} />
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Removing access, with the reason it asks for.
+ *
+ * Two presses rather than one, and a reason in between. Nothing is deleted —
+ * the membership is revoked, so the person keeps their record and every mark
+ * they gave stays attached to it — but losing access to a school system in
+ * the middle of a term is not a one-click action.
+ */
+function OffboardButton({
+  busy,
+  onOffboard,
+  person,
+}: {
+  busy: boolean;
+  onOffboard: (reason: string) => Promise<boolean>;
+  person: DirectoryPerson;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [reason, setReason] = useState("");
+
+  if (!confirming) {
+    return (
+      <button
+        className="ghost-button"
+        onClick={() => setConfirming(true)}
+        type="button"
+      >
+        Remove access
+      </button>
+    );
+  }
+
+  return (
+    <form
+      className="offboard-form"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const done = await onOffboard(reason);
+        if (done) setConfirming(false);
+      }}
+    >
+      <label>
+        <span>Why is {person.name} being removed?</span>
+        <input
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="Left the school at the end of term"
+          required
+          value={reason}
+        />
+      </label>
+      <p className="form-hint">
+        Their record and everything attached to it is kept. They stop being
+        able to sign in, and stop appearing on a roster.
+      </p>
+      <div className="form-actions">
+        <button disabled={busy} type="submit">
+          Remove access
+        </button>
+        <button
+          className="ghost-button"
+          onClick={() => setConfirming(false)}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PersonEditForm({
+  busy,
+  onCancel,
+  onSave,
+  person,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (input: PersonEdit) => Promise<void>;
+  person: DirectoryPerson;
+}) {
+  const [firstName, setFirstName] = useState(person.name.split(" ")[0] ?? "");
+  const [lastName, setLastName] = useState(
+    person.name.split(" ").slice(1).join(" "),
+  );
+  const [email, setEmail] = useState(person.email ?? "");
+  const [phone, setPhone] = useState(person.phone ?? "");
+  const [role, setRole] = useState<SchoolRole>(person.role);
+  const [scopeType, setScopeType] = useState<PersonEdit["scopeType"]>(
+    person.scopeLabel === "Whole school" ? "tenant" : "class",
+  );
+  const [scopeId, setScopeId] = useState(
+    person.scopeLabel === "Whole school"
+      ? ""
+      : (person.scopeLabel.split(" \u00b7 ")[1] ?? ""),
+  );
+
+  return (
+    <section className="person-access-card">
+      <form
+        className="person-edit-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void onSave({
+            email,
+            firstName,
+            lastName,
+            phone,
+            role,
+            scopeId,
+            scopeType,
+          });
+        }}
+      >
+        <h2>Edit {person.name}</h2>
+        <label>
+          <span>First name</span>
+          <input
+            onChange={(event) => setFirstName(event.target.value)}
+            required
+            value={firstName}
+          />
+        </label>
+        <label>
+          <span>Last name</span>
+          <input
+            onChange={(event) => setLastName(event.target.value)}
+            required
+            value={lastName}
+          />
+        </label>
+        <label>
+          <span>Email address</span>
+          <input
+            onChange={(event) => setEmail(event.target.value)}
+            type="email"
+            value={email}
+          />
+        </label>
+        <label>
+          <span>Telephone</span>
+          <input
+            onChange={(event) => setPhone(event.target.value)}
+            value={phone}
+          />
+        </label>
+        <label>
+          <span>Role</span>
+          <select
+            onChange={(event) => setRole(event.target.value as SchoolRole)}
+            value={role}
+          >
+            {Object.entries(roleLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Scope</span>
+          <select
+            onChange={(event) =>
+              setScopeType(event.target.value as PersonEdit["scopeType"])
+            }
+            value={scopeType}
+          >
+            <option value="tenant">Whole school</option>
+            <option value="class">One class</option>
+            <option value="subject">One subject</option>
+          </select>
+        </label>
+        {scopeType !== "tenant" ? (
+          <label>
+            <span>Which one</span>
+            <input
+              onChange={(event) => setScopeId(event.target.value)}
+              placeholder="JHS 1 Blue"
+              value={scopeId}
+            />
+          </label>
+        ) : null}
+        <div className="form-actions">
+          <button disabled={busy} type="submit">
+            Save changes
+          </button>
+          <button className="ghost-button" onClick={onCancel} type="button">
+            Cancel
+          </button>
+        </div>
+      </form>
     </section>
   );
 }
@@ -528,4 +916,342 @@ function kindForRole(role: SchoolRole): DirectoryPerson["kind"] {
 function pluralKind(kind: DirectoryPerson["kind"]) {
   if (kind === "staff") return "Staff";
   return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}s`;
+}
+
+/* ==========================================================================
+   Importing a roll
+
+   Setting a school up meant inviting learners one form at a time, and getting
+   every one of them right first time, because there was no way to correct a
+   row afterwards either. A JHS with three streams is a hundred and twenty
+   forms.
+
+   Two steps on purpose. The paste is checked first and every line gets a
+   verdict, because the rule the product scope is firmest about is that a bulk
+   import never silently skips an invalid row — so the school reads what will
+   happen before anything is written, and reads what did happen afterwards.
+   ========================================================================== */
+function ImportPeopleForm({
+  busy,
+  onCancel,
+  onImport,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onImport: (rows: ImportRowInput[]) => Promise<{
+    failed: Array<{ name: string; problem: string }>;
+    imported: number;
+  }>;
+}) {
+  const [text, setText] = useState("");
+  const [outcome, setOutcome] = useState<{
+    failed: Array<{ name: string; problem: string }>;
+    imported: number;
+  } | null>(null);
+
+  const preview = text.trim() ? parsePeopleImport(text) : null;
+
+  if (outcome) {
+    return (
+      <section className="admin-panel import-panel">
+        <div className="admin-panel-heading">
+          <div>
+            <p className="eyebrow">Import</p>
+            <h2>
+              {outcome.imported} added
+              {outcome.failed.length > 0
+                ? `, ${outcome.failed.length} not added`
+                : ""}
+            </h2>
+          </div>
+        </div>
+        {outcome.failed.length > 0 ? (
+          <ul className="import-problems">
+            {outcome.failed.map((row) => (
+              <li key={`${row.name}-${row.problem}`}>
+                <strong>{row.name}</strong>
+                <span>{row.problem}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="form-hint">Everybody in that list is on the roll.</p>
+        )}
+        <div className="form-actions">
+          <button onClick={onCancel} type="button">
+            Done
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="admin-panel import-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <p className="eyebrow">Import</p>
+          <h2>Add a list of people</h2>
+        </div>
+      </div>
+
+      <p className="form-hint">
+        Paste straight from a spreadsheet. Columns: first name, last name,
+        email, role, class, telephone. A header row is fine. Roles are learner,
+        guardian, teacher, class teacher, academic admin, admissions officer
+        and school admin.
+      </p>
+
+      <label className="wide-field">
+        <span>Rows</span>
+        <textarea
+          onChange={(event) => setText(event.target.value)}
+          placeholder={IMPORT_TEMPLATE}
+          rows={10}
+          value={text}
+        />
+      </label>
+
+      {preview ? (
+        <div className="import-preview">
+          <p>
+            <strong>{preview.accepted.length}</strong> ready to add
+            {preview.rejected.length > 0 ? (
+              <>
+                {" · "}
+                <strong className="is-blocking">
+                  {preview.rejected.length}
+                </strong>{" "}
+                cannot be
+              </>
+            ) : null}
+          </p>
+          {preview.rejected.length > 0 ? (
+            <ul className="import-problems">
+              {preview.rejected.map((row) => (
+                <li key={row.line}>
+                  <strong>Line {row.line}</strong>
+                  <span>{row.problem}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="form-actions">
+        <button
+          disabled={busy || !preview || preview.accepted.length === 0}
+          onClick={async () => {
+            if (!preview) return;
+            setOutcome(await onImport(preview.accepted));
+          }}
+          type="button"
+        >
+          {busy
+            ? "Adding…"
+            : `Add ${preview?.accepted.length ?? 0} ${
+                (preview?.accepted.length ?? 0) === 1 ? "person" : "people"
+              }`}
+        </button>
+        <button className="ghost-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ==========================================================================
+   Who answers for a child
+
+   `guardian_relationships` rows were written by enrolApplicant() and by the
+   demo seed, and by nothing else. So a guardian could only ever be linked to
+   a child by admitting that child through admissions: there was no way to
+   link a parent to a learner already on roll, no way to correct a wrong link,
+   and no way to revoke one.
+
+   That last one is the important one. The integrity rules require guardian
+   access to be revocable and the change to take effect immediately, and every
+   read path now filters on the status this sets — so a revoked link stops
+   granting access rather than merely looking revoked.
+   ========================================================================== */
+function GuardianLinksPanel({
+  busy,
+  links,
+  onLink,
+  onRevoke,
+  people,
+}: {
+  busy: boolean;
+  links: GuardianLink[];
+  onLink: (input: {
+    guardianId: string;
+    learnerId: string;
+    relationship: string;
+  }) => Promise<boolean>;
+  onRevoke: (linkId: string, reason: string) => Promise<boolean>;
+  people: DirectoryPerson[];
+}) {
+  const [adding, setAdding] = useState(false);
+  const [guardianId, setGuardianId] = useState("");
+  const [learnerId, setLearnerId] = useState("");
+  const [relationship, setRelationship] = useState("Parent");
+  const [revokingId, setRevokingId] = useState("");
+  const [reason, setReason] = useState("");
+
+  const guardians = people.filter((person) => person.kind === "guardian");
+  const learners = people.filter((person) => person.kind === "learner");
+  const active = links.filter((link) => link.status === "active");
+
+  return (
+    <section className="admin-panel guardian-links">
+      <div className="admin-panel-heading">
+        <div>
+          <p className="eyebrow">Families</p>
+          <h2>Guardians and children</h2>
+        </div>
+        <button
+          className="ghost-button"
+          disabled={busy || guardians.length === 0 || learners.length === 0}
+          onClick={() => setAdding(!adding)}
+          type="button"
+        >
+          {adding ? "Cancel" : "Link a guardian"}
+        </button>
+      </div>
+
+      {guardians.length === 0 || learners.length === 0 ? (
+        <p className="form-hint">
+          A link needs a guardian and a learner on the roll. Invite or import
+          them first.
+        </p>
+      ) : null}
+
+      {adding ? (
+        <form
+          className="inline-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const done = await onLink({ guardianId, learnerId, relationship });
+            if (done) {
+              setAdding(false);
+              setGuardianId("");
+              setLearnerId("");
+            }
+          }}
+        >
+          <div className="inline-form-fields">
+            <label>
+              <span>Guardian</span>
+              <select
+                onChange={(event) => setGuardianId(event.target.value)}
+                required
+                value={guardianId}
+              >
+                <option value="">Choose</option>
+                {guardians.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Child</span>
+              <select
+                onChange={(event) => setLearnerId(event.target.value)}
+                required
+                value={learnerId}
+              >
+                <option value="">Choose</option>
+                {learners.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Relationship</span>
+              <input
+                onChange={(event) => setRelationship(event.target.value)}
+                placeholder="Mother"
+                value={relationship}
+              />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button disabled={busy} type="submit">
+              Link them
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {active.length === 0 ? (
+        <p className="form-hint">
+          No guardian is linked to a child yet. Admitting an applicant creates
+          a link automatically; this is for everybody already on the roll.
+        </p>
+      ) : (
+        <ul className="guardian-link-list">
+          {active.map((link) => (
+            <li key={link.linkId}>
+              <span>
+                <strong>{link.guardianName}</strong>
+                <small>
+                  {link.relationship} of {link.learnerName}
+                </small>
+              </span>
+              {revokingId === link.linkId ? (
+                <form
+                  className="offboard-form"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    const done = await onRevoke(link.linkId, reason);
+                    if (done) {
+                      setRevokingId("");
+                      setReason("");
+                    }
+                  }}
+                >
+                  <label>
+                    <span>Why is this link being removed?</span>
+                    <input
+                      onChange={(event) => setReason(event.target.value)}
+                      placeholder="Court order, September 2026"
+                      required
+                      value={reason}
+                    />
+                  </label>
+                  <div className="form-actions">
+                    <button disabled={busy} type="submit">
+                      Remove link
+                    </button>
+                    <button
+                      className="ghost-button"
+                      onClick={() => setRevokingId("")}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  className="ghost-button"
+                  disabled={busy}
+                  onClick={() => setRevokingId(link.linkId)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }

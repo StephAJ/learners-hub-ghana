@@ -163,6 +163,7 @@ describe("assessment lifecycle", () => {
 function createDraft() {
   return createAssessmentDraft({
     authorPersonId: "teacher-1",
+    feedbackPolicy: "after-release",
     id: "assessment-1",
     instructions: "Answer every question.",
     offeringId: "offering-science-jhs2",

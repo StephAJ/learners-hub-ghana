@@ -1,7 +1,9 @@
 import type { Pool } from "pg";
 import { demoPeople } from "../domain/demo/greenfield";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
 
-const GREENFIELD_TENANT_ID = "tenant-greenfield";
+/** The tenant the demo cast joins: this deployment's own. */
+const GREENFIELD_TENANT_ID = SCHOOL_TENANT_ID;
 
 /* ==========================================================================
    The school's people
@@ -25,16 +27,10 @@ const GREENFIELD_TENANT_ID = "tenant-greenfield";
    ========================================================================== */
 
 export async function seedSchoolPeople(database: Pool): Promise<void> {
-  /* bootstrapAdministrator() creates the school, but only when
-     INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD are configured. Every row
-     below references the tenant, so a deployment without those variables would
-     otherwise fail its very first insert. */
-  await database.query(
-    `INSERT INTO tenants (id, name, slug)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
-    [GREENFIELD_TENANT_ID, "Greenfield Academy", "greenfield-academy"],
-  );
+  /* The tenant is ensureSchoolTenant()'s to create, and it runs first. This
+     used to insert it here, named "Greenfield Academy" whoever was deploying,
+     because bootstrapAdministrator() only created one when INITIAL_ADMIN_EMAIL
+     was configured and every row below needs one to exist. */
 
   /* The cast comes from the shared demo dataset so the staff who own subjects
      there are the same staff who exist here. When these were two lists they

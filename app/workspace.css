@@ -1624,3 +1624,56 @@ html[data-sidebar="collapsed"] .workspace-sidebar > nav a.is-active::before {
     flex: 1;
   }
 }
+
+/* ==========================================================================
+   Choosing between children on the guardian home screen
+
+   School day and Reports both had a switcher and this page had none, so a
+   parent of two landed on whichever child sorted first with no sign that the
+   other existed. Links rather than a select: this is a server-rendered page,
+   and a link is also shareable and back-buttonable, which a select is not.
+   ========================================================================== */
+
+.guardian-child-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.guardian-child-switch a {
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-pill);
+  color: var(--workspace-muted);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  padding: var(--space-1) var(--space-4);
+  text-decoration: none;
+}
+
+.guardian-child-switch a:hover {
+  color: var(--workspace-ink);
+}
+
+.guardian-child-switch a.is-active {
+  background: var(--workspace-accent-soft);
+  border-color: transparent;
+  color: var(--workspace-accent);
+}
+
+/* The school's two-factor requirement, said where the person is working.
+   Amber rather than red: this is an instruction with time on it, not a
+   failure — and a red banner on every page teaches people to skip it. */
+.workspace-2fa-prompt {
+  background: var(--hue-amber-soft);
+  border-bottom: 1px solid var(--line);
+  color: var(--hue-amber-ink);
+  font-size: var(--fs-14);
+  margin: 0;
+  padding: var(--space-3) var(--space-6);
+}
+
+.workspace-2fa-prompt a {
+  color: inherit;
+  font-weight: var(--fw-semibold);
+}

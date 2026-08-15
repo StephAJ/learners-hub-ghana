@@ -89,32 +89,68 @@ function blankOptions(count: number): OptionDraft[] {
   }));
 }
 
+/* ==========================================================================
+   Editing a question that is already in the bank
+
+   The composer only ever wrote new ones, so a question with a typo, a wrong
+   mark total or an option in the wrong order stayed that way — the remedy was
+   writing a second question and leaving the first in the list.
+
+   `existing` reopens one. What comes back is the current version's own fields,
+   and saving writes a new version rather than rewriting that one, because a
+   published paper stays bound to the version it was set with.
+   ========================================================================== */
+export type EditableQuestion = ComposedQuestion & { id: string };
+
 export function QuestionComposer({
+  existing,
   onCancel,
   onSubmit,
   topicSuggestion,
 }: {
+  existing?: EditableQuestion;
   onCancel: () => void;
   onSubmit: (input: ComposedQuestion) => Promise<void>;
   topicSuggestion: string;
 }) {
-  const [type, setType] = useState<QuestionType>("single-choice");
-  const [prompt, setPrompt] = useState("");
-  const [topic, setTopic] = useState(topicSuggestion);
-  const [difficulty, setDifficulty] =
-    useState<ComposedQuestion["difficulty"]>("standard");
-  const [marks, setMarks] = useState(1);
-  const [rationale, setRationale] = useState("");
-  const [formula, setFormula] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageAlt, setImageAlt] = useState("");
+  const [type, setType] = useState<QuestionType>(
+    existing?.type ?? "single-choice",
+  );
+  const [prompt, setPrompt] = useState(existing?.prompt ?? "");
+  const [topic, setTopic] = useState(existing?.topic ?? topicSuggestion);
+  const [difficulty, setDifficulty] = useState<ComposedQuestion["difficulty"]>(
+    existing?.difficulty ?? "standard",
+  );
+  const [marks, setMarks] = useState(existing?.marks ?? 1);
+  const [rationale, setRationale] = useState(existing?.rationale ?? "");
+  const [formula, setFormula] = useState(existing?.formula ?? "");
+  const [imageUrl, setImageUrl] = useState(existing?.media?.url ?? "");
+  const [imageAlt, setImageAlt] = useState(existing?.media?.alt ?? "");
 
-  const [options, setOptions] = useState<OptionDraft[]>(() => blankOptions(4));
-  const [booleanAnswer, setBooleanAnswer] = useState("true");
-  const [exactAnswer, setExactAnswer] = useState("");
+  const [options, setOptions] = useState<OptionDraft[]>(() =>
+    existing && existing.options.length > 0
+      ? existing.options.map((label) => ({
+          correct: isNamedIn(existing.correctAnswer, label),
+          id: nextId(),
+          label,
+        }))
+      : blankOptions(4),
+  );
+  const [booleanAnswer, setBooleanAnswer] = useState(
+    existing?.correctAnswer?.toLowerCase() === "false" ? "false" : "true",
+  );
+  const [exactAnswer, setExactAnswer] = useState(
+    existing && existing.options.length === 0 ? existing.correctAnswer : "",
+  );
   const [rubric, setRubric] = useState("");
   const [sequenceItems, setSequenceItems] = useState<OptionDraft[]>(() =>
-    blankOptions(4),
+    existing && existing.options.length > 0
+      ? existing.options.map((label) => ({
+          correct: false,
+          id: nextId(),
+          label,
+        }))
+      : blankOptions(4),
   );
   const [pairs, setPairs] = useState<PairDraft[]>(() => [
     { id: nextId(), left: "", right: "" },
@@ -915,4 +951,17 @@ function shuffleStably<T>(items: T[]): T[] {
     if (front[index] !== undefined) interleaved.push(front[index]);
   }
   return interleaved;
+}
+
+/* Whether a stored answer names this option.
+
+   The answer comes back from the repository as the words a learner sees —
+   "The small intestine", or "A, C" for a multiple-response — so matching is on
+   the label rather than on an id the composer never holds. */
+function isNamedIn(answer: string | undefined, label: string): boolean {
+  if (!answer || !label) return false;
+  return answer
+    .split(/[,;]/)
+    .map((part) => part.trim().toLowerCase())
+    .includes(label.trim().toLowerCase());
 }

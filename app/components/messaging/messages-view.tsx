@@ -27,7 +27,7 @@ import "./messages.css";
 export function MessagesView({
   viewerRole,
 }: {
-  viewerRole: "learner" | "teacher";
+  viewerRole: "guardian" | "learner" | "teacher";
 }) {
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [recipients, setRecipients] = useState<MessageRecipient[]>([]);
@@ -174,22 +174,14 @@ export function MessagesView({
           <p className="inbox-empty">
             No messages yet.{" "}
             {recipients.length === 0
-              ? viewerRole === "learner"
-                ? "You will be able to write to your teachers once your subjects are set up."
-                : "You will be able to write to learners once you are assigned to a class."
-              : viewerRole === "learner"
-                ? "Ask a teacher about anything you are stuck on."
-                : "Start a conversation with a learner in one of your classes."}
+              ? EMPTY_WITHOUT_ANYONE[viewerRole]
+              : EMPTY_WITH_SOMEONE[viewerRole]}
           </p>
         ) : (
           <ul>
             {threads.map((thread) => {
-              const name =
-                viewerRole === "learner" ? thread.teacherName : thread.learnerName;
-              const photoUrl =
-                viewerRole === "learner"
-                  ? thread.teacherPhotoUrl
-                  : thread.learnerPhotoUrl;
+              const other = otherSide(thread, viewerRole);
+              const { name, photoUrl } = other;
               return (
                 <li key={thread.id}>
                   <button
@@ -199,13 +191,14 @@ export function MessagesView({
                     type="button"
                   >
                     <PersonAvatar
-                      kind={viewerRole === "learner" ? "staff" : "learner"}
+                      kind={other.kind}
                       name={name}
                       photoUrl={photoUrl}
                       size={38}
                     />
                     <span className="inbox-list-copy">
                       <strong>{name}</strong>
+                      {other.about ? <em>About {other.about}</em> : null}
                       <small>{thread.preview || "No messages yet"}</small>
                     </span>
                     <span className="inbox-list-meta">
@@ -298,7 +291,7 @@ function Conversation({
   onSend: () => void;
   thread: MessageThreadDetail;
   transcriptRef: React.RefObject<HTMLDivElement | null>;
-  viewerRole: "learner" | "teacher";
+  viewerRole: "guardian" | "learner" | "teacher";
 }) {
   const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState("");
@@ -306,22 +299,25 @@ function Conversation({
     "idle",
   );
   const [reportError, setReportError] = useState("");
-  const otherName =
-    viewerRole === "learner" ? thread.teacherName : thread.learnerName;
-  const otherPhotoUrl =
-    viewerRole === "learner" ? thread.teacherPhotoUrl : thread.learnerPhotoUrl;
+  const other = otherSide(thread, viewerRole);
+  const otherName = other.name;
+  const otherPhotoUrl = other.photoUrl;
 
   return (
     <>
       <header className="conversation-head">
         <PersonAvatar
-          kind={viewerRole === "learner" ? "staff" : "learner"}
+          kind={other.kind}
           name={otherName}
           photoUrl={otherPhotoUrl}
           size={42}
         />
         <div>
           <strong>{otherName}</strong>
+          {/* A guardian thread names the child it is about. Without it, a
+              teacher holding four conversations with four parents cannot tell
+              which is which. */}
+          {other.about ? <small>About {other.about}</small> : null}
           {thread.subjectName ? <small>{thread.subjectName}</small> : null}
         </div>
         {reportState === "sent" ? (
@@ -549,4 +545,62 @@ function formatWhen(value: string): string {
     day: "numeric",
     month: "short",
   }).format(parsed);
+}
+
+/* ==========================================================================
+   Who the conversation is with
+
+   Three roles now, so "the other side" stopped being a two-way conditional.
+   A guardian thread also names the child it is about, which a teacher needs
+   in the list — four conversations with four parents are otherwise four names
+   with no way to tell which child each is for.
+   ========================================================================== */
+
+const EMPTY_WITHOUT_ANYONE: Record<"guardian" | "learner" | "teacher", string> = {
+  guardian:
+    "You will be able to write to your child's teachers once their subjects are set up.",
+  learner:
+    "You will be able to write to your teachers once your subjects are set up.",
+  teacher:
+    "You will be able to write to learners and their guardians once you are assigned to a class.",
+};
+
+const EMPTY_WITH_SOMEONE: Record<"guardian" | "learner" | "teacher", string> = {
+  guardian: "Ask your child's teacher anything you need to.",
+  learner: "Ask a teacher about anything you are stuck on.",
+  teacher: "Start a conversation with a learner or a guardian.",
+};
+
+function otherSide(
+  thread: MessageThread,
+  viewerRole: "guardian" | "learner" | "teacher",
+): {
+  about: string;
+  kind: "guardian" | "learner" | "staff";
+  name: string;
+  photoUrl?: string | null;
+} {
+  /* Both family-side roles are looking at the teacher. */
+  if (viewerRole !== "teacher") {
+    return {
+      about: "",
+      kind: "staff",
+      name: thread.teacherName,
+      photoUrl: thread.teacherPhotoUrl,
+    };
+  }
+  if (thread.guardianPersonId) {
+    return {
+      about: thread.learnerName,
+      kind: "guardian",
+      name: thread.guardianName ?? "Guardian",
+      photoUrl: null,
+    };
+  }
+  return {
+    about: "",
+    kind: "learner",
+    name: thread.learnerName,
+    photoUrl: thread.learnerPhotoUrl,
+  };
 }

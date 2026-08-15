@@ -2,10 +2,10 @@ import type { Pool } from "pg";
 import {
   demoAdmissionApplication,
   demoPeople,
-  DEMO_TENANT_ID,
   type DemoPerson,
 } from "../domain/demo/greenfield";
 import { auth } from "./auth-config";
+import { SCHOOL_TENANT_ID } from "./school-tenant";
 
 /* ==========================================================================
    Demo accounts
@@ -130,7 +130,7 @@ async function ensureReviewableApplication(database: Pool): Promise<void> {
                    updated_at = CURRENT_TIMESTAMP`,
     [
       application.id,
-      DEMO_TENANT_ID,
+      SCHOOL_TENANT_ID,
       application.intakeId,
       application.applicantEmail,
       application.applicantFirstName,

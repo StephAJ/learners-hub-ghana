@@ -9,6 +9,7 @@ import type {
   Subject,
 } from "../../../domain/academic/structure";
 import type { SchoolTeacher } from "../../../db/academic-repository";
+import type { GradingPeriod } from "../../../db/grading-period-repository";
 import type { SubjectRequirement } from "../../../domain/academic/types";
 import {
   BooksIcon,
@@ -55,14 +56,19 @@ const EMPTY: Structure = {
 /* Outside the component so the mount effect can call it without the function
    itself being a dependency, and so nothing in it touches state — the effect
    decides what to do with the answer. */
-async function fetchStructure(): Promise<Structure | null> {
+async function fetchStructure(): Promise<{
+  periods: GradingPeriod[];
+  structure: Structure;
+} | null> {
   try {
     const response = await fetch("/api/admin/academic");
     const payload = (await response.json()) as {
       error?: string;
+      periods?: GradingPeriod[];
       structure?: Structure;
     };
-    return response.ok ? (payload.structure ?? null) : null;
+    if (!response.ok || !payload.structure) return null;
+    return { periods: payload.periods ?? [], structure: payload.structure };
   } catch {
     return null;
   }
@@ -70,6 +76,10 @@ async function fetchStructure(): Promise<Structure | null> {
 
 export function AcademicView() {
   const [structure, setStructure] = useState<Structure>(EMPTY);
+  /* Terms. Every markbook query used to bind one seeded period id, so a
+     school that reached the end of Term 1 had nowhere to put Term 2's marks
+     and no screen anywhere that could make one. */
+  const [periods, setPeriods] = useState<GradingPeriod[]>([]);
   const [state, setState] = useState<"error" | "loading" | "ready">("loading");
   const [selectedYearId, setSelectedYearId] = useState("");
   const [selectedClassId, setSelectedClassId] = useState("");
@@ -83,13 +93,14 @@ export function AcademicView() {
   const [staffingId, setStaffingId] = useState("");
 
   const load = useCallback(async () => {
-    const structure = await fetchStructure();
-    if (!structure) {
+    const loaded = await fetchStructure();
+    if (!loaded) {
       setProblem("The school’s structure could not be loaded.");
       setState("error");
       return false;
     }
-    setStructure(structure);
+    setStructure(loaded.structure);
+    setPeriods(loaded.periods);
     setState("ready");
     return true;
   }, []);
@@ -98,10 +109,11 @@ export function AcademicView() {
     let active = true;
 
     async function loadOnce() {
-      const structure = await fetchStructure();
+      const loaded = await fetchStructure();
       if (!active) return;
-      if (structure) {
-        setStructure(structure);
+      if (loaded) {
+        setStructure(loaded.structure);
+        setPeriods(loaded.periods);
         setState("ready");
       } else {
         setProblem("The school’s structure could not be loaded.");
@@ -289,6 +301,31 @@ export function AcademicView() {
           {problem}
         </p>
       )}
+
+      {activeYear ? (
+        <TermsPanel
+          busy={busy}
+          onCreate={async (period) => {
+            await send(
+              { period, type: "create-period" },
+              `${period.name} was added.`,
+            );
+          }}
+          onSetStatus={async (periodId, status, name) => {
+            await send(
+              { periodId, status, type: "set-period-status" },
+              status === "open"
+                ? `${name} is now the open term. Marks go here.`
+                : `${name} is ${status}.`,
+            );
+          }}
+          periods={periods.filter(
+            (period) => period.academicYearId === activeYear.id,
+          )}
+          yearId={activeYear.id}
+          yearName={activeYear.name}
+        />
+      ) : null}
 
       {structure.years.length === 0 ? (
         <div className="academic-empty">
@@ -1347,5 +1384,176 @@ function AddSubjectForm({
         Add
       </button>
     </form>
+  );
+}
+
+/* ==========================================================================
+   Terms
+
+   A grading period is what a mark belongs to. Every markbook query used to
+   bind `period-2026-term1` — a row only the demo seed writes — so a real
+   school's markbook read a term that did not exist, and a school reaching the
+   end of Term 1 had nowhere to put Term 2's marks.
+
+   One term is open at a time. That is the whole of the model a teacher needs
+   to hold: marks go into the open one, and closing it is what a school does
+   when the reports for it have gone out.
+   ========================================================================== */
+function TermsPanel({
+  busy,
+  onCreate,
+  onSetStatus,
+  periods,
+  yearId,
+  yearName,
+}: {
+  busy: boolean;
+  onCreate: (period: {
+    academicYearId: string;
+    endsOn: string;
+    name: string;
+    startsOn: string;
+  }) => Promise<void>;
+  onSetStatus: (
+    periodId: string,
+    status: "open" | "closed" | "locked",
+    name: string,
+  ) => Promise<void>;
+  periods: GradingPeriod[];
+  yearId: string;
+  yearName: string;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [startsOn, setStartsOn] = useState("");
+  const [endsOn, setEndsOn] = useState("");
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <p className="eyebrow">{yearName}</p>
+          <h2>Terms</h2>
+        </div>
+        <button
+          className="ghost-button"
+          disabled={busy}
+          onClick={() => setAdding(!adding)}
+          type="button"
+        >
+          {adding ? "Cancel" : "Add a term"}
+        </button>
+      </div>
+
+      {periods.length === 0 ? (
+        <p className="form-hint">
+          No terms yet. The first markbook opened creates one covering the whole
+          year; adding them here lets a school mark term by term instead.
+        </p>
+      ) : (
+        <ul className="term-list">
+          {periods.map((period) => (
+            <li key={period.id}>
+              <span>
+                <strong>{period.name}</strong>
+                <small>
+                  {period.startsOn} to {period.endsOn}
+                </small>
+              </span>
+              <span className={`term-state is-${period.status}`}>
+                {period.status === "open"
+                  ? "Open for marking"
+                  : period.status === "closed"
+                    ? "Closed"
+                    : "Locked"}
+              </span>
+              <span className="term-actions">
+                {period.status !== "open" ? (
+                  <button
+                    className="ghost-button"
+                    disabled={busy}
+                    onClick={() =>
+                      void onSetStatus(period.id, "open", period.name)
+                    }
+                    type="button"
+                  >
+                    Open
+                  </button>
+                ) : (
+                  <button
+                    className="ghost-button"
+                    disabled={busy}
+                    onClick={() =>
+                      void onSetStatus(period.id, "closed", period.name)
+                    }
+                    type="button"
+                  >
+                    Close
+                  </button>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {adding ? (
+        <form
+          className="inline-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            await onCreate({
+              academicYearId: yearId,
+              endsOn,
+              name,
+              startsOn,
+            });
+            setAdding(false);
+            setName("");
+            setStartsOn("");
+            setEndsOn("");
+          }}
+        >
+          <div className="inline-form-fields">
+            <label>
+              <span>Name</span>
+              <input
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Term 2"
+                required
+                value={name}
+              />
+            </label>
+            <label>
+              <span>Starts</span>
+              <input
+                onChange={(event) => setStartsOn(event.target.value)}
+                required
+                type="date"
+                value={startsOn}
+              />
+            </label>
+            <label>
+              <span>Ends</span>
+              <input
+                onChange={(event) => setEndsOn(event.target.value)}
+                required
+                type="date"
+                value={endsOn}
+              />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button disabled={busy} type="submit">
+              Add term
+            </button>
+          </div>
+          <p className="form-hint">
+            A new term starts with the grading scale the school last used, so
+            changing the bands later cannot restate grades already issued.
+          </p>
+        </form>
+      ) : null}
+    </section>
   );
 }

@@ -20,7 +20,14 @@ import "./guardian-reports.css";
    problem the rest of the product has now shed.
    ========================================================================== */
 
-export function ReportsView() {
+export function ReportsView({
+  audience = "guardian",
+}: {
+  /* A learner reads the same document, so this renders it rather than a
+     second copy drifting from this one. What changes is who is being spoken
+     to and whether there is anybody to switch between. */
+  audience?: "guardian" | "learner";
+} = {}) {
   const [workspace, setWorkspace] = useState<GuardianReportWorkspace>();
   const [state, setState] = useState<"error" | "loading" | "ready">("loading");
   const [problem, setProblem] = useState("");
@@ -33,10 +40,12 @@ export function ReportsView() {
 
     async function loadOnce() {
       try {
+        const endpoint =
+          audience === "learner" ? "/api/learn/reports" : "/api/guardian/reports";
         const response = await fetch(
           childId
-            ? `/api/guardian/reports?learnerId=${encodeURIComponent(childId)}`
-            : "/api/guardian/reports",
+            ? `${endpoint}?learnerId=${encodeURIComponent(childId)}`
+            : endpoint,
         );
         const payload = (await response.json()) as {
           error?: string;
@@ -64,7 +73,7 @@ export function ReportsView() {
     return () => {
       active = false;
     };
-  }, [childId, reloadKey]);
+  }, [audience, childId, reloadKey]);
 
   /* Switching child changes what is loaded, so it goes through the same
      effect rather than a second copy of the fetch. */
@@ -97,39 +106,21 @@ export function ReportsView() {
   return (
     <>
       <div className="guardian-page">
-        <section className="guardian-intro">
-          <div>
-            <p className="guardian-eyebrow">Academic reports</p>
-            <h1>Your child&apos;s progress, clearly explained.</h1>
-            <p>
-              Only reports approved and released by the school appear here.
-              Marks, teacher feedback, attendance, and the issued version stay
-              together as one trusted record.
-            </p>
-          </div>
-          <div className="guardian-security">
-            <span>✓</span>
-            <div>
-              <strong>Relationship-protected</strong>
-              <small>
-                You only see learners linked to your guardian account.
-              </small>
-            </div>
-          </div>
-        </section>
 
         <section className="child-switcher" aria-label="Choose a child">
           <div>
             <span className="child-avatar">{initials(workspace.child.name)}</span>
             <div>
-              <small>Viewing reports for</small>
+              <small>
+                {audience === "learner" ? "Reports for" : "Viewing reports for"}
+              </small>
               <strong>{workspace.child.name}</strong>
               <span>
                 {workspace.child.studentId} · {workspace.child.className}
               </span>
             </div>
           </div>
-          {workspace.linkedChildren.length > 1 ? (
+          {audience === "guardian" && workspace.linkedChildren.length > 1 ? (
             <label>
               <span>Switch child</span>
               <select
@@ -168,8 +159,9 @@ export function ReportsView() {
             <span>◎</span>
             <h2>No released report yet</h2>
             <p>
-              The school may still be reviewing this child&apos;s current
-              report. It will appear here only after formal release.
+              {audience === "learner"
+                ? "Your teachers may still be marking. A report appears here once the school has approved and released it."
+                : "The school may still be reviewing this child’s current report. It will appear here only after formal release."}
             </p>
           </section>
         )}
@@ -201,7 +193,9 @@ function ReportCard({
   return (
     <article className="report-card" id="report-card">
       <header className="report-card-header">
-        <div className="report-school-mark">GA</div>
+        {/* Was the literal "GA" — Greenfield Academy's initials, on the
+            report card of every school that issued one. */}
+        <div className="report-school-mark">{initials(schoolName)}</div>
         <div>
           <p>{schoolName}</p>
           <h2>End-of-term academic report</h2>
@@ -238,8 +232,21 @@ function ReportCard({
               </select>
             </label>
           ) : null}
+          {/* Was window.print(), which makes a different document on every
+              device and none at all on a phone that cannot print. This is one
+              fixed file, rendered from the same record. */}
+          <a
+            className="report-download"
+            href={`/api/reports/document?reportId=${encodeURIComponent(report.id)}${
+              workspace.child.id
+                ? `&learnerId=${encodeURIComponent(workspace.child.id)}`
+                : ""
+            }`}
+          >
+            Download PDF
+          </a>
           <button onClick={() => window.print()} type="button">
-            Print report
+            Print
           </button>
         </div>
       </div>

@@ -3,11 +3,12 @@
 import confetti from "canvas-confetti";
 import Link from "next/link";
 import {
+  ArrowLeftIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
   FlagIcon,
 } from "../../../components/icons";
-import { ProgressDonut } from "../../../components/progress-donut";
 import {
   useEffect,
   useMemo,
@@ -196,6 +197,53 @@ export function AssessmentRunner({
     return result.ok;
   }
 
+  /* Both hand back the paper the server now holds rather than patching the
+     copy on screen: the attachment list, and whether the attempt is still
+     open, are the server's answer to give. The string they return is the
+     message the control shows; null means it worked. */
+  async function attachFile(
+    questionId: string,
+    file: File,
+  ): Promise<string | null> {
+    if (!assessment.attempt) return "Start the paper before adding a file.";
+    const body = new FormData();
+    body.append("attemptId", assessment.attempt.id);
+    body.append("file", file);
+    body.append("questionId", questionId);
+    const result = await fetch("/api/learn/assessments", { body, method: "POST" });
+    const payload = (await result.json()) as {
+      assessment?: LearnerAssessment;
+      error?: string;
+    };
+    if (!result.ok || !payload.assessment) {
+      return payload.error ?? "That file could not be added.";
+    }
+    setAssessment(payload.assessment);
+    return null;
+  }
+
+  async function removeFile(attachmentId: string): Promise<string | null> {
+    if (!assessment.attempt) return null;
+    const result = await fetch("/api/learn/assessments", {
+      body: JSON.stringify({
+        action: "remove-attachment",
+        attachmentId,
+        attemptId: assessment.attempt.id,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await result.json()) as {
+      assessment?: LearnerAssessment;
+      error?: string;
+    };
+    if (!result.ok || !payload.assessment) {
+      return payload.error ?? "That file could not be removed.";
+    }
+    setAssessment(payload.assessment);
+    return null;
+  }
+
   function toggleFlag() {
     if (!activeQuestion) return;
     const next = new Set(flagged);
@@ -355,28 +403,106 @@ export function AssessmentRunner({
             Back to the subject
           </Link>
         </section>
+
+        {/* ==================================================================
+            The review
+
+            This screen ended at the card above: a number, the word
+            "Released", and a link away. The teacher's marking — a mark per
+            question and the words they wrote against the written answers —
+            was stored on assessment_responses and shown to nobody. A learner
+            was told what they scored and never what they got wrong.
+
+            Shown only when the paper's feedback policy allows it, which is
+            what that column has been for since the schema was written.
+            ================================================================== */}
+        {assessment.review.length > 0 ? (
+          <section className="quiz-review">
+            <h2>Your answers</h2>
+            <ol>
+              {assessment.questions.map((question, index) => {
+                const marked = assessment.review.find(
+                  (item) => item.questionId === question.id,
+                );
+                if (!marked) return null;
+                const full = marked.awardedMarks >= marked.maximumMarks;
+                const none = marked.awardedMarks === 0;
+                return (
+                  <li
+                    className={
+                      full
+                        ? "is-correct"
+                        : none
+                          ? "is-incorrect"
+                          : "is-partial"
+                    }
+                    key={question.id}
+                  >
+                    <div className="review-head">
+                      <span className="review-number">{index + 1}</span>
+                      <p className="review-prompt">{question.prompt}</p>
+                      <span className="review-marks">
+                        {marked.markingStatus === "needs-marking"
+                          ? "Not yet marked"
+                          : `${marked.awardedMarks} / ${marked.maximumMarks}`}
+                      </span>
+                    </div>
+                    {marked.correctAnswer ? (
+                      <p className="review-answer">
+                        <span>Correct answer</span>
+                        {marked.correctAnswer}
+                      </p>
+                    ) : null}
+                    {marked.feedback ? (
+                      <p className="review-feedback">
+                        <span>Your teacher wrote</span>
+                        {marked.feedback}
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        ) : null}
       </div>
     );
   }
 
   return (
     <>
-      <div className="runner">
-        <header className="runner-bar">
-          <div className="runner-bar-where">
-            <p className="runner-bar-position">
-              Question {activeIndex + 1} of {assessment.questions.length}
-            </p>
-            <p className="runner-bar-counts">
-              {answeredCount} answered
-              {flagged.size > 0 ? ` · ${flagged.size} flagged` : ""}
-            </p>
+      {/* ====================================================================
+          The paper, on the lesson player's shell
+
+          This was a boxed "runner" inside the workspace chrome: a bar, a
+          panel of numbered squares, and a question card in a column beside
+          them. Sitting a paper is the most focused thing a learner does in
+          the product and it had the least room of any screen.
+
+          It now uses the same shell the lesson player does — literally the
+          same classes, so the two cannot drift apart — with the questions
+          listed down the side rather than reduced to a grid of numbers. A
+          learner scanning for "the one about the small intestine" can read it
+          rather than remember which number it was.
+          ==================================================================== */}
+      <div className="lesson-shell">
+        <header className="lesson-toprail">
+          <div className="lesson-toprail-heading">
+            <Link className="course-back" href="/learn/assessments">
+              <ArrowLeftIcon size={14} />
+              All assessments
+            </Link>
+            <span className="lesson-toprail-divider" aria-hidden="true" />
+            <div className="lesson-toprail-title">
+              <p className="lesson-eyebrow">
+                {assessment.title} · Question {activeIndex + 1} of{" "}
+                {assessment.questions.length}
+              </p>
+              <h2>{activeQuestion.prompt}</h2>
+            </div>
           </div>
 
-          {/* The save state belongs here rather than floating above the
-              question card, where it was the only thing in its row and pulled
-              the column out of alignment with this bar. */}
-          <div className="runner-bar-side">
+          <div className="course-stage-nav">
             <span
               className={`runner-save${
                 saveState.includes("interrupted") ? " is-error" : ""
@@ -398,83 +524,115 @@ export function AssessmentRunner({
               </span>
               <span className="runner-timer-label">left</span>
             </div>
+
+            <button
+              aria-label="Previous question"
+              disabled={activeIndex === 0}
+              onClick={() => setActiveIndex((index) => index - 1)}
+              type="button"
+            >
+              <ChevronLeftIcon size={18} />
+            </button>
+            <button
+              aria-label="Next question"
+              disabled={activeIndex >= assessment.questions.length - 1}
+              onClick={() => setActiveIndex((index) => index + 1)}
+              type="button"
+            >
+              <ChevronRightIcon size={18} />
+            </button>
           </div>
         </header>
 
-        <div className="runner-grid">
-          <aside className="runner-nav">
-            <div className="runner-nav-progress">
-              <ProgressDonut
-                percent={
-                  (answeredCount / Math.max(1, assessment.questions.length)) *
-                  100
-                }
-              />
-              <p>
-                <strong>
-                  {answeredCount} of {assessment.questions.length}
-                </strong>
-                answered
-              </p>
-            </div>
+        <div className="course-player">
+          <aside className="course-outline" aria-label="Questions">
+            <header className="course-outline-head">
+              <p>This paper</p>
+              <div className="course-outline-progress">
+                <span>
+                  {answeredCount} of {assessment.questions.length} answered
+                  {flagged.size > 0 ? ` · ${flagged.size} flagged` : ""}
+                </span>
+                <span className="course-outline-track" aria-hidden="true">
+                  <i
+                    style={{
+                      width: `${
+                        (answeredCount /
+                          Math.max(1, assessment.questions.length)) *
+                        100
+                      }%`,
+                    }}
+                  />
+                </span>
+              </div>
+            </header>
 
-            <nav aria-label="Question navigator" className="runner-nav-grid">
+            <ol className="course-outline-list">
               {assessment.questions.map((question, index) => {
                 const answered = hasResponse(responses[question.id]);
                 const isFlagged = flagged.has(question.id);
+                const isOpen = index === activeIndex;
                 return (
-                  <button
-                    aria-current={index === activeIndex ? "step" : undefined}
-                    aria-label={`Question ${index + 1}${
-                      answered ? ", answered" : ", not answered"
-                    }${isFlagged ? ", flagged" : ""}`}
-                    className={[
-                      index === activeIndex ? "is-active" : "",
-                      answered ? "is-answered" : "",
-                      isFlagged ? "is-flagged" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    key={question.id}
-                    onClick={() => setActiveIndex(index)}
-                    type="button"
-                  >
-                    {index + 1}
-                  </button>
+                  <li className={isOpen ? "is-open" : undefined} key={question.id}>
+                    <button
+                      aria-current={isOpen ? "step" : undefined}
+                      className="course-outline-lesson quiz-outline-question"
+                      onClick={() => setActiveIndex(index)}
+                      type="button"
+                    >
+                      {/* The same disc the lesson outline uses, so a learner
+                          reads one shape across both screens: the number until
+                          it is done, a tick after. */}
+                      <span
+                        className={`course-outline-status${
+                          answered ? " is-done" : ""
+                        }`}
+                      >
+                        {answered ? "✓" : index + 1}
+                      </span>
+                      <span className="course-outline-lesson-copy">
+                        <strong>{question.prompt}</strong>
+                        <small>
+                          {questionTypeLabel(question.type)} · {question.marks}{" "}
+                          {question.marks === 1 ? "mark" : "marks"}
+                        </small>
+                      </span>
+                      {isFlagged ? (
+                        <FlagIcon aria-label="Flagged" size={13} />
+                      ) : null}
+                    </button>
+                  </li>
                 );
               })}
-            </nav>
+            </ol>
 
-            <button
-              className="runner-submit"
-              onClick={() => setConfirmSubmit(true)}
-              type="button"
-            >
-              Review and submit
-            </button>
+            <div className="quiz-outline-foot">
+              <button
+                className="course-primary"
+                onClick={() => setConfirmSubmit(true)}
+                type="button"
+              >
+                Review and submit
+              </button>
+            </div>
           </aside>
 
-          <section className="runner-stage">
+          <section className="course-stage quiz-stage">
             <article className="question-paper">
               <header>
                 <div>
                   <span>
-                    Question {activeIndex + 1} of{" "}
-                    {assessment.questions.length}
+                    Question {activeIndex + 1} of {assessment.questions.length}
                   </span>
                   <small>{questionTypeLabel(activeQuestion.type)}</small>
                 </div>
                 <button
-                  className={
-                    flagged.has(activeQuestion.id) ? "is-flagged" : ""
-                  }
+                  className={flagged.has(activeQuestion.id) ? "is-flagged" : ""}
                   onClick={toggleFlag}
                   type="button"
                 >
                   <FlagIcon size={14} />
-                  {flagged.has(activeQuestion.id)
-                    ? "Flagged"
-                    : "Flag question"}
+                  {flagged.has(activeQuestion.id) ? "Flagged" : "Flag question"}
                 </button>
               </header>
 
@@ -494,7 +652,12 @@ export function AssessmentRunner({
               ) : null}
 
               <QuestionInput
+                attachments={assessment.responseAttachments.filter(
+                  (attachment) => attachment.questionId === activeQuestion.id,
+                )}
+                onAttach={(file) => attachFile(activeQuestion.id, file)}
                 onChange={(value) => updateResponse(activeQuestion.id, value)}
+                onRemoveAttachment={removeFile}
                 question={activeQuestion}
                 value={responses[activeQuestion.id]?.value}
               />

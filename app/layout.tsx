@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Poppins } from "next/font/google";
+import { Inter, Lora, Poppins } from "next/font/google";
 import { headers } from "next/headers";
 import { restoreSidebarState } from "./components/sidebar-storage";
+import { loadSchoolProfile } from "../db/school-profile-repository";
+import { SCHOOL_TENANT_ID } from "../server/school-tenant";
+import { ServiceWorkerRegistration } from "./components/service-worker-registration";
 import "./globals.css";
 import "./workspace.css";
 
@@ -25,11 +28,43 @@ const poppins = Poppins({
   weight: ["400", "500", "600"],
 });
 
-const description =
-  "The school system Greenfield Academy uses for admissions, lesson planning, attendance, marking, and end-of-term reports.";
+/* The display face for page and panel headings, and the one thing stopping
+   this reading like every other dashboard.
 
+   It was never actually loaded: --font-serif in globals.css listed
+   `ui-serif, Georgia, …` and no webfont, so every heading in the product has
+   been rendering in Georgia. Lora has a real medium and semibold, which
+   Georgia does not — headings can now carry weight instead of relying on size
+   alone for presence. */
+const lora = Lora({
+  display: "swap",
+  subsets: ["latin"],
+  variable: "--font-lora",
+  weight: ["400", "500", "600"],
+});
+
+/* ==========================================================================
+   What a link preview says
+
+   This was "The school system Greenfield Academy uses for…" — the demo
+   school's name in the description of every page, on every deployment. It is
+   the one piece of text a school never sees in its own product and everyone
+   else sees first: it is what a search engine indexes and what WhatsApp shows
+   when a parent forwards a link to the admissions form.
+
+   Read from the school's own record like everything else. A failure falls back
+   to the product's name rather than to a school that is not this one.
+   ========================================================================== */
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
+  const school = await loadSchoolProfile(SCHOOL_TENANT_ID).catch(() => null);
+  const schoolName = school?.name?.trim();
+  const description = schoolName
+    ? `The school system ${schoolName} uses for admissions, lesson planning, attendance, marking, and end-of-term reports.`
+    : "One school system, from admissions to reports.";
+  const shortDescription = schoolName
+    ? `${schoolName}: one school system, from admissions to reports.`
+    : "One school system, from admissions to reports.";
   const host =
     requestHeaders.get("x-forwarded-host") ??
     requestHeaders.get("host") ??
@@ -48,11 +83,11 @@ export async function generateMetadata(): Promise<Metadata> {
     applicationName: "Learners Hub",
     metadataBase,
     openGraph: {
-      title: "Learners Hub",
-      description: "One school system, from admissions to reports.",
+      title: schoolName ?? "Learners Hub",
+      description: shortDescription,
       images: [
         {
-          alt: "The Learners Hub school hub",
+          alt: schoolName ? `${schoolName} on Learners Hub` : "The Learners Hub school hub",
           url: "/og-unified.png",
         },
       ],
@@ -60,8 +95,8 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: "Learners Hub",
-      description: "One school system, from admissions to reports.",
+      title: schoolName ?? "Learners Hub",
+      description: shortDescription,
       images: ["/og-unified.png"],
     },
   };
@@ -85,7 +120,7 @@ export default function RootLayout({
        markup React rendered and the markup in the document differ by design,
        and only on this one element. */
     <html
-      className={`${inter.variable} ${poppins.variable}`}
+      className={`${inter.variable} ${lora.variable} ${poppins.variable}`}
       lang="en"
       suppressHydrationWarning
     >
@@ -103,7 +138,12 @@ export default function RootLayout({
             owns. */}
         <script dangerouslySetInnerHTML={{ __html: restoreSidebarState }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* The PWA had a manifest and no service worker, so it was
+            installable and had no offline behaviour whatsoever. */}
+        <ServiceWorkerRegistration />
+      </body>
     </html>
   );
 }

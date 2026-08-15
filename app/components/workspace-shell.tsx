@@ -20,8 +20,15 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
     { href: "/admin/admissions", icon: "admissions", label: "Admissions" },
     { href: "/admin/people", icon: "classes", label: "People" },
     { href: "/admin/academic", icon: "academics", label: "Academics" },
+    /* The timetable was seed rows and nothing else, so every school read the
+       demo's four periods. */
+    { href: "/admin/timetable", icon: "schoolDay", label: "Timetable" },
     { href: "/admin/reports", icon: "markbook", label: "Report cards" },
     { href: "/admin/school", icon: "school", label: "School details" },
+    /* Twelve repositories wrote audit events and nothing read one, so the
+       record existed for a future incident and could answer no question
+       today. */
+    { href: "/admin/audit", icon: "content", label: "Activity log" },
     { href: "/admin/messages", icon: "messages", label: "Reported" },
   ],
   applicant: [
@@ -34,6 +41,9 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
     { href: "/guardian", icon: "home", label: "Overview" },
     { href: "/guardian/school-day", icon: "schoolDay", label: "School day" },
     { href: "/guardian/reports", icon: "markbook", label: "Reports" },
+    /* Guardians were excluded from messaging outright, so a parent with a
+       question telephoned the school. */
+    { href: "/guardian/messages", icon: "messages", label: "Messages" },
   ],
   student: [
     { href: "/student", icon: "home", label: "Today" },
@@ -44,6 +54,11 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
       icon: "assessments",
       label: "Assessments",
     },
+    /* A learner's own report card. The role has held `report:read` since
+       permissions were written and there was no screen behind it, so the one
+       document a learner most wants was readable by their parent and not by
+       them. */
+    { href: "/learn/reports", icon: "markbook", label: "My reports" },
     { href: "/learn/messages", icon: "messages", label: "Messages" },
   ],
   teacher: [
@@ -80,7 +95,7 @@ export async function WorkspaceShell({
   title: string;
   /* Optional controls that belong beside the page title rather than in it. */
   toolbar?: ReactNode;
-  user: AuthenticatedSchoolUser;
+  user: AuthenticatedSchoolUser & { twoFactorAsked?: boolean };
   workspace: WorkspaceKind | "applicant";
 }) {
   const roleWorkspaces = uniqueWorkspaces(user.availableRoles);
@@ -129,6 +144,15 @@ export async function WorkspaceShell({
             ) : null}
           </header>
         )}
+        {/* Stated rather than enforced, until the school switches enforcement
+            on. An administrator told on the morning they were meant to set the
+            school up that they cannot sign in is worse than one asked. */}
+        {user.twoFactorAsked ? (
+          <p className="workspace-2fa-prompt">
+            Your role can read every child&rsquo;s record in this school.{" "}
+            <Link href="/account/security">Turn on two-factor sign-in</Link>.
+          </p>
+        ) : null}
         <div className={contentClassName ?? "workspace-content"}>{children}</div>
       </main>
 
@@ -169,7 +193,13 @@ async function withUnreadBadges(
     );
   }
 
-  if (workspace !== "student" && workspace !== "teacher") return items;
+  if (
+    workspace !== "guardian" &&
+    workspace !== "student" &&
+    workspace !== "teacher"
+  ) {
+    return items;
+  }
   let unread = 0;
   try {
     unread = await countUnreadMessages(user.access);

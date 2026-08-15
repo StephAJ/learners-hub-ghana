@@ -15,6 +15,7 @@ import {
 import type { AccessContext } from "../domain/identity/types";
 import { getSchoolDatabase } from "./index";
 import { ensurePeopleSeed } from "./people-repository";
+import { sendAnnouncementMail } from "../server/mail/notification-mail";
 import type { SchoolDatabase } from "./school-database";
 
 /* ==========================================================================
@@ -329,7 +330,41 @@ export async function createAnnouncement(
     )
     .run();
 
+  /* Posted notices reached the panel on somebody's home screen and nowhere
+     else, so "the school tells everyone at once" only reached the people who
+     happened to sign in that week. Guardians are mailed; staff are not, since
+     they are in the product daily and a school that mails its own staff every
+     notice trains them to ignore the ones that matter.
+
+     After the insert and never allowed to fail it: the announcement is the
+     record, the mail is the notice. */
+  if (!publishAt || publishAt <= new Date().toISOString()) {
+    await sendAnnouncementMail({
+      authorName: await authorName(database, access),
+      body: input.body.trim(),
+      scopeId,
+      scopeType: input.scopeType,
+      tenantId: access.tenantId,
+      title: input.title.trim(),
+    });
+  }
+
   return listAnnouncements(access);
+}
+
+/** Who posted it, for the mail. The panel reads this from the join. */
+async function authorName(
+  database: SchoolDatabase,
+  access: AccessContext,
+): Promise<string> {
+  const row = await database
+    .prepare(
+      `SELECT first_name || ' ' || last_name AS name
+      FROM people WHERE id = ? AND tenant_id = ? LIMIT 1`,
+    )
+    .bind(access.actorPersonId, access.tenantId)
+    .first<{ name: string }>();
+  return row?.name ?? "The school office";
 }
 
 function toAnnouncement(row: AnnouncementRow): Announcement {

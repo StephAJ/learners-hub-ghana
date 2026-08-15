@@ -260,3 +260,211 @@ export function draftReminderEmail(
     to: options.guardianEmail,
   };
 }
+
+/* ==========================================================================
+   Getting back into an account
+
+   There was no password reset. Better Auth was configured with email and
+   password and nothing else — no forgetPassword, no verification — so a
+   teacher or a guardian who forgot their password had no route back in at
+   all, and the only recovery tool in the project was a CLI script somebody
+   had to run on the server.
+
+   The link carries a token that expires. Saying so in the mail matters: a
+   parent who opens it three days later needs to know why it did not work,
+   rather than concluding the school has locked them out.
+   ========================================================================== */
+
+export function passwordResetEmail(options: {
+  name: string;
+  school: SchoolContext;
+  url: string;
+  validForMinutes: number;
+}): { html: string; subject: string; text: string } {
+  const { name, school, url, validForMinutes } = options;
+  const who = name.trim() || "there";
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Hello ${escapeHtml(who)}, somebody asked to reset the password on your
+      ${escapeHtml(school.schoolName)} account.
+    </p>
+    <p style="margin:0 0 20px;">${button(url, "Choose a new password")}</p>
+    <p style="margin:0 0 8px;font-size:14px;line-height:1.6;">
+      The link works once and expires in ${validForMinutes} minutes.
+    </p>
+    <p style="margin:0;font-size:14px;line-height:1.6;">
+      If this was not you, nothing has changed and you can ignore this
+      message. Your password stays as it is until somebody uses that link.
+    </p>`;
+
+  return {
+    html: layout({
+      body,
+      footer: `Sent by ${escapeHtml(school.schoolName)}. If you did not ask for this, tell the school office.`,
+      heading: "Reset your password",
+      preheader: `A link to choose a new password for your ${school.schoolName} account.`,
+      school,
+    }),
+    subject: `Reset your ${school.schoolName} password`,
+    text: [
+      `Hello ${who},`,
+      "",
+      `Somebody asked to reset the password on your ${school.schoolName} account.`,
+      "",
+      url,
+      "",
+      `The link works once and expires in ${validForMinutes} minutes.`,
+      "If this was not you, nothing has changed.",
+    ].join("\n"),
+  };
+}
+
+/** Confirms the address on an account somebody has just created. */
+export function verifyEmailAddressEmail(options: {
+  name: string;
+  school: SchoolContext;
+  url: string;
+}): { html: string; subject: string; text: string } {
+  const { name, school, url } = options;
+  const who = name.trim() || "there";
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Hello ${escapeHtml(who)}, please confirm this is your address so
+      ${escapeHtml(school.schoolName)} can reach you about your account.
+    </p>
+    <p style="margin:0 0 20px;">${button(url, "Confirm my address")}</p>
+    <p style="margin:0;font-size:14px;line-height:1.6;">
+      If you did not create an account, you can ignore this message.
+    </p>`;
+
+  return {
+    html: layout({
+      body,
+      footer: `Sent by ${escapeHtml(school.schoolName)}.`,
+      heading: "Confirm your email address",
+      preheader: `Confirm your address for ${school.schoolName}.`,
+      school,
+    }),
+    subject: `Confirm your email address for ${school.schoolName}`,
+    text: [
+      `Hello ${who},`,
+      "",
+      `Please confirm this is your address so ${school.schoolName} can reach you.`,
+      "",
+      url,
+    ].join("\n"),
+  };
+}
+
+/* ==========================================================================
+   Telling a family something happened
+
+   Two senders existed: an application was submitted, and a draft went quiet.
+   Nothing was sent when a report card was released, when an announcement went
+   out, when a child was marked absent, or when a message arrived — so every
+   one of those was invisible until the person next happened to sign in, which
+   for a parent may be never.
+
+   Each of these carries the thing itself rather than only a link. A parent
+   reading on a phone on a tro-tro should learn that their child was absent
+   from the notification, not from a page they have to open.
+   ========================================================================== */
+
+export function reportReleasedEmail(options: {
+  learnerName: string;
+  periodName: string;
+  school: SchoolContext;
+}): { html: string; subject: string; text: string } {
+  const { learnerName, periodName, school } = options;
+  const url = `${options.school.origin}/guardian/reports`;
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      ${escapeHtml(learnerName)}&rsquo;s ${escapeHtml(periodName)} report has
+      been approved and released. Marks, teacher comments and attendance are
+      all on it.
+    </p>
+    <p style="margin:0 0 20px;">${button(url, "Read the report")}</p>`;
+
+  return {
+    html: layout({
+      body,
+      footer: `Sent by ${escapeHtml(school.schoolName)}. Reply to this message to reach the office.`,
+      heading: `${periodName} report is ready`,
+      preheader: `${learnerName}'s ${periodName} report has been released.`,
+      school,
+    }),
+    subject: `${learnerName}'s ${periodName} report is ready`,
+    text: [
+      `${learnerName}'s ${periodName} report has been approved and released.`,
+      "",
+      url,
+    ].join("\n"),
+  };
+}
+
+export function absenceNoticeEmail(options: {
+  date: string;
+  learnerName: string;
+  school: SchoolContext;
+}): { html: string; subject: string; text: string } {
+  const { date, learnerName, school } = options;
+  const url = `${school.origin}/guardian/school-day`;
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      ${escapeHtml(learnerName)} was marked absent on ${escapeHtml(date)}.
+    </p>
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.6;">
+      If that is not right, or if you have already told the school, reply to
+      this message and the office will correct the register.
+    </p>
+    <p style="margin:0;">${button(url, "See the attendance record")}</p>`;
+
+  return {
+    html: layout({
+      body,
+      footer: `Sent by ${escapeHtml(school.schoolName)}.`,
+      heading: `${learnerName} was marked absent`,
+      preheader: `${learnerName} was marked absent on ${date}.`,
+      school,
+    }),
+    subject: `${learnerName} was marked absent on ${date}`,
+    text: [
+      `${learnerName} was marked absent on ${date}.`,
+      "",
+      "If that is not right, reply to this message and the office will correct the register.",
+      "",
+      url,
+    ].join("\n"),
+  };
+}
+
+export function announcementEmail(options: {
+  authorName: string;
+  bodyText: string;
+  school: SchoolContext;
+  title: string;
+}): { html: string; subject: string; text: string } {
+  const { authorName, bodyText, school, title } = options;
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(bodyText)}</p>
+    <p style="margin:0;font-size:13px;color:${MUTED};">
+      Posted by ${escapeHtml(authorName)}.
+    </p>`;
+
+  return {
+    html: layout({
+      body,
+      footer: `Sent by ${escapeHtml(school.schoolName)} to everybody it concerns.`,
+      heading: title,
+      preheader: bodyText.slice(0, 120),
+      school,
+    }),
+    subject: `${school.schoolName}: ${title}`,
+    text: [title, "", bodyText, "", `Posted by ${authorName}.`].join("\n"),
+  };
+}

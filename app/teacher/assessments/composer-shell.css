@@ -34,10 +34,31 @@
   width: 100%;
 }
 
-/* The quiz builder puts a bank list beside a running selection, which needs
-   more room than a single question does. */
+/* ==========================================================================
+   The quiz builder is a workspace, not a dialog
+
+   It was a 62rem box capped at 46rem tall, holding a settings grid, a bank
+   list and a running selection — three panels inside a modal, every one of
+   them scrolling in its own little window. Assembling a paper is a job a
+   teacher sits down to, not a confirmation they dismiss.
+
+   So the wide composer takes the screen: near-full width and height, and the
+   room inside it goes to the two lists, which are the part being worked in.
+   ========================================================================== */
 .composer-wide {
-  max-width: 62rem;
+  max-height: calc(100dvh - var(--space-8));
+  max-width: min(88rem, calc(100vw - var(--space-8)));
+}
+
+.composer-wide .composer-body {
+  gap: var(--space-8);
+  padding: var(--space-8);
+}
+
+.composer-wide .composer-head,
+.composer-wide .composer-foot {
+  padding-left: var(--space-8);
+  padding-right: var(--space-8);
 }
 
 /* -- Head ----------------------------------------------------------------- */
@@ -129,6 +150,8 @@
   font-family: inherit;
   font-size: var(--fs-14);
   letter-spacing: var(--tracking-body);
+  /* A field a teacher types a quiz title into, at a height a thumb can hit. */
+  min-height: 2.6rem;
   padding: var(--space-3);
   width: 100%;
 }
@@ -157,10 +180,31 @@
   padding: var(--space-3);
 }
 
+/* Four settings across on a wide composer rather than three, so the row does
+   not wrap into a ragged second line — and a larger gap, because these are
+   separate decisions rather than one address block. */
 .composer-meta {
   display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.composer-wide .composer-meta {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 60rem) {
+  .composer-meta,
+  .composer-wide .composer-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 40rem) {
+  .composer-meta,
+  .composer-wide .composer-meta {
+    grid-template-columns: 1fr;
+  }
 }
 
 .composer-field-wide {

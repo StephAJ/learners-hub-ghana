@@ -35,20 +35,26 @@ const thread = {
 };
 
 describe("who may use messages", () => {
-  it("places learners and teachers on their own side", () => {
+  it("places each role on its own side", () => {
     expect(messagingRoleFor(access("learner"))).toBe("learner");
     expect(messagingRoleFor(access("teacher"))).toBe("teacher");
     expect(messagingRoleFor(access("class-teacher"))).toBe("teacher");
+    /* Guardians used to be refused here outright, which left the guardian
+       workspace with no inbox and a school telephoning instead. What made
+       them a different case is now modelled on the thread rather than used
+       as a reason to exclude them — see the guardian thread tests below. */
+    expect(messagingRoleFor(access("guardian"))).toBe("guardian");
   });
 
   it("refuses everyone else", () => {
-    /* Deliberately narrow. A school inbox that quietly admits administrators
-       and guardians is a safeguarding surface nobody asked for. */
+    /* Still deliberately narrow. A school inbox that quietly admits
+       administrators is a safeguarding surface nobody asked for — and an
+       administrator who needs to read a conversation has the reported-message
+       queue, which is audited. */
     for (const role of [
       "school-admin",
       "academic-admin",
       "admissions-officer",
-      "guardian",
     ] as SchoolRole[]) {
       expect(() => messagingRoleFor(access(role))).toThrow(AuthorizationError);
     }
@@ -160,6 +166,60 @@ describe("who may read a reported conversation", () => {
         access("school-admin", "person-admin", "invited"),
         "messages:moderate",
       ),
+    ).toBe(false);
+  });
+});
+
+/* ==========================================================================
+   A guardian's conversation
+
+   What made guardians "a different thing" is the property these tests pin: a
+   parent-teacher thread names the child it is about, and the child is not a
+   party to it. Reading learnerPersonId as a participant regardless — which is
+   what the old two-sided check did — would put a learner inside their
+   parent's conversation with their teacher.
+   ========================================================================== */
+describe("a thread between a guardian and a teacher", () => {
+  const guardianThread = {
+    guardianPersonId: "person-efua",
+    learnerPersonId: "person-kwame",
+    teacherPersonId: "person-grace",
+  };
+
+  it("has the guardian and the teacher in it", () => {
+    expect(
+      isThreadParticipant(access("guardian", "person-efua"), guardianThread),
+    ).toBe(true);
+    expect(
+      isThreadParticipant(access("teacher", "person-grace"), guardianThread),
+    ).toBe(true);
+  });
+
+  it("does not have the child in it", () => {
+    expect(
+      isThreadParticipant(access("learner", "person-kwame"), guardianThread),
+      "a parent-teacher conversation is not the child's to read",
+    ).toBe(false);
+  });
+
+  it("does not admit another guardian", () => {
+    expect(
+      isThreadParticipant(access("guardian", "person-other"), guardianThread),
+    ).toBe(false);
+  });
+
+  it("leaves a learner's own thread as it was", () => {
+    const learnerThread = {
+      guardianPersonId: null,
+      learnerPersonId: "person-kwame",
+      teacherPersonId: "person-grace",
+    };
+
+    expect(
+      isThreadParticipant(access("learner", "person-kwame"), learnerThread),
+    ).toBe(true);
+    expect(
+      isThreadParticipant(access("guardian", "person-efua"), learnerThread),
     ).toBe(false);
   });
 });

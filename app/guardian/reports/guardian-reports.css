@@ -757,3 +757,22 @@
     box-shadow: none;
   }
 }
+
+/* The download sits beside Print and looks like the same kind of control,
+   because to the person reading it is: two ways of getting the document off
+   the screen. */
+.report-download {
+  align-items: center;
+  background: var(--brand);
+  border-radius: var(--radius-pill);
+  color: #fff;
+  display: inline-flex;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-2) var(--space-5);
+  text-decoration: none;
+}
+
+.report-download:hover {
+  background: var(--brand-strong);
+}

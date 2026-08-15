@@ -1,0 +1,100 @@
+/* ==========================================================================
+   The activity log
+
+   A list of sentences rather than a table of columns. Somebody opens this to
+   answer one question — who changed this mark, when did that guardian lose
+   access — and reads down until they find it, so the line has to carry the
+   whole answer rather than making them scan sideways for it.
+
+   The slug stays visible beside the sentence. An administrator quoting an
+   event to support, or searching for one, needs the machine's name for it as
+   well as the human one.
+   ========================================================================== */
+
+.audit-controls {
+  align-items: end;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) 12rem auto;
+  margin-bottom: var(--space-5);
+}
+
+.audit-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--fs-12);
+}
+
+.audit-controls label span {
+  color: var(--muted);
+  font-weight: var(--fw-semibold);
+}
+
+.audit-controls input,
+.audit-controls select {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-14);
+  min-height: 2.4rem;
+  padding: 0 var(--space-3);
+}
+
+.audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.audit-list li {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) 0;
+}
+
+.audit-list li:first-child {
+  border-top: 1px solid var(--line);
+}
+
+.audit-line {
+  font-size: var(--fs-14);
+}
+
+.audit-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-12);
+  gap: var(--space-3);
+}
+
+.audit-meta time {
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-meta code {
+  font-family: var(--font-numeric, monospace);
+}
+
+.audit-detail {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  line-height: var(--lh-snug);
+  margin: 0;
+  /* A long metadata line wraps rather than pushing the page sideways. */
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 44rem) {
+  .audit-controls {
+    grid-template-columns: 1fr;
+  }
+}

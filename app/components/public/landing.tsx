@@ -47,7 +47,6 @@ export function Landing({
   signInHref: string;
   signInLabel: string;
 }) {
-  const yearsTeaching = new Date().getFullYear() - school.established;
 
   return (
     <div className="site">
@@ -94,22 +93,11 @@ export function Landing({
           <Reveal className="site-about-inner">
             <div className="site-about-copy" data-reveal>
               <p className="site-kicker">Who we are</p>
-              <h2>
-                A basic school small enough to know every child by name.
-              </h2>
-              <p className="site-lead">
-                Greenfield Academy has taught the Ghana Education Service
-                curriculum in Osu for {yearsTeaching} years. We take children
-                from Kindergarten 1 through to the BECE, and we keep classes at
-                eighteen so a teacher can tell you how your child is actually
-                getting on.
-              </p>
-              <p>
-                Every mark, register and report is recorded against one record
-                per learner, and families can read it the same day rather than
-                waiting for the terminal report. That is the whole reason we
-                built Learners Hub.
-              </p>
+              <h2>{school.about.heading}</h2>
+              {school.about.lead ? (
+                <p className="site-lead">{school.about.lead}</p>
+              ) : null}
+              {school.about.body ? <p>{school.about.body}</p> : null}
               <Link className="site-button site-button-solid" href="/admissions">
                 Read about admissions
                 <ArrowRight aria-hidden="true" size={17} />
@@ -118,27 +106,25 @@ export function Landing({
 
             <div className="site-about-figure" data-reveal>
               <Image
-                alt="A Greenfield pupil smiling on the school steps with her workbook"
+                alt={school.about.image.alt}
                 height={840}
                 sizes="(max-width: 960px) 100vw, 46vw"
-                src="/341463.jpg"
+                src={school.about.image.src}
                 width={1120}
               />
               <ArcStack className="site-about-arc" />
-              <dl className="site-about-facts">
-                <div>
-                  <dt>Established</dt>
-                  <dd>{school.established}</dd>
-                </div>
-                <div>
-                  <dt>Learners</dt>
-                  <dd>640</dd>
-                </div>
-                <div>
-                  <dt>Teachers</dt>
-                  <dd>48</dd>
-                </div>
-              </dl>
+              {/* The three figures were 2004, 640 and 48, two of them written
+                  into the markup. A school states its own. */}
+              {school.about.facts.length > 0 ? (
+                <dl className="site-about-facts">
+                  {school.about.facts.map((fact) => (
+                    <div key={fact.id}>
+                      <dt>{fact.label}</dt>
+                      <dd>{fact.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
             </div>
           </Reveal>
         </section>
@@ -149,11 +135,12 @@ export function Landing({
             <p className="site-kicker" data-reveal>
               Academics
             </p>
-            <h2 data-reveal>Three stages, one continuous record.</h2>
-            <p className="site-lead" data-reveal>
-              A child who joins us in Kindergarten leaves with eleven years of
-              marks, reports and teacher comments attached to the same file.
-            </p>
+            <h2 data-reveal>{school.academics.heading}</h2>
+            {school.academics.lead ? (
+              <p className="site-lead" data-reveal>
+                {school.academics.lead}
+              </p>
+            ) : null}
           </Reveal>
 
           <Reveal className="site-programmes">
@@ -186,71 +173,80 @@ export function Landing({
             <p className="site-kicker" data-reveal>
               Student life
             </p>
-            <h2 data-reveal>What the rest of the timetable looks like.</h2>
+            <h2 data-reveal>{school.studentLife.heading}</h2>
           </Reveal>
 
+          {/* Every tile below was a mural, a clubs count, a timetable and two
+              captions written into the markup, so a school that had never had
+              a mural published one. */}
           <Reveal className="site-bento" stagger={0.07}>
             <article className="site-bento-tile site-bento-mural">
               <Image
-                alt="The mural painted by Greenfield pupils along the assembly ground"
+                alt={school.studentLife.feature.image.alt}
                 height={720}
                 sizes="(max-width: 900px) 100vw, 58vw"
-                src="/5641.jpg"
+                src={school.studentLife.feature.image.src}
                 width={1280}
               />
               <div>
-                <p className="site-kicker">Creative arts</p>
-                <h3>The courtyard mural</h3>
-                <p>
-                  Designed and painted by upper primary and JHS pupils over one
-                  term. It stays on the assembly wall.
+                <p className="site-kicker">
+                  {school.studentLife.feature.eyebrow}
                 </p>
+                <h3>{school.studentLife.feature.title}</h3>
+                <p>{school.studentLife.feature.body}</p>
               </div>
             </article>
 
-            <article className="site-bento-tile site-bento-stat">
-              <RingAccent className="site-bento-ring" />
-              <strong>21</strong>
-              <span>clubs and teams, from coding to the drumming ensemble</span>
-            </article>
+            {school.studentLife.stat.value ? (
+              <article className="site-bento-tile site-bento-stat">
+                <RingAccent className="site-bento-ring" />
+                <strong>{school.studentLife.stat.value}</strong>
+                <span>{school.studentLife.stat.label}</span>
+              </article>
+            ) : null}
 
-            <article className="site-bento-tile site-bento-quote">
-              <p>&ldquo;{school.testimonials[0].quote}&rdquo;</p>
-              <footer>
-                <strong>{school.testimonials[0].name}</strong>
-                <small>{school.testimonials[0].role}</small>
-              </footer>
-            </article>
+            {/* A school with no testimonials shows none, rather than crashing
+                on testimonials[0] — which is what this did. */}
+            {school.testimonials[0] ? (
+              <article className="site-bento-tile site-bento-quote">
+                <p>&ldquo;{school.testimonials[0].quote}&rdquo;</p>
+                <footer>
+                  <strong>{school.testimonials[0].name}</strong>
+                  <small>{school.testimonials[0].role}</small>
+                </footer>
+              </article>
+            ) : null}
 
             <article className="site-bento-tile site-bento-portrait">
               <Image
-                alt="A Greenfield pupil carrying her folder across the courtyard"
+                alt={school.studentLife.portrait.alt}
                 height={900}
                 sizes="(max-width: 900px) 50vw, 26vw"
-                src="/341343.jpg"
+                src={school.studentLife.portrait.src}
                 width={600}
               />
             </article>
 
-            <article className="site-bento-tile site-bento-list">
-              <h3>On the timetable</h3>
-              <ul>
-                <li>Twi and Ga from Primary 1</li>
-                <li>Creative arts, weekly</li>
-                <li>Swimming and athletics</li>
-                <li>Coding club, JHS 1–3</li>
-              </ul>
-            </article>
+            {school.studentLife.highlights.items.length > 0 ? (
+              <article className="site-bento-tile site-bento-list">
+                <h3>{school.studentLife.highlights.heading}</h3>
+                <ul>
+                  {school.studentLife.highlights.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            ) : null}
 
             <article className="site-bento-tile site-bento-paint">
               <Image
-                alt="A Greenfield pupil painting in the creative arts studio"
+                alt={school.studentLife.studio.image.alt}
                 height={640}
                 sizes="(max-width: 900px) 50vw, 30vw"
-                src="/227646.jpg"
+                src={school.studentLife.studio.image.src}
                 width={640}
               />
-              <span>Creative arts studio</span>
+              <span>{school.studentLife.studio.caption}</span>
             </article>
           </Reveal>
         </section>

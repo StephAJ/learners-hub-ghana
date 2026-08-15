@@ -1,27 +1,66 @@
+import { Client } from "pg";
 import { getMigrations } from "better-auth/db/migration";
 import { seedAcademicStructure } from "../db/academic-seed";
 import { seedSchoolPeople } from "../db/people-seed";
 import { migrateLearnersHubSchema, getPostgresPool } from "../db/postgres";
 import { auth } from "./auth-config";
+import { demoSchoolEnabled } from "./demo-school";
 import { seedDemoAccounts } from "./demo-seed";
+import {
+  initialSchoolName,
+  SCHOOL_TENANT_ID,
+  schoolSlug,
+} from "./school-tenant";
 
-const GREENFIELD_TENANT_ID = "tenant-greenfield";
+/* ==========================================================================
+   Preparing the platform exactly once
 
-let readiness: Promise<void> | undefined;
+   This was `let readiness` at module scope, which is once per *module
+   instance* rather than once per process. Next gives route handlers, server
+   components and the client-reference graph their own instances, so several
+   copies of this ran concurrently — each opening the whole schema migration
+   against the same database.
+
+   On an existing deployment that is invisible: every CREATE TABLE IF NOT
+   EXISTS is a no-op and the overlap costs milliseconds. On the first boot of a
+   fresh one it is not, because the DDL is doing real work — the copies take
+   locks on the same tables in the same order, and the deployment blocks on
+   its own first request. That is the one boot a school cannot retry past.
+
+   Two changes fix it. The promise is memoised on globalThis, so instances of
+   this module share one. And the migration itself is wrapped in a PostgreSQL
+   advisory lock, so two *processes* — a second container, a restarted worker —
+   serialise instead of racing.
+   ========================================================================== */
+
+const globalReadiness = globalThis as typeof globalThis & {
+  learnersHubReadiness?: Promise<void>;
+};
+
+/* An arbitrary constant, and it only has to be the same everywhere. */
+const MIGRATION_LOCK_KEY = 0x1ea45e25;
 
 export function ensurePlatformReady(): Promise<void> {
-  readiness ??= preparePlatform().catch((error) => {
-    readiness = undefined;
+  globalReadiness.learnersHubReadiness ??= preparePlatform().catch((error) => {
+    globalReadiness.learnersHubReadiness = undefined;
     throw error;
   });
-  return readiness;
+  return globalReadiness.learnersHubReadiness;
 }
 
 async function preparePlatform(): Promise<void> {
-  const migrations = await getMigrations(auth.options);
-  await migrations.runMigrations();
-  await migrateLearnersHubSchema();
+  await withMigrationLock(async () => {
+    const migrations = await getMigrations(auth.options);
+    await migrations.runMigrations();
+    await migrateLearnersHubSchema();
+  });
+  /* Before the administrator, because their membership names the tenant across
+     a foreign key, and before the demo, because the demo joins the same one. */
+  await ensureSchoolTenant();
   await bootstrapAdministrator();
+
+  if (!demoSchoolEnabled()) return;
+
   /* Before the demo accounts, not after and not lazily: seedDemoAccounts()
      attaches identities to these person rows by id, across a foreign key. */
   await seedSchoolPeople(getPostgresPool());
@@ -29,6 +68,52 @@ async function preparePlatform(): Promise<void> {
   /* After the people, because a class group names one of them as its class
      teacher across a foreign key. */
   await seedAcademicStructure(getPostgresPool());
+}
+
+/**
+ * Runs the schema work with a lock nobody else in the cluster holds.
+ *
+ * On a connection of its own, opened outside the pool, and that is the whole
+ * point rather than a detail. Holding a *pooled* client while waiting for the
+ * lock starves the pool the migration itself draws from: several module
+ * instances each take a client, each waits for the lock, and the one holding
+ * it cannot get a client to run a single statement. The deployment then blocks
+ * on its own first request with no error to read — which is exactly what this
+ * was written to prevent.
+ *
+ * An advisory lock is held by the session rather than the transaction, so the
+ * connection is ended in a finally. A leaked one would block every later boot.
+ */
+async function withMigrationLock(run: () => Promise<void>): Promise<void> {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
+    await run();
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+/**
+ * The one school this deployment serves.
+ *
+ * Created here rather than by whichever seed happened to run first, so a
+ * deployment with no administrator configured and the demo switched off still
+ * has a tenant for its public site to read a profile from — and so the row is
+ * named after the school rather than after the demo.
+ *
+ * DO NOTHING on conflict: the name and slug are the school's to change on
+ * /admin/school, and a boot must never undo that edit.
+ */
+async function ensureSchoolTenant(): Promise<void> {
+  const name = initialSchoolName(demoSchoolEnabled());
+  await getPostgresPool().query(
+    `INSERT INTO tenants (id, name, slug)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO NOTHING`,
+    [SCHOOL_TENANT_ID, name, schoolSlug(name)],
+  );
 }
 
 async function bootstrapAdministrator(): Promise<void> {
@@ -69,15 +154,9 @@ async function bootstrapAdministrator(): Promise<void> {
   const client = await database.connect();
   try {
     await client.query("BEGIN");
-    await client.query(
-      `INSERT INTO tenants (id, name, slug)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (id) DO NOTHING`,
-      [GREENFIELD_TENANT_ID, "Greenfield Academy", "greenfield-academy"],
-    );
     const existingPerson = await client.query<{ id: string }>(
       `SELECT id FROM people WHERE tenant_id = $1 AND lower(email) = $2 LIMIT 1`,
-      [GREENFIELD_TENANT_ID, email],
+      [SCHOOL_TENANT_ID, email],
     );
     if (existingPerson.rowCount === 0) {
       await client.query(
@@ -85,7 +164,7 @@ async function bootstrapAdministrator(): Promise<void> {
           (id, tenant_id, kind, first_name, last_name, email, status)
          VALUES ($1, $2, 'staff', $3, $4, $5, 'active')
          ON CONFLICT (id) DO NOTHING`,
-        [personId, GREENFIELD_TENANT_ID, firstName, lastName, email],
+        [personId, SCHOOL_TENANT_ID, firstName, lastName, email],
       );
     } else {
       personId = existingPerson.rows[0].id;
@@ -112,21 +191,21 @@ async function bootstrapAdministrator(): Promise<void> {
        FROM tenant_memberships
        WHERE tenant_id = $1 AND person_id = $2 AND role = 'school-admin'
        LIMIT 1`,
-      [GREENFIELD_TENANT_ID, personId],
+      [SCHOOL_TENANT_ID, personId],
     );
     if (existingMembership.rowCount === 0) {
       await client.query(
         `INSERT INTO tenant_memberships
           (id, tenant_id, person_id, role, status, scope_type, accepted_at)
          VALUES ($1, $2, $3, 'school-admin', 'active', 'tenant', CURRENT_TIMESTAMP)`,
-        [membershipId, GREENFIELD_TENANT_ID, personId],
+        [membershipId, SCHOOL_TENANT_ID, personId],
       );
     }
     await client.query(
       `INSERT INTO tenant_bootstrap (tenant_id, claimed_by_identity_id)
        VALUES ($1, $2)
        ON CONFLICT (tenant_id) DO NOTHING`,
-      [GREENFIELD_TENANT_ID, identityId],
+      [SCHOOL_TENANT_ID, identityId],
     );
     await client.query(
       `INSERT INTO audit_events
@@ -138,7 +217,7 @@ async function bootstrapAdministrator(): Promise<void> {
        ON CONFLICT (id) DO NOTHING`,
       [
         auditId,
-        GREENFIELD_TENANT_ID,
+        SCHOOL_TENANT_ID,
         personId,
         JSON.stringify({ provider: "better-auth" }),
       ],

@@ -1,5 +1,7 @@
 import {
   createBankQuestion,
+  getBankQuestion,
+  updateBankQuestion,
   createPersistentAssessmentDraft,
   listTeacherAssessmentWorkspace,
   markPersistentResponse,
@@ -18,6 +20,15 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const schoolUser = await requireSchoolRequestUser();
+    /* One question, in full, so the composer can reopen it for editing — the
+       workspace list carries a summary, which is not enough to edit from. */
+    const questionId =
+      new URL(request.url).searchParams.get("questionId") ?? "";
+    if (questionId) {
+      return Response.json({
+        question: await getBankQuestion(schoolUser.access, questionId),
+      });
+    }
     /* Which of the teacher's subjects to open. Absent on first load, when the
        repository picks their first. */
     const offeringId =
@@ -37,6 +48,9 @@ export async function POST(request: Request) {
     const schoolUser = await requireSchoolRequestUser();
     const payload = (await request.json()) as
       | ({ action: "create-question"; offeringId?: string } & CreateBankQuestionInput)
+      /* Revising a question makes a new version rather than rewriting the old
+         one — a published paper stays bound to the version it was set with. */
+      | ({ action: "update-question"; questionId: string } & CreateBankQuestionInput)
       | ({ action: "create-assessment"; offeringId?: string } & CreateAssessmentInput)
       | { action: "publish"; assessmentId: string }
       | {
@@ -48,6 +62,15 @@ export async function POST(request: Request) {
         }
       | { action: "release"; attemptId: string };
 
+    if (payload.action === "update-question") {
+      return Response.json({
+        question: await updateBankQuestion(
+          schoolUser.access,
+          payload.questionId,
+          payload,
+        ),
+      });
+    }
     if (payload.action === "create-question") {
       const question = await createBankQuestion(
         schoolUser.access,

@@ -77,8 +77,29 @@ export type AssessmentQuestionSnapshot = {
   type: QuestionType;
 };
 
+/* ==========================================================================
+   When a learner may see how they did
+
+   The column has existed since the schema was written and was inserted as the
+   literal 'after-release' every time, then never read — so "practice mode with
+   immediate feedback versus exam mode with delayed feedback", which the scope
+   names as a first-release requirement, was a field and not a behaviour.
+
+   after-release is still the default, because it is the safe one: a paper
+   whose answers appear the moment it is submitted is a paper the next learner
+   to sit it already has.
+   ========================================================================== */
+export type FeedbackPolicy =
+  /** Marks and answers as soon as a question is answered. Practice only. */
+  | "immediate"
+  /** Marks and answers when the learner submits, before a teacher marks. */
+  | "after-attempt"
+  /** Nothing until the teacher releases the result. */
+  | "after-release";
+
 export type Assessment = {
   authorPersonId: string;
+  feedbackPolicy: FeedbackPolicy;
   id: string;
   instructions: string;
   offeringId: string;

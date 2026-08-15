@@ -6,18 +6,27 @@ import {
 } from "../../../../db/assessment-repository";
 import { requireWorkspaceUser } from "../../../../server/workspace-auth";
 import { AssessmentRunner } from "./assessment-runner";
+/* The lesson player's stylesheet as well as this one. The runner reuses its
+   shell classes outright — .lesson-shell, .lesson-toprail, .course-player,
+   .course-outline — so that the two screens cannot drift apart, which a second
+   copy of the same rules would guarantee they eventually did. */
+import "../../subjects/[subject]/lesson-player.css";
 import "./quiz-runner.css";
 
 export const dynamic = "force-dynamic";
 
 /**
- * A timed assessment, inside the workspace shell.
+ * A timed assessment, on the lesson player's shell.
  *
- * There is a real argument for a distraction-free exam screen, and this page
- * used to make it by taking over the window. But it was the same argument the
- * school-day page was making with a different answer, and between them a
- * learner met three different navigations in one session. The sidebar collapses
- * if focus is wanted; it does not disappear on its own.
+ * The workspace sidebar is still here — a learner meeting a different
+ * navigation on every screen was the reason this page stopped taking over the
+ * window in the first place — but the assessment now owns the space inside it
+ * the way a lesson does: its own sticky rail, the questions listed down the
+ * side, and the paper given the full width of the stage.
+ *
+ * `hideTopbar` and the flush content class are what the lesson player uses,
+ * for the same reason: the paper being sat is more useful in the rail than the
+ * subject line every other page leads with.
  */
 export default async function AssessmentPage({
   params,
@@ -40,7 +49,9 @@ export default async function AssessmentPage({
   return (
     <WorkspaceShell
       activeHref="/learn/assessments"
+      contentClassName="workspace-content-flush"
       eyebrow="Assessment"
+      hideTopbar
       title={assessment.title}
       user={user}
       workspace="student"

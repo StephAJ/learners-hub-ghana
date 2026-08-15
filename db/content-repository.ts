@@ -10,6 +10,7 @@ import {
   validateInteractiveResult,
   validateUpload,
 } from "../domain/content/content-policy";
+import { scanUpload } from "../server/content-scan";
 import type {
   InteractiveActivity,
   InteractiveResultInput,
@@ -79,6 +80,12 @@ export async function uploadTeacherMedia(
     kind: input.kind,
     sizeBytes: input.file.size,
   });
+  /* Read once, checked, then written from the same bytes. An H5P package is a
+     zip a teacher uploads and a runtime later unpacks and serves, which makes
+     it the single most worthwhile thing here to look inside first. */
+  const bytes = new Uint8Array(await input.file.arrayBuffer());
+  await scanUpload({ bytes, extension: validated.extension, kind: input.kind });
+
   const assetId = crypto.randomUUID();
   const objectKey = [
     access.tenantId,
@@ -87,7 +94,9 @@ export async function uploadTeacherMedia(
   ].join("/");
   const bucket = await getMediaStore();
 
-  await bucket.put(objectKey, input.file.stream(), {
+  /* The bytes already read for the scan, rather than a second pass over
+     the same 25 MB. */
+  await bucket.put(objectKey, bytes, {
     customMetadata: {
       assetId,
       offeringId: offering.offering_id,

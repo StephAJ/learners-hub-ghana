@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; returnTo?: string }>;
+  searchParams: Promise<{ mode?: string; reset?: string; returnTo?: string }>;
 }) {
   const parameters = await searchParams;
   const returnTo = safeReturnPath(parameters.returnTo);
@@ -22,6 +22,7 @@ export default async function SignInPage({
   return (
     <SignInCard
       initialMode={parameters.mode === "register" ? "register" : "sign-in"}
+      passwordReset={parameters.reset === "done"}
       returnTo={returnTo}
       school={school}
     />

@@ -28,6 +28,10 @@ export function ReportApprovalsView() {
   const [queue, setQueue] = useState<ReportApprovalQueue>();
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string>();
+  /* Which released report is being corrected, and why. The reason is required
+     and kept against the report for good. */
+  const [correctingId, setCorrectingId] = useState("");
+  const [reason, setReason] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -91,6 +95,18 @@ export function ReportApprovalsView() {
     } finally {
       setBusyId(undefined);
     }
+  }
+
+  function correct(report: ReportApprovalItem) {
+    return post(
+      { action: "correct", reason, reportId: report.id },
+      report.id,
+      () => {
+        setCorrectingId("");
+        setReason("");
+        return `${report.learnerName}'s report is open for correction as version ${report.version + 1}. The issued version is kept.`;
+      },
+    );
   }
 
   function act(action: "approve" | "release", report: ReportApprovalItem) {
@@ -268,7 +284,61 @@ export function ReportApprovalsView() {
                         </button>
                       ) : null}
                       {report.status === "released" ? (
-                        <small className="approvals-done">Sent home</small>
+                        <>
+                          <small className="approvals-done">Sent home</small>
+                          {/* A head who spots a wrong mark on a report a
+                              family has already read had no route but the
+                              database. This never rewrites what went out: it
+                              supersedes it and opens the next version. */}
+                          {correctingId === report.id ? (
+                            <form
+                              className="approvals-correct"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void correct(report);
+                              }}
+                            >
+                              <label>
+                                <span>What is being corrected?</span>
+                                <input
+                                  onChange={(event) =>
+                                    setReason(event.target.value)
+                                  }
+                                  placeholder="Integrated Science mark entered as 45, should be 54"
+                                  required
+                                  value={reason}
+                                />
+                              </label>
+                              <p>
+                                Version {report.version} stays exactly as the
+                                family read it. A new version goes back into
+                                this queue to be approved and released.
+                              </p>
+                              <div>
+                                <button
+                                  disabled={busyId === report.id}
+                                  type="submit"
+                                >
+                                  Open a correction
+                                </button>
+                                <button
+                                  onClick={() => setCorrectingId("")}
+                                  type="button"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <button
+                              className="approvals-correct-open"
+                              onClick={() => setCorrectingId(report.id)}
+                              type="button"
+                            >
+                              Correct
+                            </button>
+                          )}
+                        </>
                       ) : null}
                     </div>
                   </li>

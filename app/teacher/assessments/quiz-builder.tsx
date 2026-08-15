@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Plus, Search, Trash2, X } from "lucide-react";
 import type { QuestionBankSummary } from "../../../db/assessment-repository";
 import type {
   AssessmentPurpose,
+  FeedbackPolicy,
   QuestionType,
 } from "../../../domain/assessment/types";
 import { QUESTION_TYPES, isAutoMarked } from "./question-types";
@@ -31,6 +32,7 @@ import "./quiz-builder.css";
    ========================================================================== */
 
 export type QuizDraft = {
+  feedbackPolicy: FeedbackPolicy;
   instructions: string;
   passMarkPercent: number;
   purpose: AssessmentPurpose;
@@ -38,6 +40,36 @@ export type QuizDraft = {
   timeLimitMinutes: number;
   title: string;
 };
+
+/* ==========================================================================
+   When the learner sees their marks
+
+   The column has existed since the schema was written and was inserted as
+   'after-release' every time, from code, with no control anywhere — so
+   "practice with immediate feedback versus an exam with delayed feedback"
+   was a field in the database and nothing a teacher could choose.
+
+   The order matters: the safe option is first and is the default. A paper
+   that shows its answers the moment it is submitted is a paper the next
+   learner to sit it already has.
+   ========================================================================== */
+const FEEDBACK_POLICIES: Array<[FeedbackPolicy, string, string]> = [
+  [
+    "after-release",
+    "When I release the result",
+    "Nothing until you have marked and released. Right for anything that counts.",
+  ],
+  [
+    "after-attempt",
+    "As soon as it is handed in",
+    "Marks and correct answers on submission, before you have read the written answers.",
+  ],
+  [
+    "immediate",
+    "Straight away, question by question",
+    "Practice only — the paper gives its answers away as it is worked through.",
+  ],
+];
 
 const PURPOSES: Array<[AssessmentPurpose, string]> = [
   ["diagnostic", "Diagnostic"],
@@ -62,6 +94,8 @@ export function QuizBuilder({
   const [purpose, setPurpose] = useState<AssessmentPurpose>("formative");
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(15);
   const [passMarkPercent, setPassMarkPercent] = useState(60);
+  const [feedbackPolicy, setFeedbackPolicy] =
+    useState<FeedbackPolicy>("after-release");
   const [instructions, setInstructions] = useState(
     "Answer every question, and review anything you flagged before submitting.",
   );
@@ -149,6 +183,7 @@ export function QuizBuilder({
     setError("");
     try {
       await onSubmit({
+        feedbackPolicy,
         instructions: instructions.trim(),
         passMarkPercent,
         purpose,
@@ -246,6 +281,30 @@ export function QuizBuilder({
                 type="number"
                 value={passMarkPercent}
               />
+            </label>
+            <label className="composer-field composer-field-wide">
+              <span>
+                Feedback <em>when the learner sees their marks</em>
+              </span>
+              <select
+                onChange={(event) =>
+                  setFeedbackPolicy(event.target.value as FeedbackPolicy)
+                }
+                value={feedbackPolicy}
+              >
+                {FEEDBACK_POLICIES.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <small>
+                {
+                  FEEDBACK_POLICIES.find(
+                    ([value]) => value === feedbackPolicy,
+                  )?.[2]
+                }
+              </small>
             </label>
             <label className="composer-field composer-field-wide">
               <span>

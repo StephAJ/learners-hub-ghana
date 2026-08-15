@@ -35,6 +35,7 @@ export class MessagingError extends Error {
 
 const LEARNER_ROLES: SchoolRole[] = ["learner"];
 const TEACHER_ROLES: SchoolRole[] = ["teacher", "class-teacher"];
+const GUARDIAN_ROLES: SchoolRole[] = ["guardian"];
 
 /**
  * Which side of a conversation this person is on.
@@ -46,8 +47,9 @@ const TEACHER_ROLES: SchoolRole[] = ["teacher", "class-teacher"];
 export function messagingRoleFor(access: AccessContext): MessageAuthorRole {
   if (LEARNER_ROLES.includes(access.role)) return "learner";
   if (TEACHER_ROLES.includes(access.role)) return "teacher";
+  if (GUARDIAN_ROLES.includes(access.role)) return "guardian";
   throw new AuthorizationError(
-    "Messages are between learners and the teachers who teach them.",
+    "Messages are between a teacher and the learners they teach or those learners' guardians.",
   );
 }
 
@@ -103,17 +105,29 @@ export function messagePreview(body: string, limit = 120): string {
  */
 export function isThreadParticipant(
   access: AccessContext,
-  thread: { learnerPersonId: string; teacherPersonId: string },
+  thread: {
+    guardianPersonId?: string | null;
+    learnerPersonId: string;
+    teacherPersonId: string;
+  },
 ): boolean {
-  return (
-    access.actorPersonId === thread.learnerPersonId ||
-    access.actorPersonId === thread.teacherPersonId
-  );
+  if (access.actorPersonId === thread.teacherPersonId) return true;
+  /* A guardian thread names the child but the child is not in it. Reading
+     `learnerPersonId` as a participant regardless would put a learner inside
+     their parent's conversation with their teacher. */
+  if (thread.guardianPersonId) {
+    return access.actorPersonId === thread.guardianPersonId;
+  }
+  return access.actorPersonId === thread.learnerPersonId;
 }
 
 export function requireThreadParticipant(
   access: AccessContext,
-  thread: { learnerPersonId: string; teacherPersonId: string },
+  thread: {
+    guardianPersonId?: string | null;
+    learnerPersonId: string;
+    teacherPersonId: string;
+  },
 ): void {
   if (!isThreadParticipant(access, thread)) {
     throw new AuthorizationError("This conversation is not yours to read.");

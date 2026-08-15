@@ -178,12 +178,49 @@ const additiveMigrations = `
     ADD COLUMN IF NOT EXISTS medical_conditions text NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS medications text NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS declaration_accepted_at timestamptz,
+    /* The exact sentence agreed to, and the version it came from. There was a
+       timestamp here and nothing else, so the record of consent pointed at
+       text nobody had kept — and the first edit to the wording would have made
+       every earlier timestamp refer to a sentence that no longer existed. */
+    ADD COLUMN IF NOT EXISTS declaration_statement text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS declaration_version text NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS last_reminder_at timestamptz;
 
   /* Passport photographs. Nullable: every surface falls back to initials, so
      a school part-way through collecting them still reads correctly. */
   ALTER TABLE people
     ADD COLUMN IF NOT EXISTS photo_url text;
+
+  /* ------------------------------------------------------------------------
+     Guardian access, revocable
+
+     Two things were wrong here. The product's integrity rules require guardian
+     access to be "relationship-based, time-aware, and revocable", and a row
+     that can only be inserted is none of those — an office that linked the
+     wrong adult to a child had no way to undo it.
+
+     And the absence-alert query already read this column:
+
+       WHERE tenant_id = ? AND learner_person_id = ? AND status = 'active'
+
+     against a table that did not have it. So submitting a register containing
+     an absence raised "column status does not exist" and took the whole
+     submission down, while a register where everybody was present saved
+     perfectly. Nothing had ever run that path against a database.
+     ---------------------------------------------------------------------- */
+  /* revoked_by_person_id carries no foreign key deliberately. Adding one here
+     takes a ShareLock on the people table while the statements above hold a
+     RowExclusiveLock on it, and two workers booting at once deadlocked on
+     exactly that pair. Who revoked a link is also recorded in audit_events,
+     which does carry the key, so nothing is lost but the lock. */
+  ALTER TABLE guardian_relationships
+    ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active',
+    ADD COLUMN IF NOT EXISTS revoked_at timestamptz,
+    ADD COLUMN IF NOT EXISTS revoked_by_person_id text,
+    ADD COLUMN IF NOT EXISTS revoked_reason text NOT NULL DEFAULT '';
+
+  CREATE INDEX IF NOT EXISTS guardian_relationships_learner_idx
+    ON guardian_relationships (tenant_id, learner_person_id, status);
 
   /* A question's diagram and formula. On the version, so changing either
      versions the question the way changing its wording does. */
@@ -294,11 +331,40 @@ const additiveMigrations = `
       AND keeper.id <> duplicate.id
   );
 
+  /* ------------------------------------------------------------------------
+     Guardians in a conversation
+
+     Messaging was learner-to-teacher only, by an explicit decision: "a
+     guardian conversation is a different thing, with a different audit
+     expectation". It is — so the difference is modelled rather than used as a
+     reason to leave the guardian workspace without an inbox at all.
+
+     A guardian thread names the child it is about in learner_person_id, and
+     carries the guardian here. The child is not a party to it: a
+     parent-teacher conversation is not the child's to read, and
+     isThreadParticipant() enforces that.
+     ---------------------------------------------------------------------- */
+  ALTER TABLE message_threads
+    ADD COLUMN IF NOT EXISTS guardian_person_id text;
+
   /* Two people, one conversation — enforced here rather than only in the
      repository, so two simultaneous "New message" presses cannot both find
-     nothing and both insert. */
-  CREATE UNIQUE INDEX IF NOT EXISTS message_threads_pair_idx
-    ON message_threads (tenant_id, learner_person_id, teacher_person_id);
+     nothing and both insert.
+
+     Replaced rather than added to: the old index was on the learner and
+     teacher alone, which would refuse a guardian's thread about a child whose
+     own thread with that teacher already exists. COALESCE because a NULL is
+     not equal to another NULL in a unique index, so learner threads would
+     stop being deduplicated. */
+  DROP INDEX IF EXISTS message_threads_pair_idx;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS message_threads_party_idx
+    ON message_threads (
+      tenant_id,
+      learner_person_id,
+      teacher_person_id,
+      COALESCE(guardian_person_id, '')
+    );
 
   /* A standard leaves the curriculum without leaving the database. Lessons
      link to standards by id, so deleting one a published lesson covers would
@@ -352,4 +418,40 @@ const additiveMigrations = `
   CREATE UNIQUE INDEX IF NOT EXISTS people_student_number_idx
     ON people (tenant_id, student_number)
     WHERE student_number IS NOT NULL;
+
+  /* The school's own prefix for those numbers. "LH" is this product's
+     initials, not the school's, and a student number is the school's to
+     choose — it goes on their documents and their office already has a
+     convention for it. Defaulted rather than nullable so the generator never
+     has to decide what an unset prefix means. */
+  ALTER TABLE tenants
+    ADD COLUMN IF NOT EXISTS student_number_prefix text NOT NULL DEFAULT 'LH';
+
+  /* ------------------------------------------------------------------------
+     Files handed in as an answer
+
+     A teacher could write a file-upload question and never publish it:
+     publishing was refused with "File-response quizzes require secure school
+     file storage before publication", and the learner's control read
+     "Uploads will be enabled when your school activates file storage".
+
+     That storage exists — it is what assignment attachments and lesson media
+     already use. This is the missing join between an attempt's answer and a
+     media asset; it mirrors submission_attachments, plus the question the
+     file answers.
+     ---------------------------------------------------------------------- */
+  CREATE TABLE IF NOT EXISTS assessment_response_attachments (
+    id text PRIMARY KEY,
+    tenant_id text NOT NULL REFERENCES tenants(id),
+    attempt_id text NOT NULL,
+    question_id text NOT NULL,
+    media_asset_id text NOT NULL,
+    uploaded_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS assessment_response_attachment_asset_idx
+    ON assessment_response_attachments (attempt_id, media_asset_id);
+
+  CREATE INDEX IF NOT EXISTS assessment_response_attachment_idx
+    ON assessment_response_attachments (tenant_id, attempt_id, question_id);
 `;

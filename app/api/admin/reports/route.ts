@@ -3,6 +3,7 @@ import {
   approvePersistentReport,
   listReportApprovalQueue,
   releaseClassReports,
+  correctReleasedReport,
   releasePersistentReport,
 } from "../../../../db/reporting-repository";
 import {
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     const payload = (await request.json()) as {
       action?: unknown;
       className?: unknown;
+      reason?: unknown;
       reportId?: unknown;
     };
     const reportId =
@@ -55,6 +57,16 @@ export async function POST(request: Request) {
     }
     if (payload.action === "release-class") {
       const queue = await releaseClassReports(schoolUser.access, className);
+      return Response.json({ queue });
+    }
+    /* Correcting a report a family has already read. Never a rewrite: it
+       supersedes the issued version and opens the next one for approval. */
+    if (payload.action === "correct") {
+      const queue = await correctReleasedReport(
+        schoolUser.access,
+        reportId,
+        typeof payload.reason === "string" ? payload.reason : "",
+      );
       return Response.json({ queue });
     }
     return Response.json(

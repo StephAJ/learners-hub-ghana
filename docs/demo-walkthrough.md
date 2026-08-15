@@ -35,19 +35,31 @@ will enforce.
 the database is up. If a screen shows "Preview mode", the API call failed —
 check the logs rather than assuming it is by design.
 
-## Turning the demo accounts on
+## Turning the demo on
 
-Set both in the VPS environment file, then restart the web container:
+There are two switches, and they do different things.
+
+`DEMO_SCHOOL=true` writes the school itself: its staff and learners, four
+subjects, a term of lessons, a question bank, a published paper with a marked
+attempt, a markbook, a timetable, a register and a released report card. It
+used to have no switch at all — every deployment got all of it, so a real
+school signed in to a directory holding a cast it had never met.
+
+`DEMO_ACCOUNTS=true` with a `DEMO_PASSWORD` additionally makes that cast
+sign-in-able. It implies `DEMO_SCHOOL`, because the accounts attach to the
+demo's person rows across a foreign key; a box that already sets only
+`DEMO_ACCOUNTS` keeps working unchanged.
 
 ```bash
+DEMO_SCHOOL=true
 DEMO_ACCOUNTS=true
 DEMO_PASSWORD=choose-a-long-password-you-do-not-reuse
 ```
 
 Every account below shares that one password. That is acceptable on a staging
 box you are willing to have anyone sign into, and unacceptable anywhere else —
-so leave `DEMO_ACCOUNTS` unset in production and nothing is created. Enabling
-it without a password of at least 10 characters fails the boot rather than
+so leave both unset in production and nothing is created. Enabling accounts
+without a password of at least 10 characters fails the boot rather than
 inventing one.
 
 | Who | Signs in as | Lands on |

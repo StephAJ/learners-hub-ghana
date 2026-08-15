@@ -4,13 +4,18 @@
     {
       "name": "dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "3200"],
-      "port": 3200
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "autoPort": true
     },
     {
       "name": "harness",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["outputs/harness/server.mjs"],
+      "runtimeArgs": [
+        "outputs/harness/server.mjs"
+      ],
       "port": 4321,
       "url": "http://localhost:4321"
     }

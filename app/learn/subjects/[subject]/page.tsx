@@ -3,6 +3,7 @@ import { WorkspaceShell } from "../../../components/workspace-shell";
 import { demoLearnerSubject } from "../../../demo-data";
 import { demoSubjectBySlug } from "../../../../domain/demo/greenfield";
 import { getLearnerSubject } from "../../../../db/learning-repository";
+import { demoSchoolEnabled } from "../../../../server/demo-school";
 import { requireWorkspaceUser } from "../../../../server/workspace-auth";
 import { LessonPlayer } from "./lesson-player";
 import "./lesson-player.css";
@@ -30,10 +31,14 @@ export default async function SubjectLessonPlayerPage({
      only the latter — `if (!demoSubject) notFound()` — so a learner could
      open Greenfield's four demo subjects and nothing else. Their own subjects
      404'd, because their offering ids are not demo slugs. */
-  const demoSubject = demoSubjectBySlug(key);
-  const subject = demoSubject
-    ? demoLearnerSubject(demoSubject)
-    : await getLearnerSubject(user.access, key).catch(() => undefined);
+  /* The database first, and the demo only as a fallback. It used to be the
+     other way round: any slug the demo dataset recognised was answered from
+     the dataset without the database being asked, so a learner in a school
+     that had named a subject "integrated-science" read Greenfield's lessons
+     rather than their teacher's. */
+  const subject =
+    (await getLearnerSubject(user.access, key).catch(() => undefined)) ??
+    demoFallback(key);
   if (!subject) notFound();
 
   return (
@@ -49,4 +54,17 @@ export default async function SubjectLessonPlayerPage({
       <LessonPlayer fallback={subject} />
     </WorkspaceShell>
   );
+}
+
+/**
+ * The demo dataset's version of a subject, on a box that carries the demo.
+ *
+ * Kept because the walkthrough leans on it when the database is briefly
+ * unreachable. Off elsewhere: a real learner is better served by a 404 than by
+ * another school's lessons.
+ */
+function demoFallback(key: string) {
+  if (!demoSchoolEnabled()) return undefined;
+  const demoSubject = demoSubjectBySlug(key);
+  return demoSubject ? demoLearnerSubject(demoSubject) : undefined;
 }

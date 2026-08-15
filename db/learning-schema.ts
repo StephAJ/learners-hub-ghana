@@ -184,6 +184,35 @@ CREATE TABLE IF NOT EXISTS "assessment_questions" (
   FOREIGN KEY ("question_version_id") REFERENCES "question_versions" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "media_assets" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "offering_id" text NOT NULL,
+  "uploaded_by_person_id" text NOT NULL,
+  "kind" text NOT NULL,
+  "original_filename" text NOT NULL,
+  "content_type" text NOT NULL,
+  "size_bytes" bigint NOT NULL,
+  "object_key" text NOT NULL,
+  "status" text NOT NULL DEFAULT 'ready',
+  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("offering_id") REFERENCES "subject_offerings" ("id"),
+  FOREIGN KEY ("uploaded_by_person_id") REFERENCES "people" ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "assessment_response_attachments" (
+  "id" text PRIMARY KEY,
+  "tenant_id" text NOT NULL,
+  "attempt_id" text NOT NULL,
+  "question_id" text NOT NULL,
+  "media_asset_id" text NOT NULL,
+  "uploaded_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
+  FOREIGN KEY ("attempt_id") REFERENCES "assessment_attempts" ("id"),
+  FOREIGN KEY ("media_asset_id") REFERENCES "media_assets" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "assessment_responses" (
   "id" text PRIMARY KEY,
   "tenant_id" text NOT NULL,
@@ -459,23 +488,6 @@ CREATE TABLE IF NOT EXISTS "guardian_alerts" (
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
   FOREIGN KEY ("guardian_person_id") REFERENCES "people" ("id"),
   FOREIGN KEY ("learner_person_id") REFERENCES "people" ("id")
-);
-
-CREATE TABLE IF NOT EXISTS "media_assets" (
-  "id" text PRIMARY KEY,
-  "tenant_id" text NOT NULL,
-  "offering_id" text NOT NULL,
-  "uploaded_by_person_id" text NOT NULL,
-  "kind" text NOT NULL,
-  "original_filename" text NOT NULL,
-  "content_type" text NOT NULL,
-  "size_bytes" bigint NOT NULL,
-  "object_key" text NOT NULL,
-  "status" text NOT NULL DEFAULT 'ready',
-  "created_at" text NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
-  FOREIGN KEY ("offering_id") REFERENCES "subject_offerings" ("id"),
-  FOREIGN KEY ("uploaded_by_person_id") REFERENCES "people" ("id")
 );
 
 CREATE TABLE IF NOT EXISTS "interactive_activities" (
@@ -835,6 +847,12 @@ CREATE INDEX IF NOT EXISTS "attempts_marking_queue_idx"
 
 CREATE UNIQUE INDEX IF NOT EXISTS "assessment_question_position_idx"
   ON "assessment_questions" ("assessment_version_id", "position");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "assessment_response_attachment_asset_idx"
+  ON "assessment_response_attachments" ("attempt_id", "media_asset_id");
+
+CREATE INDEX IF NOT EXISTS "assessment_response_attachment_idx"
+  ON "assessment_response_attachments" ("tenant_id", "attempt_id", "question_id");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "response_attempt_question_idx"
   ON "assessment_responses" ("attempt_id", "question_version_id");
