@@ -966,16 +966,16 @@
   width: 100%;
 }
 
-/* The stage holds one question at a time, so it is a reading column rather
-   than the full width of a wide screen — the same measure the lesson stage
-   uses for its reading blocks. */
-.quiz-stage .question-paper {
-  max-width: 52rem;
-  width: 100%;
-}
+/* The paper takes the stage it is given. It was capped at a 52rem reading
+   measure, which on a wide screen left most of the room empty beside a card
+   holding one short question — the stage is already the narrower half of the
+   screen once the outline has its column, so capping it again was measuring
+   the same text twice.
 
+   The prompt keeps its own measure (see .question-prompt h1); it is the card,
+   the options and the actions that now use the width. */
+.quiz-stage .question-paper,
 .quiz-stage .question-actions {
-  max-width: 52rem;
   width: 100%;
 }
 

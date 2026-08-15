@@ -30,6 +30,7 @@ import {
   OutlineToggle,
   useOutlineDrawer,
 } from "../../../components/outline-drawer";
+import { beginFocusMode, endFocusMode } from "../../../components/sidebar-state";
 
 /* ==========================================================================
    No preview attempt
@@ -152,6 +153,17 @@ export function AssessmentRunner({
   /* Before any of the early returns below — the paper has several states and
      a hook cannot be called from only some of them. */
   const drawer = useOutlineDrawer();
+
+  /* The same fold the lesson player does, and for the same reason: this shell
+     lays itself out across the whole window, so leaving the workspace sidebar
+     open put a 15.5rem column beside a full-width page and pushed the paper
+     off the right-hand edge — the outline's text clipped on the left and the
+     back link scrolled out of reach. Sitting a paper wants the room at least
+     as much as reading a lesson does. */
+  useEffect(() => {
+    beginFocusMode();
+    return () => endFocusMode();
+  }, []);
 
   async function startAttempt() {
     const response = await fetch("/api/learn/assessments", {
@@ -503,12 +515,14 @@ export function AssessmentRunner({
               All assessments
             </Link>
             <span className="lesson-toprail-divider" aria-hidden="true" />
+            {/* The paper's name, not the question's text. The paper below
+                leads with the prompt as its own heading, so carrying it here
+                too printed the same sentence twice on one screen. */}
             <div className="lesson-toprail-title">
               <p className="lesson-eyebrow">
-                {assessment.title} · Question {activeIndex + 1} of{" "}
-                {assessment.questions.length}
+                Question {activeIndex + 1} of {assessment.questions.length}
               </p>
-              <h2>{activeQuestion.prompt}</h2>
+              <h2>{assessment.title}</h2>
             </div>
           </div>
 
