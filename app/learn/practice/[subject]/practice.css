@@ -1,0 +1,320 @@
+/* ==========================================================================
+   Practice
+
+   A quieter screen than the paper, on purpose. No clock, no question list, no
+   progress bar counting down — a learner practising should not be able to see
+   how much is left, because "how much is left" is a test's question.
+
+   One question, centred, with the subject's own colour on the small marks
+   that identify it. The card is the only thing on the page.
+   ========================================================================== */
+
+.practice-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* -- Rail ----------------------------------------------------------------- */
+
+.practice-rail {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--workspace-line);
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-3) clamp(var(--space-4), 3vw, var(--space-8));
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.practice-back {
+  align-items: center;
+  color: var(--workspace-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  text-decoration: none;
+}
+
+.practice-back:hover {
+  color: var(--subject-ink);
+}
+
+.practice-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.practice-title p {
+  color: var(--subject-ink);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.practice-title h2 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-display);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Small, and gone the moment a run breaks. It exists to make three right in a
+   row feel like something while it is happening — not to become a number a
+   learner protects by avoiding the questions they find hard. */
+.practice-streak {
+  align-items: center;
+  background: var(--subject-soft);
+  border-radius: var(--radius-pill);
+  color: var(--subject-ink);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+}
+
+/* -- Stage ---------------------------------------------------------------- */
+
+.practice-stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0 auto;
+  max-width: 46rem;
+  padding: var(--space-8) var(--space-5) var(--space-16);
+  width: 100%;
+}
+
+.practice-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.practice-topics button {
+  background: transparent;
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-pill);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  min-height: 36px;
+  padding: var(--space-1) var(--space-4);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.practice-topics button:hover {
+  border-color: var(--subject-line);
+}
+
+.practice-topics button.is-on {
+  background: var(--subject-soft);
+  border-color: var(--subject-ink);
+  color: var(--subject-ink);
+  font-weight: var(--fw-semibold);
+}
+
+.practice-card {
+  background: var(--card);
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: clamp(var(--space-5), 4vw, var(--space-8));
+}
+
+.practice-card > header {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.practice-count {
+  color: var(--subject-ink);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.practice-card > header small {
+  color: var(--workspace-muted);
+  font-size: var(--fs-13);
+}
+
+.practice-card h1 {
+  font-family: var(--font-body);
+  font-size: var(--fs-18);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-body);
+  line-height: var(--lh-snug);
+  margin: 0;
+  max-width: 42rem;
+  text-wrap: pretty;
+}
+
+/* -- Verdict -------------------------------------------------------------- */
+
+/* Shown whichever way it went. Being given the reasoning only when wrong
+   makes being right uninformative, and a learner who guessed correctly learns
+   nothing from a tick on its own. */
+.practice-verdict {
+  background: var(--hue-amber-soft);
+  border-radius: var(--radius-md);
+  color: var(--hue-amber-ink);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.practice-verdict.is-right {
+  background: var(--hue-lime-soft);
+  color: var(--hue-lime-ink);
+}
+
+.practice-verdict strong {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--fs-14);
+  gap: var(--space-2);
+}
+
+.practice-verdict p {
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.practice-expected b {
+  font-weight: var(--fw-semibold);
+}
+
+.practice-notice {
+  color: var(--hue-rose-ink);
+  font-size: var(--fs-13);
+  margin: 0;
+}
+
+/* -- Actions -------------------------------------------------------------- */
+
+.practice-card > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.practice-primary,
+.practice-secondary {
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-6);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.practice-primary {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.practice-primary:hover:not(:disabled) {
+  background: var(--brand-strong);
+  border-color: var(--brand-strong);
+}
+
+.practice-primary:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.practice-secondary {
+  background: transparent;
+  border: 1px solid var(--workspace-line);
+  color: var(--ink);
+}
+
+.practice-secondary:hover {
+  border-color: var(--brand-line);
+}
+
+.practice-footnote {
+  color: var(--workspace-muted);
+  font-size: var(--fs-13);
+  margin: 0;
+  text-align: center;
+}
+
+/* -- Nothing to practise -------------------------------------------------- */
+
+.practice-empty {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  margin: 0 auto;
+  max-width: 34rem;
+  padding: var(--space-16) var(--space-6);
+}
+
+.practice-empty h2 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-medium);
+  margin: 0;
+}
+
+.practice-empty p {
+  color: var(--muted);
+  font-size: var(--fs-16);
+  line-height: var(--lh-relaxed);
+  margin: 0;
+}
+
+.practice-empty .practice-primary {
+  display: inline-block;
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 560px) {
+  .practice-card > footer {
+    justify-content: stretch;
+  }
+
+  .practice-card > footer button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-topics button,
+  .practice-primary,
+  .practice-secondary {
+    transition: none;
+  }
+}

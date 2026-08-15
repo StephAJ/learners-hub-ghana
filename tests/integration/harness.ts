@@ -141,6 +141,9 @@ export async function makeSchool(
     );
   }
 
+  /* Class id to class name, for the membership scope above. */
+  const classNames = new Map<string, string>();
+
   async function addMembership(
     personId: string,
     role: SchoolRole,
@@ -158,6 +161,7 @@ export async function makeSchool(
 
   return {
     async addClass({ id, name: className }) {
+      classNames.set(id, className);
       await database.query(
         `INSERT INTO class_groups
           (id, tenant_id, academic_year_id, name, level, room, status)
@@ -172,11 +176,17 @@ export async function makeSchool(
     },
     async addLearner({ classGroupId, id, name: personName }) {
       await addPerson(id, "learner", personName);
+      /* A class-scoped membership stores the class *name*, not its id. That is
+         what production writes, and what requireOfferingContentAccess joins
+         against subject_offerings.class_name — so a learner given the id here
+         could not reach their own subject's content, which is a shape no real
+         learner is ever in. Falls back to the id for a class the harness was
+         never told the name of. */
       await addMembership(
         id,
         "learner",
         classGroupId ? "class" : "tenant",
-        classGroupId ?? null,
+        classGroupId ? (classNames.get(classGroupId) ?? classGroupId) : null,
       );
     },
     async addStaff({ id, name: personName, role, scopeId }) {

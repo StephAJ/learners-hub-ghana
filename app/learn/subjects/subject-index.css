@@ -234,3 +234,41 @@
 .subject-card-next svg {
   color: var(--subject-ink);
 }
+
+/* The way into practice. Under the card rather than inside it, because the
+   card is a link to the lessons and this goes somewhere else — and because a
+   learner looking for practice is looking for a second thing to do with a
+   subject, not a different way into the first. */
+.subject-card-grid > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.subject-practice {
+  align-items: center;
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-md);
+  color: var(--subject-ink);
+  display: inline-flex;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  gap: var(--space-2);
+  justify-content: center;
+  min-height: 40px;
+  text-decoration: none;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.subject-practice:hover {
+  background: var(--subject-soft);
+  border-color: var(--subject-line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subject-practice {
+    transition: none;
+  }
+}

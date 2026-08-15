@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckIcon, PlayCircleIcon } from "../../components/icons";
+import { CheckIcon, PlayCircleIcon, SparkIcon } from "../../components/icons";
 import { SubjectCoverArt } from "../../components/subject-cover-art";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { listLearnerSubjects } from "../../../db/learning-repository";
@@ -34,10 +34,11 @@ export default async function LearnerSubjectsPage() {
       ) : (
       <ul className="subject-card-grid">
         {subjects.map((subject) => (
-          <li key={subject.offeringId}>
+          /* The hue sits on the list item, not the card, so the practice
+             link beside it takes the same colour. */
+          <li data-hue={subjectHue(subject.subjectName)} key={subject.offeringId}>
             <Link
               className="subject-card"
-              data-hue={subjectHue(subject.subjectName)}
               data-progress={subject.progressPercent}
               href={`/learn/subjects/${subject.offeringId}`}
             >
@@ -85,6 +86,16 @@ export default async function LearnerSubjectsPage() {
                   </span>
                 </span>
               </span>
+            </Link>
+
+            {/* A sibling rather than nested: the card is itself a link, and a
+                link inside a link is not a thing a browser can resolve. */}
+            <Link
+              className="subject-practice"
+              href={`/learn/practice/${subject.offeringId}`}
+            >
+              <SparkIcon size={14} />
+              Practise this subject
             </Link>
           </li>
         ))}
