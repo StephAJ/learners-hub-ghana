@@ -7,6 +7,7 @@ import {
   createClassGroup,
   createClassGroupsFromPlan,
   createSubject,
+  updateSubjectInformation,
   loadAcademicStructure,
   setClassOffering,
   setCurrentAcademicYear,
@@ -63,6 +64,15 @@ type WriteAction =
   | { offeringId: string; teacherPersonIds: string[]; type: "set-offering-teachers" }
   | { offeringIds: string[]; teacherPersonId: string; type: "set-teacher-offerings" }
   | { subject: Parameters<typeof createSubject>[1]; type: "create-subject" }
+  /* The description has been stored since the table existed and read by
+     nothing; the cover is new. Both live on the subject rather than on one
+     class's offering, because they describe the subject itself. */
+  | {
+      coverMediaAssetId?: string | null;
+      description: string;
+      subjectId: string;
+      type: "update-subject";
+    }
   | { type: "create-year"; year: Parameters<typeof createAcademicYear>[1] }
   | { type: "set-current-year"; yearId: string }
   /* Terms. Every markbook query used to bind one seeded period id, so a
@@ -131,6 +141,14 @@ export async function POST(request: Request) {
           { subject: await createSubject(access, action.subject) },
           { status: 201 },
         );
+      case "update-subject":
+        return Response.json({
+          subjects: await updateSubjectInformation(access, {
+            coverMediaAssetId: action.coverMediaAssetId,
+            description: action.description,
+            subjectId: action.subjectId,
+          }),
+        });
       case "set-offering":
         return Response.json({
           offering: await setClassOffering(access, {

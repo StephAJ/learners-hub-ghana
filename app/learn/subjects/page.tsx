@@ -48,7 +48,18 @@ export default async function LearnerSubjectsPage() {
               href={`/learn/subjects/${subject.offeringId}`}
             >
               <span className="subject-card-cover">
-                <SubjectCoverArt seed={subject.offeringId} />
+                {/* The school's own photograph when it has one. The generated
+                    artwork is the fallback rather than the only option now
+                    that there is somewhere to upload a cover. */}
+                {subject.coverAssetId ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    alt=""
+                    src={`/api/school/media?assetId=${encodeURIComponent(subject.coverAssetId)}`}
+                  />
+                ) : (
+                  <SubjectCoverArt seed={subject.offeringId} />
+                )}
                 {/* Which year the material is pitched at. The stream ("Gold")
                     is deliberately dropped: it says which room a learner sits
                     in, not what the subject is for. */}
@@ -60,6 +71,14 @@ export default async function LearnerSubjectsPage() {
                   <strong>{subject.subjectName}</strong>
                   <small>{subject.teacherName}</small>
                 </span>
+
+                {/* What the school says the subject covers. Stored since the
+                    table was written and shown to nobody until now. */}
+                {subject.description ? (
+                  <span className="subject-card-description">
+                    {subject.description}
+                  </span>
+                ) : null}
 
                 <span className="subject-card-next">
                   {subject.nextLessonTitle ? (

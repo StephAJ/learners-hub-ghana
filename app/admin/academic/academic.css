@@ -1784,3 +1784,131 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   A subject's own information
+
+   The list was two lines a school scanned to check a subject existed. It now
+   opens, because the description and the cover had nowhere to be edited at
+   all — the column was written on create and read by nothing, and every card
+   fell back to generated artwork.
+
+   Collapsed by default: opening every row into a form would bury the scanning
+   the list is mostly for.
+   ========================================================================== */
+
+.subject-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: grid;
+  overflow: hidden;
+}
+
+.subject-row-head {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  font-family: inherit;
+  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  width: 100%;
+}
+
+.subject-row-head:hover {
+  background: var(--brand-tint);
+}
+
+.subject-row-cover {
+  border-radius: var(--radius-sm);
+  height: 34px;
+  object-fit: cover;
+  width: 48px;
+}
+
+.subject-row-cover.is-empty {
+  background: var(--canvas);
+  border: 1px dashed var(--line-strong);
+  display: block;
+}
+
+.subject-row-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.subject-row-name b {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+}
+
+.subject-row-name > span {
+  font-size: var(--fs-14);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-row-state {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  white-space: nowrap;
+}
+
+.subject-row-editor {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-4);
+}
+
+.subject-row-editor textarea {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+  width: 100%;
+}
+
+/* The native control is not stylable, so the label is the button. */
+.subject-cover-picker input {
+  height: 0;
+  opacity: 0;
+  position: absolute;
+  width: 0;
+}
+
+.subject-cover-picker span {
+  align-items: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--brand);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+  min-height: 38px;
+  padding: 0 var(--space-4);
+}
+
+.subject-cover-picker:hover span {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+
+.subject-cover-picker:has(input:focus-visible) span {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}

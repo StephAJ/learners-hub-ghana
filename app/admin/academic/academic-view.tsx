@@ -201,6 +201,35 @@ export function AcademicView() {
     }
   }
 
+  /* Multipart, so it cannot go through send() — the cover is a file rather
+     than a field, and it is scanned before anything points at it. */
+  async function uploadCover(subjectId: string, file: File) {
+    setBusy(true);
+    setNotice("");
+    setProblem("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("subjectId", subjectId);
+      const response = await fetch("/api/admin/academic/cover", {
+        body,
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "That cover could not be saved.");
+      }
+      await load();
+      setNotice("The subject cover was updated.");
+    } catch (error) {
+      setProblem(
+        error instanceof Error ? error.message : "Something went wrong.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (state === "loading") {
     return <p className="academic-loading">Loading the school’s structure…</p>;
   }
@@ -623,10 +652,22 @@ export function AcademicView() {
               ) : (
                 <ul className="subject-list">
                   {structure.subjects.map((subject) => (
-                    <li key={subject.id}>
-                      <b>{subject.code}</b>
-                      <span>{subject.name}</span>
-                    </li>
+                    <SubjectRow
+                      busy={busy}
+                      key={subject.id}
+                      onSave={async (description) =>
+                        send(
+                          {
+                            description,
+                            subjectId: subject.id,
+                            type: "update-subject",
+                          },
+                          `${subject.name} was updated.`,
+                        )
+                      }
+                      onUploadCover={uploadCover}
+                      subject={subject}
+                    />
                   ))}
                 </ul>
               )}
@@ -1555,5 +1596,100 @@ function TermsPanel({
         </form>
       ) : null}
     </section>
+  );
+}
+
+/* ==========================================================================
+   A subject's own information
+
+   The description column has existed since the table was written and was read
+   by nothing — a school could describe a subject and no learner ever saw it.
+   The cover is new: every subject card fell back to generated artwork because
+   there was nowhere to put a photograph.
+
+   Collapsed by default. The list is mostly scanned to check a subject exists,
+   and opening every row into a form would bury that under editors nobody
+   asked for.
+   ========================================================================== */
+function SubjectRow({
+  busy,
+  onSave,
+  onUploadCover,
+  subject,
+}: {
+  busy: boolean;
+  onSave: (description: string) => Promise<boolean>;
+  onUploadCover: (subjectId: string, file: File) => Promise<void>;
+  subject: Subject;
+}) {
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState(subject.description);
+
+  return (
+    <li className="subject-row">
+      <button
+        aria-expanded={open}
+        className="subject-row-head"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        {subject.coverMediaAssetId ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            alt=""
+            className="subject-row-cover"
+            src={`/api/school/media?assetId=${encodeURIComponent(subject.coverMediaAssetId)}`}
+          />
+        ) : (
+          <span className="subject-row-cover is-empty" aria-hidden="true" />
+        )}
+        <span className="subject-row-name">
+          <b>{subject.code}</b>
+          <span>{subject.name}</span>
+        </span>
+        <span className="subject-row-state">
+          {subject.description ? "Described" : "No description"}
+        </span>
+      </button>
+
+      {open ? (
+        <div className="subject-row-editor">
+          <label className="composer-field">
+            <span>
+              Description <em>what a learner sees on the subject card</em>
+            </span>
+            <textarea
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="What this subject covers this year, in a sentence or two."
+              rows={3}
+              value={description}
+            />
+          </label>
+
+          <label className="subject-cover-picker">
+            <input
+              accept=".png,.jpg,.jpeg,.webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void onUploadCover(subject.id, file);
+              }}
+              type="file"
+            />
+            <span>
+              {subject.coverMediaAssetId ? "Replace the cover" : "Add a cover photograph"}
+            </span>
+          </label>
+
+          <button
+            className="academic-primary"
+            disabled={busy}
+            onClick={() => void onSave(description)}
+            type="button"
+          >
+            Save description
+          </button>
+        </div>
+      ) : null}
+    </li>
   );
 }

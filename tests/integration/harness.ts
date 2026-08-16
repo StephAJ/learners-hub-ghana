@@ -37,6 +37,10 @@ export function pointAtTestDatabase(): void {
   process.env.DATABASE_URL = TEST_DATABASE_URL;
   process.env.BETTER_AUTH_SECRET ??= "integration-tests-secret-value-32-chars";
   process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+  /* Anything that stores an uploaded file needs somewhere to put it, and the
+     store refuses to guess. Under outputs/, which is gitignored, so a test run
+     leaves nothing behind in the tree. */
+  process.env.MEDIA_STORAGE_DIR ??= "./outputs/test-media";
   /* The demo school would otherwise seed itself into every test's fixtures and
      make "which rows exist" unanswerable. */
   delete process.env.DEMO_SCHOOL;

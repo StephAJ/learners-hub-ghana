@@ -839,6 +839,10 @@ export async function duplicatePersistentLesson(
 export type LearnerSubjectCard = {
   className: string;
   code: string;
+  /** The school's own photograph. Undefined falls back to generated artwork. */
+  coverAssetId?: string;
+  /** What the school says this subject covers. Empty until they write one. */
+  description: string;
   lessonCount: number;
   nextLessonTitle?: string;
   offeringId: string;
@@ -880,6 +884,8 @@ export async function listLearnerSubjects(
         o.class_name,
         s.code,
         s.name AS subject_name,
+        s.description,
+        s.cover_media_asset_id,
         COALESCE(p.first_name || ' ' || p.last_name, 'Assigned teacher')
           AS teacher_name,
         COUNT(DISTINCT l.id) AS lesson_count,
@@ -899,7 +905,8 @@ export async function listLearnerSubjects(
         ON pr.lesson_id = l.id AND pr.learner_person_id = m.person_id
       WHERE m.tenant_id = ? AND m.person_id = ?
         AND m.status = 'active' AND m.scope_type = 'class'
-      GROUP BY o.id, o.class_name, s.code, s.name, p.first_name, p.last_name
+      GROUP BY o.id, o.class_name, s.code, s.name, s.description,
+        s.cover_media_asset_id, p.first_name, p.last_name
       ORDER BY s.name`,
     )
     .bind(access.tenantId, access.actorPersonId)
@@ -907,6 +914,8 @@ export async function listLearnerSubjects(
       class_name: string;
       code: string;
       completed_count: number;
+      cover_media_asset_id: string | null;
+      description: string;
       lesson_count: number;
       offering_id: string;
       subject_name: string;
@@ -924,9 +933,11 @@ export async function listLearnerSubjects(
     return {
       className: row.class_name,
       code: row.code,
-      /* No cover column on subjects — only the demo fixtures carried one.
-         SubjectCoverArt generates artwork from the offering id when there is
-         no photograph, which is every real subject today. */
+      /* The school's own photograph when it has uploaded one. Otherwise
+         SubjectCoverArt generates artwork from the offering id, which is what
+         every subject showed when there was nowhere to put a picture. */
+      coverAssetId: row.cover_media_asset_id ?? undefined,
+      description: row.description ?? "",
       lessonCount,
       nextLessonTitle: nextByOffering.get(row.offering_id),
       offeringId: row.offering_id,

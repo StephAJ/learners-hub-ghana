@@ -343,6 +343,10 @@ export const subjects = sqliteTable(
     code: text("code").notNull(),
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
+    /* A photograph for the subject card. Null means the generated artwork,
+       which is what every subject showed before there was anywhere to put
+       one. */
+    coverMediaAssetId: text("cover_media_asset_id"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [

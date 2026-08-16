@@ -58,6 +58,10 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
        permissions were written and there was no screen behind it, so the one
        document a learner most wants was readable by their parent and not by
        them. */
+    /* The shelf: past papers, textbooks, worksheets. Distinct from a
+       subject's own lesson resources, which are reached by working through
+       the lesson that uses them. */
+    { href: "/learn/library", icon: "content", label: "Library" },
     { href: "/learn/reports", icon: "markbook", label: "My reports" },
     { href: "/learn/messages", icon: "messages", label: "Messages" },
   ],
@@ -65,7 +69,8 @@ const navigation: Record<WorkspaceKind | "applicant", SidebarNavItem[]> = {
     { href: "/teacher", icon: "home", label: "Today" },
     { href: "/teacher/operations", icon: "classes", label: "My classes" },
     { href: "/teacher/subjects", icon: "subjects", label: "My subjects" },
-    { href: "/teacher/content", icon: "content", label: "Content library" },
+    { href: "/teacher/content", icon: "content", label: "Lesson media" },
+    { href: "/teacher/library", icon: "content", label: "Library" },
     { href: "/teacher/assessments", icon: "assessments", label: "Assessments" },
     { href: "/teacher/gradebook", icon: "markbook", label: "Markbook" },
     { href: "/teacher/messages", icon: "messages", label: "Messages" },

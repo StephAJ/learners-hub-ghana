@@ -482,4 +482,58 @@ const additiveMigrations = `
 
   CREATE INDEX IF NOT EXISTS question_standard_link_standard_idx
     ON question_standard_links (tenant_id, standard_id);
+
+  /* ------------------------------------------------------------------------
+     A subject's own face.
+
+     subjects.description has been written on create since the table existed
+     and read by nothing, so a school could describe a subject and no learner
+     ever saw it. The cover is new: the learner's subject card falls back to
+     generated artwork, which was the only thing it could ever show because
+     there was nowhere to put a photograph.
+     ---------------------------------------------------------------------- */
+  ALTER TABLE subjects
+    ADD COLUMN IF NOT EXISTS cover_media_asset_id text;
+
+  /* ------------------------------------------------------------------------
+     The library.
+
+     A catalogue of things a school hands out — past papers, textbooks,
+     worksheets, reading. Distinct from lesson resources, which belong to one
+     lesson in one subject and are reached by working through it: a learner
+     looking for last year's paper the week before an examination is browsing,
+     not following a lesson.
+
+     media_assets carries the file, so the library inherits the upload
+     validation, the virus scan and the serving route rather than growing a
+     second copy of each. Its offering_id becomes nullable in the same breath
+     — a school-wide reading list belongs to no single class's subject, and
+     forcing one would have meant filing the dictionary under whichever
+     offering happened to be first in the list.
+     ---------------------------------------------------------------------- */
+  ALTER TABLE media_assets
+    ALTER COLUMN offering_id DROP NOT NULL;
+
+  CREATE TABLE IF NOT EXISTS library_resources (
+    id text PRIMARY KEY,
+    tenant_id text NOT NULL REFERENCES tenants(id),
+    title text NOT NULL,
+    description text NOT NULL DEFAULT '',
+    category text NOT NULL,
+    /* Both optional, and both are filters rather than permissions: a resource
+       with no subject is a school-wide one, and a resource with no year group
+       is for anybody. */
+    subject_id text,
+    year_group text,
+    media_asset_id text NOT NULL,
+    added_by_person_id text NOT NULL,
+    status text NOT NULL DEFAULT 'published',
+    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS library_resource_browse_idx
+    ON library_resources (tenant_id, status, category);
+
+  CREATE INDEX IF NOT EXISTS library_resource_subject_idx
+    ON library_resources (tenant_id, subject_id);
 `;

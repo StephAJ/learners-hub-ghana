@@ -23,6 +23,9 @@ import {
 } from "../domain/academic/school-shape";
 import type { SubjectRequirement } from "../domain/academic/types";
 import { ensurePlatformReady } from "../server/platform-ready";
+import { validateUpload } from "../domain/content/content-policy";
+import { scanUpload } from "../server/content-scan";
+import { getMediaStore } from "./index";
 import { getPostgresPool } from "./postgres";
 
 /* ==========================================================================
@@ -182,11 +185,12 @@ export async function listClassGroups(
 export async function listSubjects(access: AccessContext): Promise<Subject[]> {
   const result = await getPostgresPool().query<{
     code: string;
+    cover_media_asset_id: string | null;
     description: string;
     id: string;
     name: string;
   }>(
-    `SELECT id, code, name, description
+    `SELECT id, code, name, description, cover_media_asset_id
        FROM subjects
       WHERE tenant_id = $1
       ORDER BY name`,
@@ -195,6 +199,7 @@ export async function listSubjects(access: AccessContext): Promise<Subject[]> {
 
   return result.rows.map((row) => ({
     code: row.code,
+    coverMediaAssetId: row.cover_media_asset_id ?? undefined,
     description: row.description,
     id: row.id,
     name: row.name,
@@ -788,6 +793,131 @@ export async function archiveClassGroup(
     classGroupId,
     {},
   );
+}
+
+/**
+ * A subject's own description and cover.
+ *
+ * subjects.description has been written on create since the table existed and
+ * read by nothing, so a school could describe a subject and no learner ever
+ * saw it. There was no cover at all — every card fell back to generated
+ * artwork with nowhere to put a photograph.
+ *
+ * The cover is an uploaded image rather than a URL, because a school that
+ * cannot host a file cannot supply a URL either, and one that pasted a link
+ * to somebody else's site would find the picture gone by next term.
+ */
+export async function updateSubjectInformation(
+  access: AccessContext,
+  input: { coverMediaAssetId?: string | null; description: string; subjectId: string },
+): Promise<Subject[]> {
+  requirePermission(access, "academic:manage");
+  await ensurePlatformReady();
+
+  const pool = getPostgresPool();
+  const subject = await pool.query(
+    `SELECT id FROM subjects WHERE tenant_id = $1 AND id = $2`,
+    [access.tenantId, input.subjectId],
+  );
+  if (subject.rowCount === 0) {
+    throw new AuthorizationError(
+      "That subject is not one this school teaches.",
+    );
+  }
+
+  /* Undefined leaves the cover alone; null clears it. A screen that only ever
+     sends the description must not silently remove a photograph. */
+  if (input.coverMediaAssetId === undefined) {
+    await pool.query(
+      `UPDATE subjects SET description = $3 WHERE tenant_id = $1 AND id = $2`,
+      [access.tenantId, input.subjectId, input.description.trim()],
+    );
+  } else {
+    await pool.query(
+      `UPDATE subjects SET description = $3, cover_media_asset_id = $4
+        WHERE tenant_id = $1 AND id = $2`,
+      [
+        access.tenantId,
+        input.subjectId,
+        input.description.trim(),
+        input.coverMediaAssetId,
+      ],
+    );
+  }
+
+  await recordAudit(access, "academic.subject-updated", "subject", input.subjectId, {
+    hasCover: input.coverMediaAssetId != null,
+  });
+  return listSubjects(access);
+}
+
+/**
+ * A photograph for the subject card.
+ *
+ * Uploaded rather than linked: a school that cannot host a file cannot supply
+ * a URL either, and one that pasted a link to somebody else's site would find
+ * the picture gone by next term.
+ *
+ * Goes through media_assets with no offering, so it inherits the same size
+ * limit, extension rules and virus scan every other upload gets.
+ */
+export async function uploadSubjectCover(
+  access: AccessContext,
+  input: { file: File; subjectId: string },
+): Promise<Subject[]> {
+  requirePermission(access, "academic:manage");
+  await ensurePlatformReady();
+
+  const pool = getPostgresPool();
+  const subject = await pool.query(
+    `SELECT id FROM subjects WHERE tenant_id = $1 AND id = $2`,
+    [access.tenantId, input.subjectId],
+  );
+  if (subject.rowCount === 0) {
+    throw new AuthorizationError(
+      "That subject is not one this school teaches.",
+    );
+  }
+
+  const contentType = input.file.type || "application/octet-stream";
+  const validated = validateUpload({
+    contentType,
+    filename: input.file.name,
+    kind: "image",
+    sizeBytes: input.file.size,
+  });
+  const bytes = new Uint8Array(await input.file.arrayBuffer());
+  await scanUpload({ bytes, extension: validated.extension, kind: "image" });
+
+  const assetId = crypto.randomUUID();
+  const objectKey = [access.tenantId, "subject-covers", `${assetId}.${validated.extension}`].join("/");
+  const bucket = await getMediaStore();
+  await bucket.put(objectKey, bytes, {
+    customMetadata: { assetId, tenantId: access.tenantId },
+    httpMetadata: { contentType },
+  });
+
+  await pool.query(
+    `INSERT INTO media_assets
+      (id, tenant_id, offering_id, uploaded_by_person_id, kind,
+       original_filename, content_type, size_bytes, object_key, status)
+     VALUES ($1, $2, NULL, $3, 'image', $4, $5, $6, $7, 'ready')`,
+    [
+      assetId,
+      access.tenantId,
+      access.actorPersonId,
+      validated.filename,
+      contentType,
+      input.file.size,
+      objectKey,
+    ],
+  );
+  await pool.query(
+    `UPDATE subjects SET cover_media_asset_id = $3 WHERE tenant_id = $1 AND id = $2`,
+    [access.tenantId, input.subjectId, assetId],
+  );
+  await recordAudit(access, "academic.subject-cover-set", "subject", input.subjectId, {});
+  return listSubjects(access);
 }
 
 export async function createSubject(

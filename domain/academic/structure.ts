@@ -51,6 +51,13 @@ export type ClassGroup = {
 
 export type Subject = {
   code: string;
+  /**
+   * A photograph for the subject card.
+   *
+   * Undefined means the generated artwork, which is what every subject showed
+   * before there was anywhere to put one.
+   */
+  coverMediaAssetId?: string;
   description: string;
   id: string;
   name: string;

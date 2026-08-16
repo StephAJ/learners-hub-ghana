@@ -1,0 +1,274 @@
+/* ==========================================================================
+   Adding to the shelf
+
+   The form is the screen. A teacher opens this page holding a file, so the
+   drop zone is first and the questions about it come after — the other order
+   means filling a form and then going hunting.
+   ========================================================================== */
+
+.library-manager {
+  display: grid;
+  gap: var(--space-8);
+  max-width: 58rem;
+}
+
+.library-add,
+.library-current {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.library-add h2,
+.library-current h2 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-22);
+  font-weight: var(--fw-medium);
+  margin: 0;
+}
+
+/* -- The file ------------------------------------------------------------- */
+
+.library-drop input {
+  height: 0;
+  opacity: 0;
+  position: absolute;
+  width: 0;
+}
+
+.library-drop {
+  align-items: center;
+  background: var(--brand-tint);
+  border: 2px dashed var(--line);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.library-drop:hover,
+.library-drop.is-over {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+
+.library-drop.is-over {
+  border-style: solid;
+}
+
+/* Once a file is chosen the zone stops advertising itself and becomes a
+   statement of what is about to be added. */
+.library-drop.is-loaded {
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+  border-style: solid;
+}
+
+.library-drop:has(input:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.library-drop-icon {
+  align-items: center;
+  background: var(--card);
+  border-radius: var(--radius-md);
+  color: var(--brand);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.library-drop-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.library-drop-copy strong {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  overflow-wrap: anywhere;
+}
+
+.library-drop-copy small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+}
+
+/* -- What it is ----------------------------------------------------------- */
+
+.library-fields {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.library-field {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.library-field-wide {
+  grid-column: 1 / -1;
+}
+
+.library-field > span {
+  color: var(--ink);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-semibold);
+}
+
+.library-field em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: var(--fw-regular);
+}
+
+.library-field input,
+.library-field select,
+.library-field textarea {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-14);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+}
+
+.library-field textarea {
+  line-height: var(--lh-body);
+  min-height: 0;
+  resize: vertical;
+}
+
+.library-add-button {
+  background: var(--brand);
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 var(--space-8);
+}
+
+.library-add-button:disabled {
+  background: var(--line-strong);
+  cursor: default;
+}
+
+.library-problem {
+  background: var(--hue-rose-soft);
+  border-radius: var(--radius-md);
+  color: var(--hue-rose-ink);
+  font-size: var(--fs-14);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.library-done {
+  background: var(--hue-lime-soft);
+  border-radius: var(--radius-md);
+  color: var(--hue-lime-ink);
+  font-size: var(--fs-14);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+/* -- What is already there ------------------------------------------------ */
+
+.library-current ul {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.library-current li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+}
+
+.library-current li div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.library-current strong {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.library-current small {
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+.library-current li button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: var(--fs-13);
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  white-space: nowrap;
+}
+
+.library-current li button:hover {
+  border-color: var(--hue-rose-ink);
+  color: var(--hue-rose-ink);
+}
+
+.library-current-empty {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .library-drop {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .library-current li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-drop {
+    transition: none;
+  }
+}

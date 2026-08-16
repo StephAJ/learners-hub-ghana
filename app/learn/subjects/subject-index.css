@@ -305,3 +305,17 @@
     transition: none;
   }
 }
+
+/* The school's own words about the subject. Clamped to two lines: it is a
+   card in a grid, and a description that pushes the progress bar down makes
+   the row ragged. */
+.subject-card-description {
+  color: var(--workspace-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: var(--fs-13);
+  line-height: var(--lh-snug);
+  overflow: hidden;
+}
