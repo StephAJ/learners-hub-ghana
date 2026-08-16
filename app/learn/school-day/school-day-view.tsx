@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { LearnerSchoolDayWorkspace } from "../../../db/operations-repository";
+import { UploadIcon } from "../../components/icons";
 import { TimetableWeek } from "./timetable-week";
 import "../../school-day.css";
 
@@ -304,8 +305,8 @@ function LearnerSubmission({
     responseText: string,
   ) => Promise<void>;
 }) {
-  const [responseText, setResponseText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [over, setOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function chooseFile(file: File | undefined) {
@@ -318,37 +319,69 @@ function LearnerSubmission({
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  function onDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setOver(false);
+    void chooseFile(event.dataTransfer.files?.[0]);
+  }
+
   return (
     <div className="learner-submission">
-      <textarea
-        onChange={(event) => setResponseText(event.target.value)}
-        placeholder="Write your answer, or attach your work as a file"
-        value={responseText}
-      />
+      {/* The label is the drop zone and the button at once, so the whole area
+          is one target. The input itself stays in the DOM — it is the file
+          picker, and no amount of styling replaces it — but out of sight,
+          because the browser's own control cannot be made to look like
+          anything and reads as a stray artefact next to real work.
+
+          The written-answer box that used to sit above this is gone. An
+          assignment is the model, the diagram, the four pages of working; a
+          text box invited a sentence in place of the thing, typed on a phone
+          by a child who had already done the task. */}
+      <label
+        className={`learner-drop${over ? " is-over" : ""}${
+          busy ? " is-busy" : ""
+        }`}
+        onDragLeave={() => setOver(false)}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setOver(true);
+        }}
+        onDrop={onDrop}
+      >
+        <input
+          accept=".pdf,.doc,.docx,.odt,.txt,.rtf,.png,.jpg,.jpeg,.webp"
+          disabled={busy}
+          onChange={(event) => void chooseFile(event.target.files?.[0])}
+          ref={fileRef}
+          type="file"
+        />
+        <span className="learner-drop-icon" aria-hidden="true">
+          <UploadIcon size={22} />
+        </span>
+        <span className="learner-drop-copy">
+          <strong>
+            {busy
+              ? "Attaching…"
+              : hasAttachments
+                ? "Add another file"
+                : "Attach your work"}
+          </strong>
+          <small>
+            Take a photograph of it, or choose a PDF or Word file. Up to 25 MB.
+          </small>
+        </span>
+      </label>
+
       <div className="learner-submission-actions">
-        <label className="learner-attach">
-          <input
-            accept=".pdf,.doc,.docx,.odt,.txt,.rtf,.png,.jpg,.jpeg,.webp"
-            disabled={busy}
-            onChange={(event) => void chooseFile(event.target.files?.[0])}
-            ref={fileRef}
-            type="file"
-          />
-          <span>{busy ? "Attaching…" : "Attach a file"}</span>
-        </label>
-        {/* Either a written answer or an attached file counts as work — the
-            server applies the same rule, this only mirrors it. */}
-        <button
-          disabled={busy || (!responseText.trim() && !hasAttachments)}
-          onClick={() => void submitAssignment(assignmentId, responseText)}
-          type="button"
-        >
-          Submit work
+        {/* A file is the submission now, so the button follows that rule
+            rather than a second one of its own. */}
+        <button disabled={busy || !hasAttachments} onClick={() => void submitAssignment(assignmentId, "")} type="button">
+          Hand in
         </button>
+        {!hasAttachments ? (
+          <small>Attach your work first.</small>
+        ) : null}
       </div>
-      <small>
-        PDF, Word, or a photograph of your written work. Up to 25 MB each.
-      </small>
     </div>
   );
 }

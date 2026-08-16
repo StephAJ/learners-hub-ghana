@@ -93,8 +93,13 @@ export default async function LearnerSubjectsPage() {
               </span>
             </Link>
 
-            {/* A sibling rather than nested: the card is itself a link, and a
-                link inside a link is not a thing a browser can resolve. */}
+            {/* Overlaid on the card's own foot rather than floating under it.
+
+                They were two buttons sitting outside the card, which made the
+                subject read as three stacked objects instead of one. They
+                cannot be nested inside the <Link> — a link inside a link is
+                not something a browser can resolve — so the list item is the
+                card's frame and these sit in the space it leaves for them. */}
             <div className="subject-actions">
               <Link href={`/learn/practice/${subject.offeringId}`}>
                 <SparkIcon size={14} />

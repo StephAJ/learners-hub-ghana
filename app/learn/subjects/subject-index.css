@@ -217,14 +217,6 @@
    would be a worse list, not a better one.
    ========================================================================== */
 
-.subject-card {
-  border-left: 3px solid var(--subject-line);
-}
-
-.subject-card:hover {
-  border-left-color: var(--subject-ink);
-}
-
 .subject-card-track i {
   background: var(--subject-ink);
 }
@@ -235,45 +227,80 @@
   color: var(--subject-ink);
 }
 
-/* The way into practice. Under the card rather than inside it, because the
-   card is a link to the lessons and this goes somewhere else — and because a
-   learner looking for practice is looking for a second thing to do with a
-   subject, not a different way into the first. */
+/* ==========================================================================
+   One card, not three objects
+
+   Practise and My progress were two buttons under the card with a gap above
+   them, so a subject read as a stack of three things. The list item is the
+   card now: it carries the border and the radius, the link inside it is the
+   subject, and these two sit on its foot inside the same frame. Nothing is
+   nested, because the subject is itself a link.
+
+   The spine down the left edge is gone with it. It was a third piece of
+   chrome on a card that already carries its colour in the progress bar and
+   the glyph beside the next lesson.
+   ========================================================================== */
+
 .subject-card-grid > li {
+  background: var(--card);
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  overflow: hidden;
+  transition: border-color 160ms ease;
+}
+
+.subject-card-grid > li:hover {
+  border-color: var(--subject-line);
+}
+
+/* The card gives up its own frame to the list item around it, so the two do
+   not draw a border each. */
+.subject-card {
+  border: 0;
+  border-radius: 0;
+  flex: 1 1 auto;
+}
+
+.subject-card:hover,
+.subject-card:focus-visible {
+  border-color: transparent;
 }
 
 .subject-actions {
+  border-top: 1px solid var(--workspace-line);
   display: grid;
-  gap: var(--space-2);
   grid-template-columns: 1fr 1fr;
 }
 
 .subject-actions a {
   align-items: center;
-  border: 1px solid var(--workspace-line);
-  border-radius: var(--radius-md);
-  color: var(--subject-ink);
+  color: var(--muted);
   display: inline-flex;
   font-size: var(--fs-13);
   font-weight: var(--fw-semibold);
   gap: var(--space-2);
   justify-content: center;
-  min-height: 40px;
+  min-height: 44px;
   text-decoration: none;
   transition:
     background 140ms ease,
-    border-color 140ms ease;
+    color 140ms ease;
+}
+
+/* A hairline between them rather than a gap, so they read as one strip. */
+.subject-actions a + a {
+  border-left: 1px solid var(--workspace-line);
 }
 
 .subject-actions a:hover {
   background: var(--subject-soft);
-  border-color: var(--subject-line);
+  color: var(--subject-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .subject-card-grid > li,
   .subject-actions a {
     transition: none;
   }

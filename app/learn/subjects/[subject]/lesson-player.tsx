@@ -313,10 +313,6 @@ export function LessonPlayer({
           </div>
         </div>
         <div className="course-stage-nav">
-          <span className={`learning-mode mode-${dataMode}`}>
-            <i aria-hidden="true" />
-            {dataMode === "protected" ? "Progress saved" : "Connecting"}
-          </span>
           <button
             aria-label="Previous activity"
             disabled={activeBlockIndex === 0}

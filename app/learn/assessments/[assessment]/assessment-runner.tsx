@@ -60,7 +60,12 @@ export function AssessmentRunner({
     Record<string, QuestionResponse>
   >({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
-  const [saveState, setSaveState] = useState("All changes saved");
+  /* Empty when saving is working, which is almost always. A permanent "All
+     changes saved" chip is a reassurance nobody asked for that costs a corner
+     of the rail on every screen; what a learner actually needs to know is the
+     one case where it stops working, and that is worth a sentence rather than
+     a pill. */
+  const [saveProblem, setSaveProblem] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(
@@ -215,7 +220,6 @@ export function AssessmentRunner({
     const response = { value };
     setResponses((current) => ({ ...current, [questionId]: response }));
     if (!assessment.attempt) return;
-    setSaveState("Saving…");
     clearTimeout(saveTimers.current[questionId]);
     saveTimers.current[questionId] = setTimeout(() => {
       void saveResponse(questionId, response, flagged.has(questionId));
@@ -239,7 +243,11 @@ export function AssessmentRunner({
       headers: { "content-type": "application/json" },
       method: "POST",
     });
-    setSaveState(result.ok ? "All changes saved" : "Save interrupted");
+    setSaveProblem(
+      result.ok
+        ? ""
+        : "Your last answer could not be saved. Check your connection — the answers already saved are safe.",
+    );
     return result.ok;
   }
 
@@ -305,7 +313,6 @@ export function AssessmentRunner({
     if (!assessment.attempt) return;
     setConfirmSubmit(false);
     Object.values(saveTimers.current).forEach(clearTimeout);
-    setSaveState("Saving final responses…");
     const savedResponses = await Promise.all(
       Object.entries(responses).map(([questionId, response]) =>
         saveResponse(
@@ -375,14 +382,31 @@ export function AssessmentRunner({
 
   if (!assessment.attempt) {
     return (
-      <div className="quiz-intro">
-        {/* The workspace topbar already names the assessment, its subject and
-            its shape, so this screen carries only what the topbar cannot: the
-            instructions, the rules, and the button that starts the clock. */}
-        <section className="quiz-intro-main">
-          <p className="quiz-intro-instructions">{assessment.instructions}</p>
+      <div className="lesson-shell">
+        {/* The same rail the paper and the lesson player use, so starting an
+            assessment does not look like a different product from sitting
+            one. It was a two-column card whose stylesheet had been written
+            for markup that no longer existed — the facts row styled an
+            <article> the component emitted as a <div>, so none of it
+            applied. */}
+        <header className="lesson-toprail">
+          <div className="lesson-toprail-heading">
+            <Link className="course-back" href="/learn/assessments">
+              <ArrowLeftIcon size={14} />
+              All assessments
+            </Link>
+            <span className="lesson-toprail-divider" aria-hidden="true" />
+            <div className="lesson-toprail-title">
+              <p className="lesson-eyebrow">Assessment</p>
+              <h2>{assessment.title}</h2>
+            </div>
+          </div>
+        </header>
 
-          <dl className="quiz-intro-facts">
+        <div className="quiz-brief">
+          <p className="quiz-brief-instructions">{assessment.instructions}</p>
+
+          <dl className="quiz-brief-facts">
             <div>
               <dt>Questions</dt>
               <dd>{assessment.questions.length}</dd>
@@ -393,54 +417,66 @@ export function AssessmentRunner({
             </div>
             <div>
               <dt>Time limit</dt>
-              <dd>{assessment.timeLimitMinutes} min</dd>
+              <dd>
+                {assessment.timeLimitMinutes}
+                <small>min</small>
+              </dd>
             </div>
             <div>
               <dt>Pass mark</dt>
-              <dd>{assessment.passMarkPercent}%</dd>
+              <dd>
+                {assessment.passMarkPercent}
+                <small>%</small>
+              </dd>
             </div>
           </dl>
 
-          <div className="quiz-readiness">
-            <h2>Before you begin</h2>
+          <section className="quiz-brief-panel">
+            <h3>Before you begin</h3>
             <ul>
-              <li>Your timer starts when you select Start assessment.</li>
-              <li>Answers save as you work, including on a weak connection.</li>
-              <li>You can flag a question and return before submitting.</li>
+              <li>The clock starts when you select Start, not before.</li>
+              <li>Your answers save as you go, even on a weak connection.</li>
+              <li>You can flag a question and come back to it.</li>
+              <li>
+                When the time runs out the paper is handed in with whatever you
+                have answered.
+              </li>
             </ul>
-          </div>
+          </section>
 
-          {notice ? <p className="quiz-error">{notice}</p> : null}
+          <section className="quiz-brief-panel quiz-brief-covers">
+            <h3>What this covers</h3>
+            <ul>
+              {[
+                ...new Set(
+                  assessment.questions.map((question) =>
+                    questionTypeLabel(question.type),
+                  ),
+                ),
+              ].map((label) => (
+                <li key={label}>{label}</li>
+              ))}
+            </ul>
+          </section>
 
-          <div className="quiz-intro-actions">
+          {notice ? (
+            <p className="quiz-brief-error" role="alert">
+              {notice}
+            </p>
+          ) : null}
+
+          <div className="quiz-brief-start">
             <button
-              className="start-quiz-button"
+              className="course-primary"
               onClick={() => void startAttempt()}
               type="button"
             >
               Start assessment
               <ChevronRightIcon size={16} />
             </button>
-            <small>Your attempt will be recorded.</small>
+            <small>This attempt is recorded and your teacher marks it.</small>
           </div>
-        </section>
-
-        <aside className="quiz-intro-aside">
-          <h2>What this covers</h2>
-          <ul>
-            {[
-              ...new Set(
-                assessment.questions.map((question) =>
-                  questionTypeLabel(question.type),
-                ),
-              ),
-            ].map(
-              (label) => (
-                <li key={label}>{label}</li>
-              ),
-            )}
-          </ul>
-        </aside>
+        </div>
       </div>
     );
   }
@@ -585,16 +621,6 @@ export function AssessmentRunner({
           </div>
 
           <div className="course-stage-nav">
-            <span
-              className={`runner-save${
-                saveState.includes("interrupted") ? " is-error" : ""
-              }${saveState.includes("Saving") ? " is-busy" : ""}`}
-              role="status"
-            >
-              <i aria-hidden="true" />
-              {saveState}
-            </span>
-
             <div
               className={`runner-timer${
                 remainingSeconds < 120 ? " is-urgent" : ""
@@ -705,6 +731,15 @@ export function AssessmentRunner({
           </aside>
 
           <section className="course-stage quiz-stage">
+            {/* Only when something is wrong. A learner sitting a paper does
+                not need telling every few seconds that it is going fine; they
+                do need telling the one time it is not. */}
+            {saveProblem ? (
+              <p className="quiz-save-problem" role="alert">
+                {saveProblem}
+              </p>
+            ) : null}
+
             <article className="question-paper">
               <header>
                 <div>

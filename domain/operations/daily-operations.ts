@@ -53,21 +53,24 @@ export function preparePublishedAssignment(
 }
 
 /**
- * What counts as work worth handing in.
+ * What counts as work worth handing in: a file.
  *
- * Either a written answer or an attached file. The rule used to be "the text
- * box is not empty", which meant a learner who had photographed four pages of
- * working still had to type something into it before the button would enable —
- * so they typed a full stop, and the marker got a full stop.
+ * This accepted either a written answer or an attachment, and the text box
+ * was the thing a learner met first. An assignment is not a quiz — it is the
+ * model, the diagram, the four pages of working — and the box invited the
+ * wrong answer to it: a sentence where a photograph of the work belonged,
+ * typed on a phone by a child who had already finished the actual task.
+ *
+ * A note alongside the file is still allowed and still stored; it is simply
+ * no longer a substitute for the work.
  */
 export function assertSubmittableWork(input: {
   attachmentCount: number;
   responseText: string;
 }) {
-  if (input.responseText.trim().length > 0) return;
   if (input.attachmentCount > 0) return;
   throw new DailyOperationsPolicyError(
-    "Write a response or attach a file before submitting the assignment.",
+    "Attach your work before submitting the assignment.",
   );
 }
 

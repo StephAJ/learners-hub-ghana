@@ -830,16 +830,14 @@ export async function submitPersistentLearnerAssignment(
   await ensureOperationsFoundation();
   const database = await getSchoolDatabase();
 
-  /* Counting is only worth a round trip when there is no written answer to
-     accept on its own. */
+  /* Always counted now: an attachment is the only thing that makes a
+     submission, so there is no cheaper answer to short-circuit on. */
   assertSubmittableWork({
-    attachmentCount: input.responseText.trim()
-      ? 1
-      : await countSubmissionAttachments(
-          database,
-          access,
-          input.assignmentId,
-        ),
+    attachmentCount: await countSubmissionAttachments(
+      database,
+      access,
+      input.assignmentId,
+    ),
     responseText: input.responseText,
   });
   const submission = await database
