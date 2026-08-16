@@ -10,6 +10,12 @@ import {
   type LibraryResourceInput,
 } from "../domain/library/library";
 import { scanUpload } from "../server/content-scan";
+import { demoSchoolEnabled } from "../server/demo-school";
+import {
+  DEMO_TENANT_ID,
+  demoLibrary,
+} from "../domain/demo/greenfield";
+import { placeholderPdf } from "./demo-media";
 import { getMediaStore, getSchoolDatabase } from "./index";
 import { ensureLearningFoundation } from "./learning-repository";
 
@@ -74,6 +80,109 @@ function requireLibrarian(access: AccessContext) {
   }
 }
 
+/* ==========================================================================
+   The demo school's shelf
+
+   Seeded with real bytes rather than rows alone. A listing whose Download
+   answers 404 is the same fiction as a question with no answer behind it, and
+   both have already been removed from this codebase once — see the note at the
+   top of db/demo-media.ts, whose placeholder PDF this reuses.
+
+   Idempotent, and it never overwrites: the seed runs on every cold start, and
+   replacing a file a school has since uploaded would be the demo destroying
+   real work.
+   ========================================================================== */
+export async function seedDemoLibrary(): Promise<void> {
+  if (!demoSchoolEnabled()) return;
+
+  const database = await getSchoolDatabase();
+  const existing = await database
+    .prepare(
+      `SELECT id FROM library_resources WHERE tenant_id = ? LIMIT 1`,
+    )
+    .bind(DEMO_TENANT_ID)
+    .first<{ id: string }>();
+  if (existing) return;
+
+  /* Only subjects the learning seed actually created — a resource filed under
+     a subject that does not exist would join to nothing and show no name. */
+  const subjects = await database
+    .prepare(`SELECT id, code FROM subjects WHERE tenant_id = ?`)
+    .bind(DEMO_TENANT_ID)
+    .all<{ code: string; id: string }>();
+  const subjectByCode = new Map(
+    (subjects.results ?? []).map((row) => [row.code, row.id]),
+  );
+
+  /* Whoever the school's staff seed created, rather than a hardcoded id: the
+     uploader is a foreign key, and naming a person who may not exist yet
+     makes the whole seed depend on the order two seeds happen to run in. */
+  const librarian = await database
+    .prepare(
+      `SELECT id FROM people
+      WHERE tenant_id = ? AND kind = 'staff' AND status = 'active'
+      ORDER BY id
+      LIMIT 1`,
+    )
+    .bind(DEMO_TENANT_ID)
+    .first<{ id: string }>();
+  if (!librarian) return;
+
+  const store = await getMediaStore();
+
+  for (const resource of demoLibrary) {
+    const assetId = `${resource.id}:asset`;
+    const objectKey = `demo/library/${resource.filename}`;
+    const bytes = placeholderPdf(resource.title);
+
+    /* The size on the row has to match the bytes behind it, or the download
+       sends a content-length it cannot fill. */
+    if (!(await store.get(objectKey))) {
+      await store.put(objectKey, bytes, {
+        httpMetadata: { contentType: "application/pdf" },
+      });
+    }
+
+    await database.batch([
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO media_assets
+            (id, tenant_id, offering_id, uploaded_by_person_id, kind,
+             original_filename, content_type, size_bytes, object_key, status)
+          VALUES (?, ?, NULL, ?, 'document', ?, 'application/pdf', ?, ?, 'ready')`,
+        )
+        .bind(
+          assetId,
+          DEMO_TENANT_ID,
+          librarian.id,
+          resource.filename,
+          bytes.byteLength,
+          objectKey,
+        ),
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO library_resources
+            (id, tenant_id, title, description, category, subject_id,
+             year_group, media_asset_id, added_by_person_id, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')`,
+        )
+        .bind(
+          resource.id,
+          DEMO_TENANT_ID,
+          resource.title,
+          resource.description,
+          resource.category,
+          resource.subjectCode
+            ? (subjectByCode.get(resource.subjectCode) ?? null)
+            : null,
+          resource.yearGroup ?? null,
+          assetId,
+          librarian.id,
+        ),
+    ]);
+  }
+}
+
 /**
  * The shelf, filtered.
  *
@@ -88,6 +197,7 @@ export async function listLibrary(
 ): Promise<LibraryShelf> {
   requireMember(access);
   await ensureLearningFoundation();
+  await seedDemoLibrary();
   const database = await getSchoolDatabase();
 
   const where: string[] = [

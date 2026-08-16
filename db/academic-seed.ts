@@ -83,7 +83,10 @@ function offeringIdFor(classGroupId: string, code: string): string {
   );
 }
 
-const SEED_SUBJECTS: Array<{ code: string; name: string }> = [
+/* Exported so the demo library can be held to filing its resources under
+   codes this school actually teaches — a mismatch is silent otherwise, and
+   showed up as every listing having no subject. */
+export const SEED_SUBJECTS: Array<{ code: string; name: string }> = [
   { code: "MA", name: "Mathematics" },
   { code: "EN", name: "English Language" },
   { code: "IS", name: "Integrated Science" },

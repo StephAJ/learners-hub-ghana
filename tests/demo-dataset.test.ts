@@ -3,6 +3,7 @@ import {
   demoActivities,
   demoAssessmentQuestions,
   demoAssessments,
+  demoLibrary,
   demoQuestionBank,
   demoLearners,
   demoMediaAssets,
@@ -16,6 +17,7 @@ import {
   demoSubjects,
 } from "../domain/demo/greenfield";
 import { resolveLessonVideo, resolveVideoUrl } from "../domain/learning/video";
+import { SEED_SUBJECTS } from "../db/academic-seed";
 
 /* The demo dataset is the only thing standing behind every screen until the
    learning repositories move off D1, and it is hand-written. These tests hold
@@ -556,5 +558,56 @@ describe("reports", () => {
       );
       expect(demoReportAverageTenths(report)).toBe(expected);
     }
+  });
+});
+
+/* ==========================================================================
+   The library
+
+   A resource filed under a code the school does not teach joins to nothing,
+   so the listing shows no subject and the subject filter never offers it. It
+   is silent — which is exactly how five of the seven shipped with codes
+   invented rather than looked up.
+   ========================================================================== */
+describe("the demo library", () => {
+  const codes = new Set(SEED_SUBJECTS.map((subject) => subject.code));
+
+  it("files every resource under a subject this school teaches", () => {
+    for (const resource of demoLibrary) {
+      if (!resource.subjectCode) continue;
+      expect(codes, `${resource.id} -> ${resource.subjectCode}`).toContain(
+        resource.subjectCode,
+      );
+    }
+  });
+
+  it("gives every resource a title, a description and a filename", () => {
+    for (const resource of demoLibrary) {
+      expect(resource.title.trim(), resource.id).toBeTruthy();
+      expect(resource.description.trim(), resource.id).toBeTruthy();
+      expect(resource.filename, resource.id).toMatch(/\.pdf$/);
+    }
+  });
+
+  it("keeps ids and filenames unique, since both are keys", () => {
+    const ids = demoLibrary.map((resource) => resource.id);
+    const files = demoLibrary.map((resource) => resource.filename);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(new Set(files).size).toBe(files.length);
+  });
+
+  /* Both filters are optional, and a demo where every listing is filed
+     identically would not show that. */
+  it("leaves some resources belonging to no subject and no year", () => {
+    expect(
+      demoLibrary.some(
+        (resource) => !resource.subjectCode && !resource.yearGroup,
+      ),
+    ).toBe(true);
+  });
+
+  it("puts something on more than one shelf", () => {
+    const shelves = new Set(demoLibrary.map((resource) => resource.category));
+    expect(shelves.size).toBeGreaterThan(2);
   });
 });

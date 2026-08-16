@@ -4,7 +4,9 @@ import { ensurePlatformReady } from "../../server/platform-ready";
 import {
   addLibraryResource,
   archiveLibraryResource,
+  getLibraryDownload,
   listLibrary,
+  seedDemoLibrary,
 } from "../../db/library-repository";
 import { AuthorizationError } from "../../domain/identity/authorization";
 import { LibraryError } from "../../domain/library/library";
@@ -18,6 +20,7 @@ import { accessFor, makeSchool, resetTestDatabase } from "./harness";
    pins down, along with the tenancy boundary that has to hold regardless.
    ========================================================================== */
 
+const DEMO_TENANT = "tenant-greenfield";
 const OSU = "tenant-osu";
 const LABONE = "tenant-labone";
 const CLASS_ID = "class-osu-jhs1";
@@ -235,5 +238,101 @@ describe("taking something off the shelf", () => {
     await expect(
       archiveLibraryResource(outsider, resource.id),
     ).rejects.toBeInstanceOf(LibraryError);
+  });
+});
+
+describe("the demo school's shelf", () => {
+  /* Seeded rows are only half of it. The reason this is an integration test
+     rather than a dataset one is that the file has to actually be there — a
+     listing whose Download answers 404 is the fiction this codebase has had
+     to remove twice already.
+
+     The seed is called directly rather than through listLibrary: that runs
+     the whole learning foundation first, which the harness deliberately
+     disables so a demo school does not seed itself into every fixture. */
+  async function seedShelf() {
+    process.env.DEMO_SCHOOL = "true";
+    const database = getPostgresPool();
+    await database.query(
+      `INSERT INTO tenants (id, name, slug) VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO NOTHING`,
+      [DEMO_TENANT, "Greenfield Academy", "greenfield"],
+    );
+    await database.query(
+      `INSERT INTO subjects (id, tenant_id, code, name)
+       VALUES ('demo-subject-sci', $1, 'SCI', 'Integrated Science')
+       ON CONFLICT (id) DO NOTHING`,
+      [DEMO_TENANT],
+    );
+    /* The uploader is a foreign key, and the seed resolves whoever the staff
+       seed created rather than naming one. */
+    await database.query(
+      `INSERT INTO people (id, tenant_id, kind, first_name, last_name, status)
+       VALUES ('demo-person-head', $1, 'staff', 'Mary', 'Asante', 'active')
+       ON CONFLICT (id) DO NOTHING`,
+      [DEMO_TENANT],
+    );
+    await seedDemoLibrary();
+    return accessFor(DEMO_TENANT, "academic-admin", "demo-person-head");
+  }
+
+  it("writes a real, openable file behind every listing", async () => {
+    try {
+      const reader = await seedShelf();
+      const database = getPostgresPool();
+      const rows = await database.query<{ id: string; title: string }>(
+        `SELECT id, title FROM library_resources WHERE tenant_id = $1`,
+        [DEMO_TENANT],
+      );
+      expect(rows.rowCount).toBeGreaterThan(0);
+
+      for (const row of rows.rows) {
+        const response = await getLibraryDownload(reader, row.id);
+        expect(response.status, row.title).toBe(200);
+
+        const body = await response.arrayBuffer();
+        expect(body.byteLength, row.title).toBeGreaterThan(0);
+        /* The size on the row has to match the bytes behind it, or the
+           response promises a content-length it cannot fill. */
+        expect(Number(response.headers.get("content-length")), row.title).toBe(
+          body.byteLength,
+        );
+        /* Openable, not merely non-empty. */
+        expect(new TextDecoder().decode(body.slice(0, 5)), row.title).toBe(
+          "%PDF-",
+        );
+      }
+    } finally {
+      delete process.env.DEMO_SCHOOL;
+    }
+  });
+
+  /* A dictionary and a storybook belong to anybody. A demo where every
+     listing is filed identically would not show that both filters are
+     optional. */
+  it("files some resources under no subject and no year", async () => {
+    try {
+      await seedShelf();
+      const database = getPostgresPool();
+      const loose = await database.query(
+        `SELECT id FROM library_resources
+         WHERE tenant_id = $1 AND subject_id IS NULL AND year_group IS NULL`,
+        [DEMO_TENANT],
+      );
+      expect(loose.rowCount).toBeGreaterThan(0);
+    } finally {
+      delete process.env.DEMO_SCHOOL;
+    }
+  });
+
+  it("adds nothing when the demo school is off", async () => {
+    delete process.env.DEMO_SCHOOL;
+    await seedDemoLibrary();
+    const database = getPostgresPool();
+    const rows = await database.query(
+      `SELECT id FROM library_resources WHERE tenant_id = $1`,
+      [DEMO_TENANT],
+    );
+    expect(rows.rowCount).toBe(0);
   });
 });

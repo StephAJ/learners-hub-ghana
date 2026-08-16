@@ -1491,6 +1491,104 @@ export const demoQuestionBank: DemoQuestion[] = [
   },
 ];
 
+/* -------------------------------------------------------------------------
+   The library
+
+   What a Ghanaian basic school actually keeps on a shelf: last year's BECE
+   papers, the pupil's books, a worksheet or two, and a couple of things that
+   belong to no subject at all.
+
+   Two of them deliberately carry no subject and no year group — a dictionary
+   and a storybook are for anybody — because a demo where every listing is
+   filed identically does not show that the filters are optional.
+
+   Each is written to the store as a real, openable PDF at seed time. A
+   listing whose Download answers 404 is the same fiction as a question with
+   no answer behind it, and this file has had both removed from it already.
+   ------------------------------------------------------------------------- */
+
+export type DemoLibraryResource = {
+  category:
+    | "past-paper"
+    | "reading"
+    | "reference"
+    | "textbook"
+    | "worksheet";
+  description: string;
+  filename: string;
+  id: string;
+  /** The subject's code, resolved to its id at seed time. Absent is fine. */
+  subjectCode?: string;
+  title: string;
+  yearGroup?: string;
+};
+
+export const demoLibrary: DemoLibraryResource[] = [
+  {
+    category: "past-paper",
+    description:
+      "The 2024 paper as sat in June, with the marking scheme at the back.",
+    filename: "bece-integrated-science-2024.pdf",
+    id: "library-bece-science-2024",
+    subjectCode: "IS",
+    title: "BECE Integrated Science 2024",
+    yearGroup: "JHS 3",
+  },
+  {
+    category: "past-paper",
+    description: "Objective and essay papers, with worked solutions.",
+    filename: "bece-mathematics-2024.pdf",
+    id: "library-bece-maths-2024",
+    subjectCode: "MA",
+    title: "BECE Mathematics 2024",
+    yearGroup: "JHS 3",
+  },
+  {
+    category: "past-paper",
+    description:
+      "Comprehension, summary and composition, with the examiner's report.",
+    filename: "bece-english-2023.pdf",
+    id: "library-bece-english-2023",
+    subjectCode: "EN",
+    title: "BECE English Language 2023",
+    yearGroup: "JHS 3",
+  },
+  {
+    category: "textbook",
+    description:
+      "The pupil's book for the whole JHS course, following the GES syllabus.",
+    filename: "integrated-science-pupils-book.pdf",
+    id: "library-science-textbook",
+    subjectCode: "IS",
+    title: "Integrated Science pupil's book",
+  },
+  {
+    category: "worksheet",
+    description:
+      "Twenty questions on adding and subtracting fractions, with answers.",
+    filename: "fractions-practice.pdf",
+    id: "library-fractions-worksheet",
+    subjectCode: "MA",
+    title: "Fractions practice sheet",
+    yearGroup: "JHS 2",
+  },
+  {
+    category: "reference",
+    description: "Countries, capitals, currencies and a physical map.",
+    filename: "west-africa-atlas.pdf",
+    id: "library-west-africa-atlas",
+    title: "Atlas of West Africa",
+  },
+  {
+    category: "reading",
+    description:
+      "Six Ananse stories retold for JHS readers, with questions to discuss.",
+    filename: "ananse-stories.pdf",
+    id: "library-ananse-stories",
+    title: "Ananse stories: a reader",
+  },
+];
+
 export const demoAssessments: DemoAssessment[] = [
   {
     authorPersonId: "person-grace",
