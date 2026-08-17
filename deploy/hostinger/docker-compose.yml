@@ -25,6 +25,13 @@ services:
       PGPORT: 5432
       PGUSER: ${POSTGRES_USER:-learners_hub}
       PORT: 3000
+      # Password hashing runs on libuv's threadpool. On this image's Node/
+      # Alpine build, a sign-up's threadpool slot does not reliably free —
+      # each real signUpEmail() call along the demo seed's 8-account chain
+      # burned a slot that never came back, so raising the pool's ceiling is
+      # what lets the whole chain finish rather than wedging the boot on
+      # whichever account crossed the default 4-slot limit.
+      UV_THREADPOOL_SIZE: 256
     depends_on:
       postgres:
         condition: service_healthy
