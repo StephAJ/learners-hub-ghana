@@ -536,4 +536,31 @@ const additiveMigrations = `
 
   CREATE INDEX IF NOT EXISTS library_resource_subject_idx
     ON library_resources (tenant_id, subject_id);
+
+  /* ------------------------------------------------------------------------
+     Admissions upsert targets a constraint that no longer matches the table
+
+     admission_application_records still carried auth_user_id and the unique
+     constraint naming it, from before applicant identity moved to Better Auth
+     and applicant_email became how a draft is found again. Every repository
+     upsert has targeted ON CONFLICT (tenant_id, intake_id, applicant_email)
+     since that move, which matches no constraint on a table still wearing its
+     old one — so an applicant's very first draft save fails outright, and
+     auth_user_id NOT NULL fails every fresh insert before that error is even
+     reached.
+     ---------------------------------------------------------------------- */
+  ALTER TABLE admission_application_records
+    DROP COLUMN IF EXISTS auth_user_id CASCADE;
+
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'admission_records_tenant_intake_email_unique'
+    ) THEN
+      ALTER TABLE admission_application_records
+        ADD CONSTRAINT admission_records_tenant_intake_email_unique
+        UNIQUE (tenant_id, intake_id, applicant_email);
+    END IF;
+  END $$;
 `;
